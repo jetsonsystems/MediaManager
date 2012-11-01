@@ -1,0 +1,14 @@
+{
+  "name": "plm-persistent",
+  "version": "0.0.1",
+  "main": "Persistent",
+  "description": "Provides a parent class that factors common functionality of persistent entities",
+  "engine": [
+    "node >=0.8.0"
+  ],
+  "dependencies" : {
+    "underscore": "~1.4.2",
+    "mootools": "~1.4.5"
+  },
+  "private": true
+}
