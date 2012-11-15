@@ -13,8 +13,9 @@
 //      * Common Method Parameters:
 //
 //        options:
-//          onSuccess(responseBody)
-//          onError(responseBody)
+//          onSuccess(responseBody): Callback on success.
+//          onError(responseBody): Callback on failure.
+//          attr: Hash of attributes to pass to a create or update operation.
 //
 
 var _ = require('underscore');
@@ -30,11 +31,12 @@ var ConsoleLogger = function(debugLevel) {
   this.module = '/MediaManager/MediaManagerApi/lib/MediaManagerApiCore';
 
   this.log = function(context, msg) {
-    debugLevel <= 0 || console.log(this.module + '.' + context + ': ' + msg);
+    this.debugLevel <= 0 || console.log(this.module + '.' + context + ': ' + msg);
+    return;
   }
 };
 
-cLogger = new ConsoleLogger(1);
+var cLogger = new ConsoleLogger(1);
 
 //
 //  Resource: base for all RESTful resources.
@@ -43,13 +45,40 @@ cLogger = new ConsoleLogger(1);
 //    The standard RESTful acctions, can ussually be called explicitly, ie:
 //      index, create, read, update, delete.
 //
+//    index(options):
+//      Args:
+//        * Options: see above.
+//
+//    create(attr, options):
+//      Args:
+//        * attr: Hash of attributes to assign to the newly created resource.
+//        * Options: see above.
+//
+//    read(id, options):
+//      Args:
+//        * id: ID of resource to retrieve.
+//        * Options: see above.
+//
+//    update(id, attr, options):
+//      Args:
+//        * id: ID of resource to modify.
+//        * attr: Hash of attributes to modify.
+//        * Options: see above.
+//
+//    delete(id, options):
+//      Args:
+//        * id: ID of resource to delete.
+//        * Options: see above.
+//
 //    doRequest(method, path, options):
 //      Perform a request on the resource. Delegates to one of index, create, read, update
 //      or delete as appropriate.
 //
 //        method ::= 'GET' || 'POST' || 'GET' || 'PUT' || 'DELETE'
 //        path: Path to resource collection or instance of resource.
-//        options: See options above.
+//        options:
+//          * attr: When delegating to index or update. See create and update.
+//          * onSuccess and onError
 //
 //      Follows the typical RESTful semantics, ie:
 //
@@ -63,21 +92,29 @@ cLogger = new ConsoleLogger(1);
 //
 var Resource = new Class({
 
-  index: function(options) { return this; },
-  create: function(rep, options) { return this; },
-  read: function(id, options) { return this; },
-  update: function(id, options) { return this; },
-  delete: function(id, options) { return this; },
-
   //
-  //  initialize
-  //    path - path to the resource w/o an instance ID.
+  //  initialize:
+  //    Args:
+  //      * path - path to the resource w/o an instance ID.
+  //      * options:
+  //        * instName: Resource name to use in the context of
+  //          references to a single instance of a resource.
   //
   initialize: function(path, options) {
     this.path = path;
-    this.name = path.replace('/', '');
+    this.name = _.last(path.split('/'));
+    this.instName = options && _.has(options, 'instName') ? options.instName : this.name;
   },
 
+  index: function(options) { return this; },
+  create: function(attr, options) { return this; },
+  read: function(id, options) { return this; },
+  update: function(id, attr, options) { return this; },
+  delete: function(id, options) { return this; },
+
+  //
+  //  doRequest:
+  //
   doRequest: function(method, path, options) {
     var instId = path.replace(this.path, '');
 
@@ -86,7 +123,7 @@ var Resource = new Class({
         return this.read(instId, options);
       }
       else if (method === 'PUT') {
-        return this.update(instId, options);
+        return this.update(instId, options.attr, options);
       }
       else if (method === 'DELETE') {
         return this.update(instId, options);
@@ -97,40 +134,83 @@ var Resource = new Class({
         return this.index(options);
       }
       else if (method === 'POST') {
-        return this.create(options.rep, options);
+        return this.create(options.attr, options);
       }
     }
   },
 
-  doCallback: function(status, response, options) {
-    var errorCode = options.errorCode || 0;
-    var errorMessage = options.errorMessage || null;
-    if ((status === 200) && options.onSuccess) {
-      options.onSuccess(this.wrapResponseBody(status,
-                                              response));
+  //
+  //  doCallbacks: Generate the response body given the passed in
+  //    result, and relevant options. For relevant options, see
+  //    createResponseBody.
+  //
+  doCallbacks: function(status, result, options) {
+    cLogger.log('Resource.doCallbacks', 'w/ status - ' + status + ', path - ' + this.path);
+    if (result) {
+      options.rep = result;
     }
-    else if (options.onError) {
-      options.onError(this.wrapResponseBody(status,
-                                            response,
-                                            errorCode,
-                                            errorMessage));
+    if (status === 200) {
+      if (_.has(options, 'onSuccess') && options.onSuccess) {
+        options.onSuccess(this.createResponseBody(status, options));
+      }
+    }
+    else if (_.has(options, 'onError') && options.onError) {
+      options.onError(this.createResponseBody(status, options));
     }
   },
 
-  wrapResponseBody: function(status, responseBody, errorCode, errorMessage) {
+  //
+  //  createResponseBody:
+  //    Args:
+  //      status: 0 or 1 status.
+  //      options:
+  //        * resourceName: attribute name to use to return the object 
+  //          representation (rep). If not supplied the resource name
+  //          is used, which may be 'name' or 'instName', subject
+  //          to isInstRef being supplied.
+  //        * isInstRef: If true, the request is a reference to an instance
+  //          of the resource, as opposed to a collection. If true,
+  //          instName will be the attribute used to return a representation.
+  //        * rep: representation of the resource to be return.
+  //        * errorCode: Error code to identify the error condition.
+  //        * errorMessage: Error message.
+  //
+  createResponseBody: function(status, options) {
+    cLogger.log('Resource.createResponseBody', 'Creating response body w/ status - ' + status);
     var body = {
-      status: status,
+      status: status
     };
-    if (errorCode) {
-      body.error_code = errorCode;
+    if (_.has(options, 'errorCode') && _.isNumber(options.errorCode)) {
+      body.error_code = options.errorCode;
     }
-    if (errorMessage) {
-      body.error_message = errorMessage;
+    if (_.has(options, 'errorMessage') && _.isString(options.errorMessage)) {
+      body.error_message = options.errorMessage;
     }
-    if (responseBody) {
-      body[this.name] = responseBody;
+    if (_.has(options, 'rep')) {
+      var resName = undefined;
+
+      if (_.has(options, 'resourceName')) {
+        resName = options.resourceName;
+      }
+      else {
+        resName = _.has(options, 'isInstRef') && options.isInstRef ? this.instName : this.name;
+      }
+      if (resName) {
+        body[resName] = this.transformRep(options.rep, options);
+      }
     }
     return body;
+  },
+
+  //
+  //  transformRep: Override this to transform the representation of the resource.
+  //    Args:
+  //      rep: Representation to transform.
+  //      options: Feel free to pass options.
+  //
+  transformRep: function(rep, options) {
+    cLogger.log('Resource.transformRep', 'Doing default transformation...');
+    return rep;
   }
 
 });
@@ -138,14 +218,56 @@ var Resource = new Class({
 //
 //  Images Resource:
 //
-exports.Images = new Class({
+var Images = exports.Images = new Class({
 
   Extends: Resource,
 
+  initialize: function(path, options) {
+    this.parent(path, options);
+    cLogger.log('Images.initialize', 'Initialized, path - ' + this.path + ', name - ' + this.name + ', instance name - ' + this.instName);
+    //
+    //  Image Service attrs -> short form attributes.
+    //
+    this._shortFormAttrs = {
+      uuid: 'id',
+      name: 'name',
+      url: 'url',
+      geometry: 'geometry',
+      size: 'size',
+      filesize: 'filesize',
+      taken_at: 'taken_at',
+      created_at: 'created_at',
+      variants: 'variants'
+    };
+    //
+    //  Image Service attrs -> full form attributes.
+    //
+    this._fullFormAttrs = {
+      uuid: 'id',
+      name: 'name',
+      path: 'path',
+      import_root_dir: 'import_root_dir',
+      disposition: 'disposition',
+      url: 'url',
+      format: 'format',
+      geometry: 'geometry',
+      size: 'size',
+      depth: 'depth',
+      filesize: 'filesize',
+      checksum: 'checksum',
+      taken_at: 'taken_at',
+      created_at: 'created_at',
+      variants: 'variants'
+    };
+    cLogger.log('Images.initialize', 'Desired full form attributes - ' + JSON.stringify(_.values(this._fullFormAttrs)));
+    cLogger.log('Images.initialize', 'Desired short form attributes - ' + JSON.stringify(_.values(this._shortFormAttrs)));
+  },
+
   index: function(options) {
-    cLogger.log('Images.index', 'indexing...');
+    cLogger.log('Images.index', 'Indexing for path - ' + this.path);
+    options = options || {};
     var that = this;
-    imageService.index(function(err, response) {
+    imageService.index(function(err, result) {
       var status = 200;
       if (err) {
         cLogger.log('Images.index', 'error from image service - ' + err);
@@ -153,14 +275,95 @@ exports.Images = new Class({
         options.errorCode = -1;
         options.errorMessage = err;
       }
-      cLogger.log('Images.index', 'invoking callback with status - ' + status);
-      that.doCallback(status, response, options);
+      cLogger.log('Images.index', 'invoking callback with status - ' + status + ', path - ' + that.path);
+      that.doCallbacks(status, result, options);
     });
     return that;
   },
 
-  initialize: function(path, options) {
-    this.parent(path, options);
+  //
+  //  transformRep: ImageService returns data which is transformed according
+  //  to API specifications.
+  //
+  //    Args:
+  //      * rep: The result from the image service.
+  //      * options:
+  //        * isInstRef: If true, we are referencing an instance of an image,
+  //          otherwise rep is a collection (array of result).
+  //
+  transformRep: function(rep, options) {
+    cLogger.log('Images.transformRep', 'Doing transform, path - ' + this.path);
+    var that = this;
+    if (options && _.has(options, 'isInstRef')) {
+      cLogger.log('Images.transformRep', 'transforming instance to full form...');
+      return that._transformToFullFormRep(rep);
+    }
+    else {
+      if (_.isArray(rep)) {
+        cLogger.log('Images.transformRep', 'transforming collection to array of short forms...');
+        cLogger.log('Images.transformRep', 'type of - ' + typeof(that._shortFormAttrs) + ', desired short form attributes - ' + JSON.stringify(_.values(that._shortFormAttrs)));
+        var newRep = [];
+        _.each(rep, 
+               function(aRep) {
+                 var tRep = that._transformToShortFormRep(aRep);
+                 if (tRep) {
+                   newRep.push(tRep);
+                 }
+               });
+        return newRep;
+      }
+    }
+    return rep;
+  },
+
+  _transformToShortFormRep: function(rep) {
+    var newRep = {};
+    cLogger.log('Images._transformToShortFormRep', 'will process short form attributes - ' + JSON.stringify(_.keys(this._shortFormAttrs)));
+    return this._transformAttrs(newRep, rep, this._shortFormAttrs);
+  },
+
+  _transformToFullFormRep: function(rep) {
+    var newRep = {};
+    return this._transformAttrs(newRep, rep, this._fullFormAttrs);
+  },
+
+  _transformAttrs: function(newRep, rep, attrs) {
+    cLogger.log('Images._transformAttrs', 'processing attributes - ' + JSON.stringify(_.keys(attrs)));
+    cLogger.log('Images._transformAttrs', 'rep has attributes - ' + JSON.stringify(_.keys(rep)));
+    var that = this;
+    _.each(_.keys(attrs), 
+           function(attr) {
+             if (attrs[attr] === 'id') {
+               //
+               //  Object IDs begin with '$' followed by the object ID itself.
+               //
+               newRep['id'] = _.has(rep, attr) ? '$' + rep[attr] : undefined;
+             }
+             else if (attr === 'variants') {
+               if (_.has(rep, 'variants')) {
+                 var variants = [];
+                 newRep[attrs.variants] = variants;
+                 _.each(rep.variants, 
+                        function(variant) {
+                          variants.push(that._transformToShortFormRep(variant));
+                        });
+               }
+             }
+             else {
+               newRep[attrs[attr]] = _.has(rep, attr) ? rep[attr] : undefined;
+             }
+           });
+    //
+    //  The following should go away eventually as the ImageService 
+    //  matures.
+    //
+    if ((!_.has(newRep, 'id') || (newRep.id === undefined)) && _.has(rep, '_id')) {
+      newRep['id'] = '$' + rep._id;
+    }
+    if ((!_.has(newRep, 'name') || (newRep.name === undefined)) && _.has(rep, 'path')) {
+      newRep['name'] = '$' + _.last(rep.path.split('/'));
+    }
+    return newRep;
   }
 
 });
