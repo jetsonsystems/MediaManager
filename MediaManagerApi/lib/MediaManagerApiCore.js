@@ -15,7 +15,10 @@
 //        options:
 //          onSuccess(responseBody): Callback on success.
 //          onError(responseBody): Callback on failure.
+//          id: Id of an instance of a resource.
+//          query: A parsed query string, using querystring.parse, hopefully.
 //          attr: Hash of attributes to pass to a create or update operation.
+//          req: The http.ServerRequest object, if someone needs it.
 //
 
 var _ = require('underscore');
@@ -70,13 +73,14 @@ var cLogger = new ConsoleLogger(1);
 //        * id: ID of resource to delete.
 //        * Options: see above.
 //
-//    doRequest(method, path, options):
+//    doRequest(method, options):
 //      Perform a request on the resource. Delegates to one of index, create, read, update
 //      or delete as appropriate.
 //
 //        method ::= 'GET' || 'POST' || 'GET' || 'PUT' || 'DELETE'
 //        path: Path to resource collection or instance of resource.
 //        options:
+//          * id: Id when referencing an instance in a collection.
 //          * attr: When delegating to index or update. See create and update.
 //          * onSuccess and onError
 //
@@ -113,20 +117,25 @@ var Resource = new Class({
   delete: function(id, options) { return this; },
 
   //
-  //  doRequest:
+  //  doRequest: Delegate to one of the index / crud methods.
+  //    Args:
+  //      method: http verb
+  //      options:
+  //        id - id of instance in collection.
+  //        attr - attributes of instance to create, or update.
   //
-  doRequest: function(method, path, options) {
-    var instId = path.replace(this.path, '');
+  doRequest: function(method, options) {
+    var id = options.id || undefined;
 
-    if (instId) {
+    if (id) {
       if (method === 'GET') {
-        return this.read(instId, options);
+        return this.read(id, options);
       }
       else if (method === 'PUT') {
-        return this.update(instId, options.attr, options);
+        return this.update(id, options.attr, options);
       }
       else if (method === 'DELETE') {
-        return this.update(instId, options);
+        return this.update(id, options);
       }
     }
     else {
@@ -279,6 +288,25 @@ var Images = exports.Images = new Class({
       that.doCallbacks(status, result, options);
     });
     return that;
+  },
+
+  read: function(id, options) { 
+    cLogger.log('Images.read', 'Reading for path - ' + this.path + ', id - ' + id);
+    var that = this;
+    imageService.show(id.replace('$', ''), function(err, result) {
+      var status = 200;
+      if (err) {
+        cLogger.log('Images.read', 'error from image service - ' + err);
+        status = 500;
+        options.errorCode = -1;
+        options.errorMessage = err;
+      }
+      cLogger.log('Images.read', 'invoking callback with status - ' + status + ', path - ' + that.path + ', id - ' + id);
+      var callbackOptions = options ? _.clone(options) : {};
+      callbackOptions['isInstRef'] = true;
+      that.doCallbacks(status, result, callbackOptions);
+    });
+    return this; 
   },
 
   //
