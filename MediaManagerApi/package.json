@@ -1,0 +1,16 @@
+{
+  "name": "MediaManagerApi",
+  "preferGlobal": "true",
+  "description": "Media Manager API",
+  "version": "0.0.0",
+	"author": "Marek J. Ryniejski <marek@jetsonsys.com>",
+  "bin": {
+    "media_manager_api_server": "./bin/media_manager_api_server"
+  },
+  "dependencies" : {
+    "underscore" : "*",
+    "mootools" : "*",
+    "restify" : "*",
+    "bunyan" : "*"
+  }
+}
