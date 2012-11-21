@@ -7,9 +7,9 @@ var fs = require('fs')
 ;
 
 var 
-  source_dir = 'asset',
-  target_dir = source_dir +'/'+ 'gen1',
-  source = [
+  source_dir = './test/resources'
+  ,target_dir = source_dir +'/'+ 'gen1'
+  ,source = [
     "clooney",
     "eastwood",
     "hopper",

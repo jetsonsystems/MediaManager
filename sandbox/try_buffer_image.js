@@ -8,8 +8,10 @@ var img_name = 'clooawood'
 ;
 
 
+/*
 gm(readStream, img_name).identify(function(err, data) {
   if (err) console.log(err);
   data.name = img_name;
   console.log(data);
 });
+*/
