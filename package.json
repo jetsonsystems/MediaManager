@@ -1,0 +1,16 @@
+{
+  "name": "ImageService",
+  "preferGlobal": "true",
+  "description": "ImageService",
+  "version": "0.0.0",
+  "author": "Philippe <philippe@jetsonsys.com>",
+  "main": "./lib/plm-image/ImageServiceProto0",
+  "dependencies" : {
+    "step" : "*",
+    "underscore" : "*",
+    "mootools" : "*",
+    "imagemagick" : "*",
+    "gm" : "*",
+    "nano" : "*"
+  }
+}
