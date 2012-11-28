@@ -22,23 +22,43 @@ var design_doc = {
 /*
 */
 
+var isUpdate = true;
+
 async.waterfall(
   [
     function(next) {
-      db.get(design_doc_id, next); 
+      console.log("attempting to get design doc with id: %j", design_doc_id);
+      db.get(design_doc_id, function(err, doc, hdr) {
+        if (err) {
+          console.log("design doc does not exist, inserting it...");
+          isUpdate = false;
+          db.insert(design_doc, design_doc_id, next);
+        } else {
+          next(null, doc, hdr);
+        }
+      }); 
     },
     function(doc, hdr, next) {
-      console.log('design doc: %j', doc);
-      console.log('doc._rev: %j', doc._rev);
-      db.insert(design_doc, {doc_name: design_doc_id, rev: doc._rev}, next);
-      // db.insert(design_doc, {rev: doc._rev}, next);
+      if (isUpdate) {
+        // console.log('design doc:', doc);
+        console.log('doc._rev: %j', doc._rev);
+        db.insert(design_doc, {doc_name: design_doc_id, rev: doc._rev}, next);
+      }
+      else { next(null, doc, hdr); }
     }
   ],
-  function(err, doc, hdr) {
-    if (err) console.log('error %j',err);
-    console.log("doc: %j", doc);
-    console.log("hdr: %j", hdr);
-    console.log("all done");
+  function(err, result, hdr) {
+    if (err) { 
+      console.log('Unable to insert/update design doc: ',err); 
+      return; 
+    }
+    console.log("result: %j", result);
+    // console.log("hdr: %j", hdr);
+    if (isUpdate) {
+      console.log("Successfully updated design doc");
+    } else {
+      console.log("Successfully inserted design doc");
+    }
   }
 );
   
