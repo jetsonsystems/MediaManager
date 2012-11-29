@@ -11,7 +11,7 @@ var path_to_import = './test/resources/gen1';
 var options = { 
   saveOriginal: true
   ,desiredVariants: [
-   { name: "thumb.jpg", height: 150, format: 'JPG'}
+   { name: "thumb.jpg",  height: 150, format: 'JPG'}
   ,{ name: "screen.jpg", height: 450, format: 'JPG'}
   ]
 };

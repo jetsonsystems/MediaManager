@@ -6,11 +6,14 @@
   "author": "Philippe <philippe@jetsonsys.com>",
   "main": "./lib/plm-image/ImageServiceProto0",
   "dependencies" : {
-    "step" : "*",
-    "underscore" : "*",
-    "mootools" : "*",
-    "imagemagick" : "*",
-    "gm" : "*",
-    "nano" : "*"
+    ,"async" : "*"
+    ,"gm" : "*"
+    ,"imagemagick" : "*"
+    ,"moment" : "*"
+    ,"mootools" : "*"
+    ,"nano" : "*"
+    ,"node-uuid" : "*"
+    ,"step" : "*"
+    ,"underscore" : "*"
   }
 }

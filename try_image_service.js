@@ -78,7 +78,7 @@ imageService.save(
 );
 */
 
-// save with variant
+// save with variants
 /*
 imageService.save(
   root_dir + "/eastwood.png",
@@ -97,6 +97,7 @@ imageService.save(
 );
 */
 
+// save all inside the array asset
 /*
 _.each(asset, 
   function(name) {
@@ -114,12 +115,15 @@ _.each(asset,
   });
 */
 
+
 /*
 imageService.findVersion(root_dir + '/eastwood.png', function (version) {
   console.log("img version: %j", version);
 });
 */
 
+
+// save with variants
 /*
 imageService.save(
   root_dir + "/eastwood.png",
@@ -137,13 +141,50 @@ imageService.save(
   }
 );
 */
-// var oid = 'feb87eb2-9a89-4ec9-a2f1-73ed8c01e8e7';
+
+
+// show by oid
+/*
 var oid = 'a060bfea-0845-437e-97bf-989d55d189cb';
 imageService.show(oid, function(err, image) {
-  if (err) { callback(err); return; };
+  if (err) { console.log("error: " + err); return; };
   //console.log('retrieved image with oid %j: ' +  JSON.stringify(image,null,'  '), oid);
   console.log('retrieved image with oid %j: ' +  util.inspect(image, true, null));
 });
+*/
+
+
+// return all by default
+/*
+imageService.index(
+  function(err, aryImage) {
+    if (err) { console.log(err); return; }
+
+    // console.log("result: "  + util.inspect(aryImage));
+
+    _.each(aryImage, function(image) {
+      console.log('retrieved image with oid %j: %j - created_at: %j ', image.oid, image.path, image.created_at);
+    });
+
+  }
+);
+*/
+
+
+// find by date range
+imageService.index(
+  function(err, aryImage) {
+    if (err) { console.log(err); return; }
+
+    // console.log("result: "  + util.inspect(aryImage));
+
+    _.each(aryImage, function(image) {
+      console.log('retrieved image with oid %j: %j - created_at: %j ', image.oid, image.path, image.created_at);
+    });
+
+  },
+  { created: ["20121101", "20121201"] }
+);
 
   }
 }); // the initial checkConfig call

@@ -13,9 +13,9 @@ var design_doc_id = '_design/plm-image';
 var design_doc = {
   "views" : {
     "by_oid_with_variant" : {
-      "map" : "function(doc) { if (doc.class_name === 'plm.Image') { if (doc.orig_id === ''){ emit([doc._id,0,doc.size.width], doc.path) } else {emit([doc.orig_id,1,doc.size.width],null)}} }"
+      "map" : "function(doc) { if (doc.class_name === 'plm.Image') { var key; if (doc.orig_id === ''){ key = [doc.oid,0,doc.size.width]; } else { key = [doc.orig_id,1,doc.size.width]} emit(key, doc.path)} }"
     },
-    "by_creation_time" : { "map" : "function(doc) { if (doc.class_name === 'plm.Image') { emit(doc.created_at, doc.path); }}"
+    "by_creation_time" : { "map" : "function(doc) { function date_to_array(aDate) { var out = [], d = new Date(aDate); out.push(d.getFullYear()); out.push(d.getMonth()+1); out.push(d.getDate()); out.push(d.getHours()); out.push(d.getMinutes()); out.push(d.getSeconds()); out.push(d.getMilliseconds()); return out;} if (doc.class_name === 'plm.Image') { var key = date_to_array(doc.created_at); if (doc.orig_id === '') { key.push(doc.oid,0,doc.size.width);} else { key.push(doc.orig_id,1,doc.size.width); } emit(key,doc.path)  }}"
     }
   }
 }
