@@ -6,7 +6,7 @@
   "author": "Philippe <philippe@jetsonsys.com>",
   "main": "./lib/plm-image/ImageServiceProto0",
   "dependencies" : {
-    ,"async" : "*"
+    "async" : "*"
     ,"gm" : "*"
     ,"imagemagick" : "*"
     ,"moment" : "*"
