@@ -46,7 +46,12 @@ for (var i = 0; i < limit ; i++) {
         .morph(
           source_dir + '/' + source[j] + '.png', // img2 to be morphed
           target,
-          function() { console.log("created %j", current);}
+          function(err) {
+              if(err){
+                  throw new Error(err);
+              }
+              console.log("created %j", current);
+          }
         ); 
     })();
   }
