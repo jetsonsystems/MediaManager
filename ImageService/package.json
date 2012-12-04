@@ -1,0 +1,19 @@
+{
+  "name": "ImageService",
+  "preferGlobal": "true",
+  "description": "ImageService",
+  "version": "0.0.0",
+  "author": "Philippe <philippe@jetsonsys.com>",
+  "main": "./lib/plm-image/ImageService",
+  "dependencies" : {
+    "async" : "*"
+    ,"gm" : "*"
+    ,"imagemagick" : "*"
+    ,"moment" : "*"
+    ,"mootools" : "*"
+    ,"nano" : "*"
+    ,"node-uuid" : "*"
+    ,"step" : "*"
+    ,"underscore" : "*"
+  }
+}
