@@ -1,4 +1,4 @@
-'use strict'
+'use strict';
 var 
   _   = require('underscore')
   ,fs = require('fs')
@@ -33,6 +33,4 @@ async.forEachLimit( images, 1, ingest, function(err) {
   if (err) console.log("failed with error %j", err);
   console.log("done!");
 });
-
-
 
