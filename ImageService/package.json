@@ -7,8 +7,10 @@
   "main": "./lib/plm-image/ImageService",
   "dependencies" : {
     "async" : "*"
+    ,"dive": "*"
     ,"gm" : "*"
     ,"imagemagick" : "*"
+    ,"mime-magic" : "*"
     ,"moment" : "*"
     ,"mootools" : "*"
     ,"nano" : "*"

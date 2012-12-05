@@ -1,12 +1,14 @@
 'use strict';
 var  
-   _   = require('underscore')
+   _     = require('underscore')
   ,async = require('async')
-  ,cs  = require('./checksum')
-  ,fs  = require('fs')
-  ,gm  = require('gm')
+  ,cs    = require('./checksum')
+  ,dive  = require('dive')
+  ,fs    = require('fs')
+  ,gm    = require('gm')
   ,Image = require('./Image')
   ,img_util = require('./image_util')
+  ,mime     = require('mime-magic')
   ,moment   = require('moment')
   ,nano  = require('nano')
   ,step  = require('step')
@@ -519,6 +521,108 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
     }
   );
 }; // end findByCreationTime
+
+
+/**
+ * Batch imports a collection of images by recursing through a file system
+ *
+ * options:
+ *   - recursionDepth: 0,    // by default performs full recursion, '1' would process only the files inside the target_dir
+ *   - ignoreDotFiles: true, // by default ignore .dotfiles
+ *   - all options that can be passed to ImageService.save() which will be applied to all images in
+ *     the import batch
+ *
+ * callback is invoked with:
+ *   - err: error that may have prevented process from running at all
+ *   - failure: map of errs for paths that were not saved, keyed by path
+ *   - success: map of images that were saved successfully, keyed by path
+ *
+ */
+exports.batchImportFs = function batchImportFs(target_dir, callback, options) 
+{
+  // dive through file system and retrieve array of image paths + mime types
+  
+  // create batchImport record
+
+  // go through array and call 'save' on each image
+  
+  // collect saved images or errors, as the case may be
+ 
+  /*
+  dive(target_dir, null, action, function() {
+    console.log("done diving through %j", target_dir);
+  });
+  */
+};
+
+
+/**
+ * Recurses inside a folder and returns a tuple 
+ *   {path: "target_dir/someImage", format: "jpg"}
+ * for all the images that it finds underneath the folder;
+ * TODO: add a parameter to limit the recursion level
+ */
+exports.collectImagesInDir = function collectImagesInDir(target_dir, callback) 
+{
+  var aryFile  = [];
+  var aryImage = [];
+
+  // this method is called further below on each file under the target directory 
+  // to determine whether it is an image and determine its mime type
+  function collectImage(file, next) {
+    // console.log("processing %s", file);
+    mime(file, function(err, mimeType) {
+      if (err) { console.log("error while collecting images: %s", err); next(err); return; }
+
+      // converts a string like 'image/jpg' to ['image', 'jpg']
+      var mimeData = mimeType.split("/");
+
+      if (mimeData[0] === 'image') {
+        aryImage.push({ path: file, format: mimeData[1] });
+      }
+      next();
+    });
+  }
+
+
+  async.waterfall([
+
+    // collect all files inside the target directory first
+    function(next) {
+      console.log("Diving into %s", target_dir);
+      dive(target_dir, {directories: false},
+        function(err, file) { 
+          // console.log(file);
+          if (err) { console.log("Warning while diving through '%s': %s", target_dir, err); }
+          else {aryFile.push(file);}
+        },
+        function() { next();}
+      );
+    },
+
+    function(next) {
+      console.log("Found %s files under '%s'", aryFile.length, target_dir);
+      // _.each(aryFile, function(f){ console.log('file %s',f )});
+      
+      // calling 'mime' concurrently can lead to a 'too many open files' error
+      // so we limit the number of concurrent calls to mime, with the forEachLimit below.
+      // In addition, raising the limit leads to higher system loads, 
+      // with no apparent improvement in performance.
+      async.forEachLimit(aryFile, 3, collectImage, next);
+    }
+  ],  
+
+  // called after waterfall completes
+  function(err) { 
+    if (err) {
+      console.log("Error while collecting images in directory '%s': %s", target_dir, err);
+      callback(err);
+    } else {
+      console.log("Found %s images under directory '%s'", aryImage.length, target_dir);
+      callback(null, aryImage);
+    }
+  });
+};  // end collectImagesInDir
 
 
 /**

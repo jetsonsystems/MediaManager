@@ -56,7 +56,16 @@ imageService.parseAndTransform(
 );
 */
 
+var target_dir = 'test/resources/empty';
+// var target_dir = '/home/philippe/multimedia';
+imageService.collectImagesInDir(target_dir, function(err, images) {
+  if (err) { console.log('err: %s', err)}
+  console.log("done!");
+  // _.each(images, function(f) { console.log('%j', f);});
+});
+
 // for operations that use couch, try them inside the callback to checkConfig
+/*
 imageService.checkConfig( function(err, result) {
 
 if (err) {
@@ -64,6 +73,7 @@ if (err) {
   return;
 } else {
   console.log("db is ok: %j", JSON.stringify(result));
+*/
 
 // simple save
 /*
@@ -172,6 +182,7 @@ imageService.index(
 
 
 // find by date range
+/*
 imageService.index(
   function(err, aryImage) {
     if (err) { console.log(err); return; }
@@ -185,6 +196,7 @@ imageService.index(
   },
   { created: ["20121101", "20121201"] }
 );
+*/
 
-  }
-}); // the initial checkConfig call
+//  }
+//}); // the initial checkConfig call
