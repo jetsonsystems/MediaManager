@@ -24,6 +24,7 @@
 var _ = require('underscore');
 require('mootools');
 var imageService = require('ImageService');
+var imageServicePackage = require('ImageService/package.json');
 
 imageService.config.db.port = 59840;
 imageService.config.db.name = 'plm-media-manager-test0';
@@ -39,7 +40,9 @@ var ConsoleLogger = function(debugLevel) {
   }
 };
 
-var cLogger = new ConsoleLogger(0);
+var cLogger = new ConsoleLogger(1);
+
+cLogger.log('', 'Using ImageService version - ' + imageServicePackage.version);
 
 //
 //  Resource: base for all RESTful resources.
