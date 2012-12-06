@@ -282,7 +282,6 @@ function parseImage(anImgPath, callback)
 }
 exports.parseImage = parseImage;
 
-
 /**
  * Takes an array of persist commands (see 'persist' function description), and invokes them in
  * series, returns an array with the image saved, or the corresponding error

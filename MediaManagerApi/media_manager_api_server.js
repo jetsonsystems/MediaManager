@@ -9,7 +9,7 @@
 //      * Note: the /api/media-manager path prefix if required is added by any reverse proxy forwarding requests to this
 //        service.
 //
-var version = '0.0.0';
+var version = '0.0.1';
 var urlVersion = 'v0';
 var serverName = 'media_manager_api_server';
 var serverPort = 9000;

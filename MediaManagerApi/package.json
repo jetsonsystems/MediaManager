@@ -5,7 +5,7 @@
   "version": "0.0.0",
 	"author": "Marek J. Ryniejski <marek@jetsonsys.com>",
   "bin": {
-    "media_manager_api_server": "./bin/media_manager_api_server"
+    "media_manager_api_server": "media_manager_api_server.js"
   },
   "dependencies" : {
     "underscore" : "*",

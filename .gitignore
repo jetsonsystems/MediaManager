@@ -1,0 +1,8 @@
+.DS_Store
+*.framework
+*~
+build/
+DerivedData/
+obj/
+derived_src/
+
