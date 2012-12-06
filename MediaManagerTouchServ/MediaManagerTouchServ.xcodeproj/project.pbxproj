@@ -15,10 +15,12 @@
 		99014A3B167004A1008B03F4 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 99014A39167004A1008B03F4 /* InfoPlist.strings */; };
 		99014A41167004A1008B03F4 /* Credits.rtf in Resources */ = {isa = PBXBuildFile; fileRef = 99014A3F167004A1008B03F4 /* Credits.rtf */; };
 		99014A47167004A1008B03F4 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 99014A45167004A1008B03F4 /* MainMenu.xib */; };
-		99014A6C16700896008B03F4 /* TouchDB.framework in CopyFiles */ = {isa = PBXBuildFile; fileRef = 99014A6B16700896008B03F4 /* TouchDB.framework */; };
-		99014A6E1670100B008B03F4 /* TouchDBListener.framework in CopyFiles */ = {isa = PBXBuildFile; fileRef = 99014A6D1670100B008B03F4 /* TouchDBListener.framework */; };
 		99014A721670110F008B03F4 /* MediaManagerTouchServ in CopyFiles */ = {isa = PBXBuildFile; fileRef = 99014A11166FD698008B03F4 /* MediaManagerTouchServ */; };
-		99014A741670115E008B03F4 /* CouchCocoa.framework in CopyFiles */ = {isa = PBXBuildFile; fileRef = 99014A731670115E008B03F4 /* CouchCocoa.framework */; };
+		9963320C1670317700616C39 /* CouchCocoa.framework in CopyFiles */ = {isa = PBXBuildFile; fileRef = 9963320B1670317700616C39 /* CouchCocoa.framework */; };
+		9963320E1670322900616C39 /* TouchDB.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9963320D1670322900616C39 /* TouchDB.framework */; };
+		996332101670324200616C39 /* TouchDBListener.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9963320F1670324200616C39 /* TouchDBListener.framework */; };
+		996332121670328300616C39 /* TouchDBListener.framework in CopyFiles */ = {isa = PBXBuildFile; fileRef = 996332111670328300616C39 /* TouchDBListener.framework */; };
+		996332141670329B00616C39 /* TouchDB.framework in CopyFiles */ = {isa = PBXBuildFile; fileRef = 996332131670329B00616C39 /* TouchDB.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -47,9 +49,9 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				99014A741670115E008B03F4 /* CouchCocoa.framework in CopyFiles */,
-				99014A6E1670100B008B03F4 /* TouchDBListener.framework in CopyFiles */,
-				99014A6C16700896008B03F4 /* TouchDB.framework in CopyFiles */,
+				996332141670329B00616C39 /* TouchDB.framework in CopyFiles */,
+				996332121670328300616C39 /* TouchDBListener.framework in CopyFiles */,
+				9963320C1670317700616C39 /* CouchCocoa.framework in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -96,6 +98,11 @@
 		99014A6B16700896008B03F4 /* TouchDB.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = TouchDB.framework; path = "../../../../../Library/Developer/Xcode/DerivedData/TouchDB-fracyogmzhnxdwfbagcppkufpjsx/Build/Products/Debug/TouchDB.framework"; sourceTree = "<group>"; };
 		99014A6D1670100B008B03F4 /* TouchDBListener.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = TouchDBListener.framework; path = "../../../../../Library/Developer/Xcode/DerivedData/TouchDB-fracyogmzhnxdwfbagcppkufpjsx/Build/Products/Debug/TouchDBListener.framework"; sourceTree = "<group>"; };
 		99014A731670115E008B03F4 /* CouchCocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CouchCocoa.framework; path = "../../../../../Library/Developer/Xcode/DerivedData/CouchCocoa-gbdtbtbssoyknzdrdrjauwdpqzmd/Build/Products/Debug/CouchCocoa.framework"; sourceTree = "<group>"; };
+		9963320B1670317700616C39 /* CouchCocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CouchCocoa.framework; path = "../../../../Library/Developer/Xcode/DerivedData/CouchCocoa-eyrrdzbglhrcdoffzdunsrlvmwdj/Build/Products/Debug/CouchCocoa.framework"; sourceTree = "<group>"; };
+		9963320D1670322900616C39 /* TouchDB.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = TouchDB.framework; path = "../../../../Library/Developer/Xcode/DerivedData/TouchDB-gvwucadvvrdjihfgzskvrfqyfiob/Build/Products/Debug/TouchDB.framework"; sourceTree = "<group>"; };
+		9963320F1670324200616C39 /* TouchDBListener.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = TouchDBListener.framework; path = "../../../../Library/Developer/Xcode/DerivedData/TouchDB-gvwucadvvrdjihfgzskvrfqyfiob/Build/Products/Debug/TouchDBListener.framework"; sourceTree = "<group>"; };
+		996332111670328300616C39 /* TouchDBListener.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = TouchDBListener.framework; path = "../../../../Library/Developer/Xcode/DerivedData/TouchDB-gvwucadvvrdjihfgzskvrfqyfiob/Build/Products/Debug/TouchDBListener.framework"; sourceTree = "<group>"; };
+		996332131670329B00616C39 /* TouchDB.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = TouchDB.framework; path = "../../../../Library/Developer/Xcode/DerivedData/TouchDB-gvwucadvvrdjihfgzskvrfqyfiob/Build/Products/Debug/TouchDB.framework"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -107,6 +114,8 @@
 				99014A26166FEE37008B03F4 /* TouchDB.framework in Frameworks */,
 				99014A28166FF0D4008B03F4 /* TouchDBListener.framework in Frameworks */,
 				99014A24166FEA38008B03F4 /* CouchCocoa.framework in Frameworks */,
+				9963320E1670322900616C39 /* TouchDB.framework in Frameworks */,
+				996332101670324200616C39 /* TouchDBListener.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -123,6 +132,9 @@
 		99014A06166FD698008B03F4 = {
 			isa = PBXGroup;
 			children = (
+				996332131670329B00616C39 /* TouchDB.framework */,
+				996332111670328300616C39 /* TouchDBListener.framework */,
+				9963320B1670317700616C39 /* CouchCocoa.framework */,
 				99014A731670115E008B03F4 /* CouchCocoa.framework */,
 				99014A6D1670100B008B03F4 /* TouchDBListener.framework */,
 				99014A6B16700896008B03F4 /* TouchDB.framework */,
@@ -179,6 +191,8 @@
 		99014A32167004A1008B03F4 /* Other Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				9963320F1670324200616C39 /* TouchDBListener.framework */,
+				9963320D1670322900616C39 /* TouchDB.framework */,
 				99014A33167004A1008B03F4 /* AppKit.framework */,
 				99014A34167004A1008B03F4 /* CoreData.framework */,
 				99014A35167004A1008B03F4 /* Foundation.framework */,
@@ -430,8 +444,9 @@
 					"$(inherited)",
 					"\"$(SRCROOT)/../../../../../Library/Developer/Xcode/DerivedData/CouchCocoa-gbdtbtbssoyknzdrdrjauwdpqzmd/Build/Products/Debug\"",
 					"\"$(SRCROOT)/../../../../../Library/Developer/Xcode/DerivedData/TouchDB-fracyogmzhnxdwfbagcppkufpjsx/Build/Products/Debug\"",
+					"\"$(SRCROOT)/../../../../Library/Developer/Xcode/DerivedData/TouchDB-gvwucadvvrdjihfgzskvrfqyfiob/Build/Products/Debug\"",
 				);
-				"FRAMEWORK_SEARCH_PATHS[arch=*]" = "\"/Users/marekjulian/SoftwareDev/JetsonSystems/repos/MediaManager/MediaManagerTouchServ/Frameworks\"";
+				"FRAMEWORK_SEARCH_PATHS[arch=*]" = "\"./Frameworks\"";
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "MediaManagerTouchServ/MediaManagerTouchServ-Prefix.pch";
 				LD_RUNPATH_SEARCH_PATHS = "@loader_path/../Frameworks";
@@ -446,8 +461,9 @@
 					"$(inherited)",
 					"\"$(SRCROOT)/../../../../../Library/Developer/Xcode/DerivedData/CouchCocoa-gbdtbtbssoyknzdrdrjauwdpqzmd/Build/Products/Debug\"",
 					"\"$(SRCROOT)/../../../../../Library/Developer/Xcode/DerivedData/TouchDB-fracyogmzhnxdwfbagcppkufpjsx/Build/Products/Debug\"",
+					"\"$(SRCROOT)/../../../../Library/Developer/Xcode/DerivedData/TouchDB-gvwucadvvrdjihfgzskvrfqyfiob/Build/Products/Debug\"",
 				);
-				"FRAMEWORK_SEARCH_PATHS[arch=*]" = "\"/Users/marekjulian/SoftwareDev/JetsonSystems/repos/MediaManager/MediaManagerTouchServ/Frameworks\"";
+				"FRAMEWORK_SEARCH_PATHS[arch=*]" = "\"./Frameworks\"";
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "MediaManagerTouchServ/MediaManagerTouchServ-Prefix.pch";
 				LD_RUNPATH_SEARCH_PATHS = "@loader_path/../Frameworks";
@@ -498,6 +514,7 @@
 				99014A22166FD698008B03F4 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		99014A5C167004A1008B03F4 /* Build configuration list for PBXNativeTarget "MediaManagerTouchServer" */ = {
 			isa = XCConfigurationList;
@@ -506,6 +523,7 @@
 				99014A5E167004A1008B03F4 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
