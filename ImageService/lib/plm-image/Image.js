@@ -17,6 +17,7 @@ module.exports = new Class(
 
     this.orig_id  = '';
     this.path     = '';
+    this.name     = '';
     this.format   = '';
     this.geometry = '';
     this.size     = '';
@@ -33,6 +34,7 @@ module.exports = new Class(
     
     if (_.isObject(args)) {
       this.path     = args.path;
+      this.name     = args.name;
       this.format   = args.format;
       this.geometry = args.geometry;
       this.size     = args.size;
@@ -86,7 +88,7 @@ module.exports = new Class(
       this.filesize = obj.Filesize;
       this.metadata_raw = obj;
     }
-  },
+  }
 }); 
 
 // var img = new Image();
