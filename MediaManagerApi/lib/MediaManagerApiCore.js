@@ -379,6 +379,17 @@ var Images = exports.Images = new Class({
   },
 
   _transformAttrs: function(newRep, rep, attrs) {
+    var logMsg = 'Transforming ';
+    if (_.has(rep, 'oid')) {
+      logMsg = logMsg + 'resource w/ id - ' + rep.oid;
+    }
+    if (_.has(rep, 'path')) {
+      logMsg = logMsg + ', path - ' + rep.path;
+    }
+    if (_.has(rep, 'name')) {
+      logMsg = logMsg + ', name - ' + rep.name;
+    }
+    cLogger.log('Images._transformAttrs', logMsg);
     cLogger.log('Images._transformAttrs', 'processing attributes - ' + JSON.stringify(_.keys(attrs)));
     cLogger.log('Images._transformAttrs', 'rep has attributes - ' + JSON.stringify(_.keys(rep)));
     var that = this;
@@ -413,6 +424,7 @@ var Images = exports.Images = new Class({
     }
     if ((!_.has(newRep, 'name') || (newRep.name === undefined)) && _.has(rep, 'path')) {
       newRep['name'] = '$' + _.last(rep.path.split('/'));
+      cLogger.log('Images._transformAttrs', 'updated name attribute to - ' + newRep['name']);
     }
     return newRep;
   }

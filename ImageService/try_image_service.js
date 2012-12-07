@@ -56,6 +56,7 @@ imageService.parseAndTransform(
 );
 */
 
+/*
 var target_dir = 'test/resources/empty';
 // var target_dir = '/home/philippe/multimedia';
 imageService.collectImagesInDir(target_dir, function(err, images) {
@@ -63,32 +64,32 @@ imageService.collectImagesInDir(target_dir, function(err, images) {
   console.log("done!");
   // _.each(images, function(f) { console.log('%j', f);});
 });
+*/
 
 // for operations that use couch, try them inside the callback to checkConfig
-/*
 imageService.checkConfig( function(err, result) {
 
 if (err) {
   console.log(err); 
   return;
 } else {
-  console.log("db is ok: %j", JSON.stringify(result));
-*/
+  console.log("db is ok:\n%s", util.inspect(result));
 
 // simple save
 /*
 imageService.save(
-  root_dir + "//eastwood.png",
+  root_dir + "/eastwood.png",
   function(err, result) {
     // if (err) { console.log(err); throw err; }
     if (err) { console.log(err); }
-    // console.log("result: " + JSON.stringify(result));
-    console.log("inspect: " + util.inspect(result));
+    console.log("result: " + JSON.stringify(result));
+    // console.log("inspect: " + util.inspect(result));
   }
 );
 */
 
 // save with variants
+
 /*
 imageService.save(
   root_dir + "/eastwood.png",
@@ -100,12 +101,13 @@ imageService.save(
   },
   { saveOriginal: true 
     ,desiredVariants: [ 
-      { name: 'eastwood_thumb.jpg', format: "JPG", width: 120, height: 150} 
+       { name: 'eastwood_thumb.jpg',  format: "JPG", width: 120, height: 150} 
       ,{ name: 'eastwood_screen.jpg', format: "JPG", width: 360, height: 450} 
     ]
   }
 );
 */
+
 
 // save all inside the array asset
 /*
@@ -155,11 +157,11 @@ imageService.save(
 
 // show by oid
 /*
-var oid = 'a060bfea-0845-437e-97bf-989d55d189cb';
+var oid = '74e9c5c4-30b2-49d8-ba75-4a623864b01e';
 imageService.show(oid, function(err, image) {
   if (err) { console.log("error: " + err); return; };
   //console.log('retrieved image with oid %j: ' +  JSON.stringify(image,null,'  '), oid);
-  console.log('retrieved image with oid %j: ' +  util.inspect(image, true, null));
+  console.log("retrieved image with oid '%s': %s", oid, util.inspect(image, true, null));
 });
 */
 
@@ -198,5 +200,24 @@ imageService.index(
 );
 */
 
-//  }
-//}); // the initial checkConfig call
+
+var target_dir = "/home/philippe/project/jetsonsys/src/ImageService/test/resources";
+// var target_dir = "test/resources/empty";
+var options = {};
+imageService.batchImportFs(
+  target_dir, 
+  function(err, importBatch) {
+    if (err) console.log("err: %s", err);
+    else console.log("importBatch: %s", util.inspect(importBatch,null,'  '));
+  }, 
+  { saveOriginal: true 
+    ,desiredVariants: [ 
+       { name: 'thumb.jpg',  format: "JPG", width: 120, height: 150} 
+      ,{ name: 'screen.jpg', format: "JPG", width: 360, height: 450} 
+    ]
+  }
+);
+
+
+  }
+}); // the initial checkConfig call
