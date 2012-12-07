@@ -88,7 +88,7 @@ var isUpdate = true;
 async.waterfall(
   [
     function(next) {
-      console.log("attempting to get design doc with id: %j", design_doc_id);
+      console.log("attempting to get design doc with id: %s", design_doc_id);
       db.get(design_doc_id, function(err, doc, hdr) {
         if (err) {
           console.log("design doc does not exist, inserting it...");
@@ -102,7 +102,7 @@ async.waterfall(
     function(doc, hdr, next) {
       if (isUpdate) {
         console.log('have design doc:', doc);
-        console.log('updating doc w/ doc._rev: %j', doc._rev);
+        console.log('updating doc w/ doc._rev: %s', doc._rev);
         db.insert(design_doc, {doc_name: design_doc_id, rev: doc._rev}, next);
       }
       else { next(null, doc, hdr); }

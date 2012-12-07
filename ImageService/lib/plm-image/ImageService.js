@@ -7,7 +7,7 @@ var
   ,fs    = require('fs')
   ,gm    = require('gm')
   ,Image = require('./Image')
-  ,ImageBatch = require('./ImageBatch')
+  ,ImportBatch = require('./ImportBatch')
   ,img_util = require('./image_util')
   ,mime     = require('mime-magic')
   ,moment   = require('moment')
@@ -88,23 +88,35 @@ exports.findVersion = function findVersion(oid, callback) {
 
 
 /** 
- * The main method for saving/resizing an image
+ * The main method for saving and processing an image
  */
-exports.save = function save(anImgPath, callback, options) 
+function save(anImgPath, callback, options) 
 {
-  step(
-    function() {
-      parseAndTransform(anImgPath, options, this);
-    },
-
-    function(err, aryPersist) {
-      if (err) { if (_.isFunction(callback)) callback(err); return; }
-      // persist( {data: imgData, stream: imgStream }, callback);
-      console.log("calling persistMultiple...");
-      persistMultiple(aryPersist, null, callback);
+  async.waterfall(
+    [
+      function(next) {
+        parseAndTransform(anImgPath, options, next);
+      },
+      
+      function(aryPersist, next) {
+        persistMultiple(aryPersist, null, next);
+      },
+      function(aryResult, next) {
+        console.log("re-retrieving '%s' after save...", anImgPath);
+        show(aryResult[0].oid, next);
+      }
+    ],
+    function(err, theSavedImage) {
+      if (err) { 
+        var errMsg = util.format("Error occurred while saving image '%s': '%s'", anImgPath, err);
+        console.log(errMsg);
+        if (_.isFunction(callback)) { callback(errMsg); }
+      }
+      callback(null, theSavedImage);
     }
   );
-}; // end save
+}
+exports.save = save;
 
 
 /*
@@ -121,6 +133,8 @@ function parseAndTransform(anImgPath, options, callback)
 
   var variants     = options && _.has(options, 'desiredVariants') && _.isArray(options.desiredVariants) ? 
     options.desiredVariants : [];
+
+  var batchId = options && _.isString(options.batch_id) ? options.batch_id : '' ;
 
   // var variant = variants[0];
 
@@ -142,8 +156,7 @@ function parseAndTransform(anImgPath, options, callback)
     function(err, theImgMeta, theImgPath) {
       if (err) { throw err;}
 
-      // we'll need this to reference the original in the variant's metadata
-      // origOid = theImgMeta.oid;
+      theImgMeta.batch_id = batchId;
 
       if (saveOriginal) {
         aryPersist.push({ data: theImgMeta, stream: theImgPath });
@@ -162,7 +175,7 @@ function parseAndTransform(anImgPath, options, callback)
           // variant.orig_id = origOid;
           transform(theImgMeta, variant, function(err, theVariantData, theVariantPath) {
             if (err) { next(err); } 
-            console.log('theVariantPath is: %j', theVariantPath);
+            console.log('theVariantPath is: %s', theVariantPath);
             aryPersist.push({ data: theVariantData, stream: theVariantPath, isTemp: true });
             // console.log('aryPersist.length: %j', aryPersist.length);
             console.log("returning the variant...");
@@ -367,14 +380,14 @@ function persist(persistCommand, callback)
       // console.log("saved image: " + JSON.stringify(imgData,null,"  "));
 
       if (_.isString(persistCommand.stream)) {
-        console.log("streaming image bits to storage device from %j", persistCommand.stream);
+        console.log("streaming image bits to storage device from %s", persistCommand.stream);
         var imgStream = fs.createReadStream(persistCommand.stream);
 
         var attachName = _.last(imgData.path.split('/'));
 
         //console.log("imgData: %j", util.inspect(imgData));
         //console.log("attachName: %j", attachName);
-        console.log("stream: %j", util.inspect(imgStream));
+        // console.log("stream: %s", util.inspect(imgStream));
 
         try {
         imgStream.pipe(
@@ -386,7 +399,7 @@ function persist(persistCommand, callback)
             {rev: imgData._storage._rev}, this)
         );  
         }
-        catch(e) { console.log("streaming error: %j", util.inspect(e));}
+        catch(e) { console.log("streaming error: %s", util.inspect(e));}
         // console.log("stream after: %j", util.inspect(imgStream));
       } else {
         // we are done
@@ -434,22 +447,29 @@ function show(oid, callback, options)
       ,include_docs: true
     }, 
     function(err, body) {
-      console.log("Displaying an image and its variants using view '%j'", VIEW_BY_OID_WITH_VARIANT);
+      console.log("Displaying an image and its variants using view '%s'", VIEW_BY_OID_WITH_VARIANT);
+      // console.log("body: %s", util.inspect(body));
+      // console.log("err: %s", util.inspect(err));
 
       if (!err) {
-        var docBody = body.rows[0].doc;
-        imgOut = new Image(docBody);
-        imgOut.url = priv.getImageUrl(docBody);
-        if (body.rows.length > 0) {
-          for (var i = 1; i < body.rows.length; i++) {
-            // console.log('show: variant - oid - %j, size - %j, orig_id - %j',row.doc.oid, row.doc.geometry, row.doc.orig_id);
-            var vDocBody = body.rows[i].doc;
-            var vImage = new Image(vDocBody);
-            vImage.url = priv.getImageUrl(vDocBody);
-            // console.log('show: oid - %j, assigned url - %j',row.doc.oid, vImage.url);
-            imgOut.variants.push(vImage);
+        if (body.rows.length === 0) {
+          console.log("Warning: unable to find image with oid '%s'", oid);
+        } else {
+          var docBody = body.rows[0].doc;
+          imgOut = new Image(docBody);
+          imgOut.url = priv.getImageUrl(docBody);
+          if (body.rows.length > 0) {
+            for (var i = 1; i < body.rows.length; i++) {
+              // console.log('show: variant - oid - %j, size - %j, orig_id - %j',row.doc.oid, row.doc.geometry, row.doc.orig_id);
+              var vDocBody = body.rows[i].doc;
+              var vImage = new Image(vDocBody);
+              vImage.url = priv.getImageUrl(vDocBody);
+              // console.log('show: oid - %j, assigned url - %j',row.doc.oid, vImage.url);
+              imgOut.variants.push(vImage);
+            }
           }
         }
+
         callback(null, imgOut);
 
       } else {
@@ -457,7 +477,7 @@ function show(oid, callback, options)
       }
     }
   );
-}; // end load
+} // end load
 exports.show = show;
 
 
@@ -511,16 +531,8 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
   console.log("view_opts: " + util.inspect(view_opts));
 
   db.view(IMG_DESIGN_DOC, VIEW_BY_CREATION_TIME, view_opts,
-    /*
-    { 
-      startkey: theStartKey
-      ,endkey:  theEndKey
-      ,include_docs: true
-    }, 
-    */
     function(err, body) {
-      console.log("Finding images and their variants using view '%j'", VIEW_BY_CREATION_TIME);
-
+      console.log("Finding images and their variants using view '%s'", VIEW_BY_CREATION_TIME);
       if (!err) {
 
         // TODO: factor this out into a function that maps the body.rows collection 
@@ -594,18 +606,22 @@ exports.batchImportFs = function batchImportFs(target_dir, callback, options)
           return;
         }
 
-        importBatch = new ImageBatch(
+        importBatch = new ImportBatch(
           { root_path: target_dir, oid: priv.genOid(), images_to_import: aryImage }
         );
-        console.log('new importBatch: %s', util.inspect(importBatch,false,0));
+        // console.log('new importBatch: %s', util.inspect(importBatch));
+        console.log('new importBatch: %j', importBatch);
 
-        // saveBatch(importBatch, options, next);
+        options.batch_id = importBatch.oid;
+        saveBatch(importBatch, options, next);
       }
     ],
-    function(err) {
+    function(err, importBatch) {
       if (err) { 
         var errMsg = "Error in batchImportFs: " + err;
         callback(errMsg, importBatch);
+      } else {
+        callback(null, importBatch);
       }
     }
   );
@@ -618,17 +634,30 @@ exports.batchImportFs = function batchImportFs(target_dir, callback, options)
 function saveBatch(importBatch, options, callback)
 {
   // pathSpec will be of the form: {path: 'somePath', format: 'jpg'}
-  function iterator(pathSpec, next) {
-    /*
+  function saveBatchImage(pathSpec, next) {
+    var imgPath = pathSpec.path;
     save(
-      pathSpec[0]
-      ,function(err, image) {}
+      imgPath
+      ,function(err, image) {
+        if (err) {
+          console.log("error while saving image at '%s': %s", imgPath, err);
+          importBatch.errs[imgPath] = err;
+        } else {
+          importBatch.images[imgPath] = image;
+        }
+        next();
+      }
       ,options
     );
-    */
   }
 
-  async.forEachLimit(importBatch.images_to_import, 1, iterator, function(err) {
+  // The literal integer in the function call below limits the number of concurrent 
+  // processes that are spawned to save the import batch.  There is a noticeable increase in
+  // throughput when increasing this number from 1 to 3.  Beyond that, the load of the system
+  // increases substantially without a further increase in throughput. Mileage may vary on your
+  // system.
+  async.forEachLimit(importBatch.images_to_import, 3, saveBatchImage, function(err) {
+    importBatch.ended_at = new Date();
     callback(err, importBatch);
   });
 }

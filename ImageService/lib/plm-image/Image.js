@@ -16,6 +16,7 @@ module.exports = new Class(
     this.class_name = 'plm.Image'; 
 
     this.orig_id  = '';
+    this.batch_id = '';
     this.path     = '';
     this.name     = '';
     this.format   = '';
@@ -43,7 +44,8 @@ module.exports = new Class(
       this.filesize = args.filesize;
       this.checksum = args.checksum;
       this.metadata_raw = args.metadata_raw;
-      if(_.isString(args.orig_id)) {this.orig_id  = args.orig_id;}
+      if(_.isString(args.orig_id))  {this.orig_id  = args.orig_id;}
+      if(_.isString(args.batch_id)) {this.batch_id = args.batch_id;}
     }
   },
 
