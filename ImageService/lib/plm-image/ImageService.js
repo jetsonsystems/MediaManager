@@ -414,12 +414,17 @@ exports.show = function show(oid, callback, options)
       console.log("Displaying an image and its variants using view '%j'", VIEW_BY_OID_WITH_VARIANT);
 
       if (!err) {
-
-        imgOut = new Image(body.rows[0].doc);
+        var docBody = body.rows[0].doc;
+        imgOut = new Image(docBody);
+        imgOut.url = priv.getImageUrl(docBody);
         if (body.rows.length > 0) {
           for (var i = 1; i < body.rows.length; i++) {
-            // console.log('oid %j - size %j - orig_id',row.doc.oid, row.doc.geometry, row.doc.orig_id);
-            imgOut.variants.push( new Image(body.rows[i].doc) );
+            // console.log('show: variant - oid - %j, size - %j, orig_id - %j',row.doc.oid, row.doc.geometry, row.doc.orig_id);
+            var vDocBody = body.rows[i].doc;
+            var vImage = new Image(vDocBody);
+            vImage.url = priv.getImageUrl(vDocBody);
+            // console.log('show: oid - %j, assigned url - %j',row.doc.oid, vImage.url);
+            imgOut.variants.push(vImage);
           }
         }
         callback(null, imgOut);
@@ -498,7 +503,15 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
         // into the proper Array of Image originals and their variants
         for (var i = 0; i < body.rows.length; i++) {
           // console.log(util.inspect(body.rows[i]));
-          anImg = new Image(body.rows[i].doc);
+          var docBody = body.rows[i].doc;
+
+          anImg = new Image(docBody);
+
+          //
+          // Assign a URL to the image. Note, this is temporary as the images
+          // will eventually move out of Couch / Touch DB.
+          //
+          anImg.url = priv.getImageUrl(docBody);
           
           if ( anImg.isOriginal()) {
             imgMap[anImg.oid] = anImg;
@@ -622,6 +635,33 @@ exports.collectImagesInDir = function collectImagesInDir(target_dir, callback)
     }
   });
 };  // end collectImagesInDir
+
+/*
+ *  getImageUrl: Helper to construct a URL to reference the image associated with a document.
+ */
+priv.getImageUrl = function(doc) {
+  var url = 'http://' + config.db.host;
+  if (config.db.port) {
+    url = url + ':' + config.db.port;
+  }
+  url = url + '/';
+  if (config.db.name) {
+    url = url + config.db.name + '/';
+  }
+  else {
+    return null;
+  }
+  if (doc._id) {
+    url = url + doc._id + '/';
+  }
+  else {
+    return null;
+  }
+  if (doc.path) {
+    url = url + _.last(doc.path.split('/'));
+  }
+  return url;
+};
 
 
 /**

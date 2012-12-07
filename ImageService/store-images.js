@@ -9,12 +9,24 @@ var imageService = require('ImageService');
 
 var opts = require('optimist')
   .boolean('v')
-  .usage('Usage: $0 [<options>] <import dir>\n\nImports images into PLM Media Manager from <import dir>.');
+  .usage('Usage: $0 [<options>] <dbname> <import dir>\n\nImports images into PLM Media Manager from <import dir>.')
+  .options({
+    'h' : {
+      'alias' : 'host',
+      'default' : 'localhost',
+      'describe' : 'TouchDB / CouchDB host.'
+    },
+    'p' : {
+      'alias' : 'port',
+      'default' : 5984,
+      'describe' : 'TouchDB / CouchDB port number.'
+    }
+  });
 var argv = opts.argv;
 
 var argsOk = function(argv) {
-  if (argv._.length !== 1) {
-    console.log('A single <import dir> is required.');
+  if (argv._.length !== 2) {
+    console.log('<dbname> and <import dir> are required arguments.');
     return false;
   }
   return true;
@@ -25,10 +37,13 @@ if (!argsOk) {
   process.exit(1);
 }
 
-imageService.config.db.port = 59840;
-imageService.config.db.name = 'plm-media-manager-test0';
+var dbName = argv._[0];
 
-var importDir = argv._[0];
+imageService.config.db.host = argv.h;
+imageService.config.db.port = argv.p;
+imageService.config.db.name = dbName;
+
+var importDir = argv._[1];
 
 var files = [];
 var maxParallel = 2;

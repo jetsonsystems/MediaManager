@@ -26,8 +26,27 @@ require('mootools');
 var imageService = require('ImageService');
 var imageServicePackage = require('ImageService/package.json');
 
-imageService.config.db.port = 59840;
-imageService.config.db.name = 'plm-media-manager-test0';
+//
+// config: configuration function. 
+//    Note, perhaps this should be an object which when values change we
+//    update values in the image service.
+//
+//    options:
+//      dbHost
+//      dbPort
+//      dbName
+//
+var config = exports.config = function(options) {
+  if (_.has(options, 'dbHost')) {
+    imageService.config.db.host = options.dbHost;
+  }
+  if (_.has(options, 'dbPort')) {
+    imageService.config.db.port = options.dbPort;
+  }
+  if (_.has(options, 'dbName')) {
+    imageService.config.db.name = options.dbName;
+  }
+};
 
 var ConsoleLogger = function(debugLevel) {
 
@@ -241,7 +260,7 @@ var Images = exports.Images = new Class({
     //  Image Service attrs -> short form attributes.
     //
     this._shortFormAttrs = {
-      uuid: 'id',
+      oid: 'id',
       name: 'name',
       url: 'url',
       geometry: 'geometry',
@@ -255,7 +274,7 @@ var Images = exports.Images = new Class({
     //  Image Service attrs -> full form attributes.
     //
     this._fullFormAttrs = {
-      uuid: 'id',
+      oid: 'id',
       name: 'name',
       path: 'path',
       import_root_dir: 'import_root_dir',
@@ -304,6 +323,7 @@ var Images = exports.Images = new Class({
         options.errorCode = -1;
         options.errorMessage = err;
       }
+      // cLogger.log('Images.read', 'got result of - ' + JSON.stringify(result));
       cLogger.log('Images.read', 'invoking callback with status - ' + status + ', path - ' + that.path + ', id - ' + id);
       var callbackOptions = options ? _.clone(options) : {};
       callbackOptions['isInstRef'] = true;
@@ -398,3 +418,7 @@ var Images = exports.Images = new Class({
   }
 
 });
+
+config({dbHost: 'localhost',
+        dbPort: 5984,
+        dbName: 'plm-media-manager-test0'});
