@@ -207,6 +207,9 @@ function transform(anImgMeta, variant, callback)
 
     // called after waterfall ends
     function(err, theVariantMeta, theVariantPath){ 
+      if (_.has(variant, 'name')) {
+        theVariantMeta.name = variant.name;
+      }
       theVariantMeta.orig_id    = anImgMeta.oid;
 
       // timestamp the variants the same as the original, in order to properly sort originals and
@@ -519,6 +522,9 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
           } else {
             // if the image is a variant, add it to the original's variants array
             if (_.isObject(imgMap[anImg.orig_id])) {
+              console.log('Variant w/ name - ' + anImg.name);
+              console.log('Variant w/ doc. body keys - (' + JSON.stringify(_.keys(docBody)) + ')');
+              console.log('Variant w/ image keys - (' + JSON.stringify(_.keys(anImg)) + ')');
               imgMap[anImg.orig_id].variants.push(anImg);
             } else {
               console.log("Warning: found variant image without a parent %j", anImg);
