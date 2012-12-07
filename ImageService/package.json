@@ -2,13 +2,19 @@
   "name": "ImageService",
   "preferGlobal": "true",
   "description": "ImageService",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "author": "Philippe <philippe@jetsonsys.com>",
   "main": "./lib/plm-image/ImageService",
+  "bin": {
+    "update_design_doc": "./update_design_doc.js",
+    "store-images": "./store-images.js"
+  },
   "dependencies" : {
     "async" : "*"
+    ,"dive": "*"
     ,"gm" : "*"
     ,"imagemagick" : "*"
+    ,"mime-magic" : "*"
     ,"moment" : "*"
     ,"mootools" : "*"
     ,"nano" : "*"

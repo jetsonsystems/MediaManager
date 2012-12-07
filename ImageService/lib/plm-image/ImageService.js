@@ -1,12 +1,14 @@
 'use strict';
 var  
-   _   = require('underscore')
+   _     = require('underscore')
   ,async = require('async')
-  ,cs  = require('./checksum')
-  ,fs  = require('fs')
-  ,gm  = require('gm')
+  ,cs    = require('./checksum')
+  ,dive  = require('dive')
+  ,fs    = require('fs')
+  ,gm    = require('gm')
   ,Image = require('./Image')
   ,img_util = require('./image_util')
+  ,mime     = require('mime-magic')
   ,moment   = require('moment')
   ,nano  = require('nano')
   ,step  = require('step')
@@ -53,12 +55,12 @@ exports.checkConfig = function checkConfig(callback) {
 // returns a db connection
 priv.db = function db() {
   return nano('http://' + config.db.host + ':' + config.db.port + '/' + config.db.name);
-}
+};
 
 
 priv.genOid = function genOid() {
   return uuid.v4();
-}
+};
 
 
 // checks to see whether an image with the given oid already exists,
@@ -81,7 +83,7 @@ exports.findVersion = function findVersion(oid, callback) {
       callback(JSON.parse(hdr.etag));
     }
   );
-}
+};
 
 
 /** the main ingestion function */
@@ -91,7 +93,7 @@ exports.save = function save(anImgPath, callback, options)
     function() {
       parseAndTransform(anImgPath, options, this);
     },
-    // function(err, imgData, imgStream) {
+
     function(err, aryPersist) {
       if (err) { if (_.isFunction(callback)) callback(err); return; }
       // persist( {data: imgData, stream: imgStream }, callback);
@@ -99,7 +101,7 @@ exports.save = function save(anImgPath, callback, options)
       persistMultiple(aryPersist, null, callback);
     }
   );
-} // end save
+}; // end save
 
 
 /*
@@ -109,7 +111,7 @@ exports.save = function save(anImgPath, callback, options)
  */
 function parseAndTransform(anImgPath, options, callback) 
 {
-  if (!_.isFunction(callback)) throw err("parseAndTransform is not very useful if you don't provide a valid callback");
+  if (!_.isFunction(callback)) throw "parseAndTransform is not very useful if you don't provide a valid callback";
 
   var saveOriginal = options && _.has(options, 'saveOriginal') ? 
     options.saveOriginal : true;
@@ -128,8 +130,6 @@ function parseAndTransform(anImgPath, options, callback)
   var aryPersist = [];
 
   // var origOid = '';
-
-  var that = this;
 
   step(
     function() {
@@ -175,7 +175,7 @@ function parseAndTransform(anImgPath, options, callback)
       }
     }
   );
-}
+}  // end parseAndTransform
 
 
 /** returns theImgData, theImgStream */
@@ -219,7 +219,7 @@ function transform(anImgMeta, variant, callback)
       callback(err, theVariantMeta, theVariantPath); 
     }
   );
-}
+}  // end transform
 
 
 /*
@@ -275,7 +275,7 @@ function parseImage(anImgPath, callback) {
       callback(null, imageMeta, anImgPath);
     }
   );
-} // end parseImage
+}; // end parseImage
 exports.parseImage = parseImage;
 
 function persistMultiple(aryPersist, aryResult, callback)
@@ -391,7 +391,8 @@ function persist(persistCommand, callback)
 } // end persist
 
 
-exports.show = function show(oid, callback, options) {
+exports.show = function show(oid, callback, options) 
+{
   var db = priv.db();
   var imgOut = {};
 
@@ -413,26 +414,32 @@ exports.show = function show(oid, callback, options) {
       console.log("Displaying an image and its variants using view '%j'", VIEW_BY_OID_WITH_VARIANT);
 
       if (!err) {
-
-        imgOut = new Image(body.rows[0].doc);
+        var docBody = body.rows[0].doc;
+        imgOut = new Image(docBody);
+        imgOut.url = priv.getImageUrl(docBody);
         if (body.rows.length > 0) {
           for (var i = 1; i < body.rows.length; i++) {
-            // console.log('oid %j - size %j - orig_id',row.doc.oid, row.doc.geometry, row.doc.orig_id);
-            imgOut.variants.push( new Image(body.rows[i].doc) );
+            // console.log('show: variant - oid - %j, size - %j, orig_id - %j',row.doc.oid, row.doc.geometry, row.doc.orig_id);
+            var vDocBody = body.rows[i].doc;
+            var vImage = new Image(vDocBody);
+            vImage.url = priv.getImageUrl(vDocBody);
+            // console.log('show: oid - %j, assigned url - %j',row.doc.oid, vImage.url);
+            imgOut.variants.push(vImage);
           }
         }
         callback(null, imgOut);
 
       } else {
         callback("error retrieving image with oid '" + oid + "': " + err);
-      };
+      }
     }
   );
-}
+}; // end show
 
 
 /* main image finder method */
-exports.index = function index( callback, options ) {
+exports.index = function index( callback, options ) 
+{
   console.log("options: " + util.inspect(options));
 
   // TODO: 
@@ -446,11 +453,11 @@ exports.index = function index( callback, options ) {
     exports.findByCreationTime( null, callback, options);
 
   }
-}
+};
 
 
-exports.findByCreationTime = function findByCreationTime( criteria, callback, options ) {
-
+exports.findByCreationTime = function findByCreationTime( criteria, callback, options ) 
+{
   var db = priv.db();
   var aryImgOut = []; // images sorted by creation time
   var imgMap    = {}; // temporary hashmap that stores original images by oid
@@ -496,7 +503,15 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
         // into the proper Array of Image originals and their variants
         for (var i = 0; i < body.rows.length; i++) {
           // console.log(util.inspect(body.rows[i]));
-          anImg = new Image(body.rows[i].doc);
+          var docBody = body.rows[i].doc;
+
+          anImg = new Image(docBody);
+
+          //
+          // Assign a URL to the image. Note, this is temporary as the images
+          // will eventually move out of Couch / Touch DB.
+          //
+          anImg.url = priv.getImageUrl(docBody);
           
           if ( anImg.isOriginal()) {
             imgMap[anImg.oid] = anImg;
@@ -514,11 +529,140 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
 
       } else {
         callback("error in findByCreationTime with options '" + options + "': " + err + ", with body '" + JSON.stringify(body) + "'");
-      };
+      }
     }
   );
+}; // end findByCreationTime
 
-}
+
+/**
+ * Batch imports a collection of images by recursing through a file system
+ *
+ * options:
+ *   - recursionDepth: 0,    // by default performs full recursion, '1' would process only the files inside the target_dir
+ *   - ignoreDotFiles: true, // by default ignore .dotfiles
+ *   - all options that can be passed to ImageService.save() which will be applied to all images in
+ *     the import batch
+ *
+ * callback is invoked with:
+ *   - err: error that may have prevented process from running at all
+ *   - failure: map of errs for paths that were not saved, keyed by path
+ *   - success: map of images that were saved successfully, keyed by path
+ *
+ */
+exports.batchImportFs = function batchImportFs(target_dir, callback, options) 
+{
+  // dive through file system and retrieve array of image paths + mime types
+  
+  // create batchImport record
+
+  // go through array and call 'save' on each image
+  
+  // collect saved images or errors, as the case may be
+ 
+  /*
+  dive(target_dir, null, action, function() {
+    console.log("done diving through %j", target_dir);
+  });
+  */
+};
+
+
+/**
+ * Recurses inside a folder and returns a tuple 
+ *   {path: "target_dir/someImage", format: "jpg"}
+ * for all the images that it finds underneath the folder;
+ * TODO: add a parameter to limit the recursion level
+ */
+exports.collectImagesInDir = function collectImagesInDir(target_dir, callback) 
+{
+  var aryFile  = [];
+  var aryImage = [];
+
+  // this method is called further below on each file under the target directory 
+  // to determine whether it is an image and determine its mime type
+  function collectImage(file, next) {
+    // console.log("processing %s", file);
+    mime(file, function(err, mimeType) {
+      if (err) { console.log("error while collecting images: %s", err); next(err); return; }
+
+      // converts a string like 'image/jpg' to ['image', 'jpg']
+      var mimeData = mimeType.split("/");
+
+      if (mimeData[0] === 'image') {
+        aryImage.push({ path: file, format: mimeData[1] });
+      }
+      next();
+    });
+  }
+
+
+  async.waterfall([
+
+    // collect all files inside the target directory first
+    function(next) {
+      console.log("Diving into %s", target_dir);
+      dive(target_dir, {directories: false},
+        function(err, file) { 
+          // console.log(file);
+          if (err) { console.log("Warning while diving through '%s': %s", target_dir, err); }
+          else {aryFile.push(file);}
+        },
+        function() { next();}
+      );
+    },
+
+    function(next) {
+      console.log("Found %s files under '%s'", aryFile.length, target_dir);
+      // _.each(aryFile, function(f){ console.log('file %s',f )});
+      
+      // calling 'mime' concurrently can lead to a 'too many open files' error
+      // so we limit the number of concurrent calls to mime, with the forEachLimit below.
+      // In addition, raising the limit leads to higher system loads, 
+      // with no apparent improvement in performance.
+      async.forEachLimit(aryFile, 3, collectImage, next);
+    }
+  ],  
+
+  // called after waterfall completes
+  function(err) { 
+    if (err) {
+      console.log("Error while collecting images in directory '%s': %s", target_dir, err);
+      callback(err);
+    } else {
+      console.log("Found %s images under directory '%s'", aryImage.length, target_dir);
+      callback(null, aryImage);
+    }
+  });
+};  // end collectImagesInDir
+
+/*
+ *  getImageUrl: Helper to construct a URL to reference the image associated with a document.
+ */
+priv.getImageUrl = function(doc) {
+  var url = 'http://' + config.db.host;
+  if (config.db.port) {
+    url = url + ':' + config.db.port;
+  }
+  url = url + '/';
+  if (config.db.name) {
+    url = url + config.db.name + '/';
+  }
+  else {
+    return null;
+  }
+  if (doc._id) {
+    url = url + doc._id + '/';
+  }
+  else {
+    return null;
+  }
+  if (doc.path) {
+    url = url + _.last(doc.path.split('/'));
+  }
+  return url;
+};
+
 
 /**
  * Utility method that converts a Date instance into an array of ints representing:
@@ -532,8 +676,8 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
  * 6 Millis
  *
  */
-priv.date_to_array = function date_to_array(aDate) {
-
+priv.date_to_array = function date_to_array(aDate) 
+{
   // console.log("date_to_array arg: " + util.inspect(aDate));
 
   if (_.isString(aDate)) {
@@ -554,8 +698,9 @@ priv.date_to_array = function date_to_array(aDate) {
     ,aDate.getMinutes()
     ,aDate.getSeconds()
     ,aDate.getMilliseconds()
-  ]
-}
+  ];
+};
+
 
 // export all functions in pub map
 /*

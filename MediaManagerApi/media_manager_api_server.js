@@ -9,18 +9,54 @@
 //      * Note: the /api/media-manager path prefix if required is added by any reverse proxy forwarding requests to this
 //        service.
 //
-var version = '0.0.0';
+var version = '0.0.1';
 var urlVersion = 'v0';
 var serverName = 'media_manager_api_server';
-var serverPort = 9000;
+
 var logDir = '/var/log/' + serverName;
 var infoLogfile = serverName + '.log';
 var errorLogfile = serverName + '.log';
-
 var _ = require('underscore');
 var url = require('url');
 var mmApi = require('MediaManagerApi/lib/MediaManagerApiCore');
 var restify = require('restify');
+
+var opts = require('optimist')
+  .boolean('v')
+  .usage('Usage: $0 [<options>] <port> <dbname>\n\nMedia Managager API Server.')
+  .options({
+    'h' : {
+      'alias' : 'dbhost',
+      'default' : 'localhost',
+      'describe' : 'TouchDB / CouchDB host.'
+    },
+    'p' : {
+      'alias' : 'dbport',
+      'default' : 5984,
+      'describe' : 'TouchDB / CouchDB port number.'
+    }
+  });
+var argv = opts.argv;
+
+var argsOk = function(argv) {
+  if (argv._.length !== 2) {
+    console.log('<dbname> and <import dir> are required arguments.');
+    return false;
+  }
+  return true;
+}(argv);
+
+if (!argsOk) {
+  opts.showHelp();
+  process.exit(1);
+}
+
+var serverPort = argv._[0];
+var dbName = argv._[1];
+
+mmApi.config({dbHost: argv.h,
+              dbPort: argv.p,
+              dbName: dbName});
 
 var bunyan = require('bunyan');
 var logger = bunyan.createLogger({

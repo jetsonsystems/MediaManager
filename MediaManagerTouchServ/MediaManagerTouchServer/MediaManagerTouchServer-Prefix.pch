@@ -1,0 +1,7 @@
+//
+// Prefix header for all source files of the 'MediaManagerTouchServer' target in the 'MediaManagerTouchServer' project
+//
+
+#ifdef __OBJC__
+    #import <Cocoa/Cocoa.h>
+#endif

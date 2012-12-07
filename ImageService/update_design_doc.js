@@ -63,10 +63,8 @@ var design_doc_couchdb = {
 var design_doc_touchdb = {
   "views" : {
     "by_oid_with_variant" : {
-      "map" : "^(NSDictionary* doc, void (^emit)(id key, id value)) {emit([doc.oid], doc.path);}"
     },
     "by_creation_time" : { 
-      "map" : "^(NSDictionary* doc, void (^emit)(id key, id value)) {emit(doc.oid, doc.path);}"
     }
   }
 }
