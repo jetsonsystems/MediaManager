@@ -86,7 +86,7 @@ module.exports = new Class(
       this.filesize = obj.Filesize;
       this.metadata_raw = obj;
     }
-  },
+  }
 }); 
 
 // var img = new Image();

@@ -15,5 +15,11 @@
     ,"node-uuid" : "*"
     ,"step" : "*"
     ,"underscore" : "*"
+    ,"underscore.string" : "*"
+    ,"mockdata" : "*"
+    },
+    "devDependencies": {
+        "mocha": "*",
+        "should":"*"
   }
 }
