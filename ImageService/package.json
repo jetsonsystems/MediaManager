@@ -24,6 +24,9 @@
     ,"underscore.string" : "*"
     ,"mockdata" : "*"
     },
+    "scripts": {
+        "test": "make test"
+    },
     "devDependencies": {
         "mocha": "*",
         "should":"*"
