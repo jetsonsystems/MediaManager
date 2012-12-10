@@ -427,8 +427,18 @@ function persist(persistCommand, callback)
 } // end persist
 
 
+/**
+ * Retrieve an image and its variants by oid; by default, the field Image.metadata_raw is suppressed
+ * from the object returned.  If you need this field, pass the showMetadata option.
+ *
+ * options:
+ *
+ *   showMetadata: false by default, set to true to enable display of Image.metadata_raw
+ *
+ */
 function show(oid, callback, options) 
 {
+  var opts = options || {};
   var db = priv.db();
   var imgOut = {};
 
@@ -447,7 +457,8 @@ function show(oid, callback, options)
       ,include_docs: true
     }, 
     function(err, body) {
-      console.log("Displaying an image and its variants using view '%s'", VIEW_BY_OID_WITH_VARIANT);
+      console.log("Displaying image '%s' and its variants using view '%s'", oid, VIEW_BY_OID_WITH_VARIANT);
+
       // console.log("body: %s", util.inspect(body));
       // console.log("err: %s", util.inspect(err));
 
@@ -458,16 +469,19 @@ function show(oid, callback, options)
           var docBody = body.rows[0].doc;
           imgOut = new Image(docBody);
           imgOut.url = priv.getImageUrl(docBody);
+          if (!opts.showMetadata) { delete imgOut.metadata_raw; }
           if (body.rows.length > 0) {
             for (var i = 1; i < body.rows.length; i++) {
               // console.log('show: variant - oid - %j, size - %j, orig_id - %j',row.doc.oid, row.doc.geometry, row.doc.orig_id);
               var vDocBody = body.rows[i].doc;
               var vImage = new Image(vDocBody);
+              if (!opts.showMetadata) { delete vImage.metadata_raw; }
               vImage.url = priv.getImageUrl(vDocBody);
               // console.log('show: oid - %j, assigned url - %j',row.doc.oid, vImage.url);
               imgOut.variants.push(vImage);
             }
           }
+          console.log("Found image with oid '%s': %j", oid, imgOut);
         }
 
         callback(null, imgOut);
@@ -481,7 +495,18 @@ function show(oid, callback, options)
 exports.show = show;
 
 
-/* main image finder method */
+/**
+ * Main image finder method
+ *
+ * Retrieve an image and its variants according to the criteria passed in the 'options' object.
+ *
+ * By default, the field Image.metadata_raw will be suppressed in the objects returned.  If you
+ * need this field, pass the showMetadata option.
+ *
+ * options:
+ *
+ *   showMetadata: false by default, set to true to enable display of Image.metadata_raw
+ */
 exports.index = function index( callback, options ) 
 {
   console.log("options: " + util.inspect(options));
@@ -500,15 +525,25 @@ exports.index = function index( callback, options )
 };
 
 
+/**
+ * Find images by creation date range. Expects a 'created' array containing a start date and an end
+ * date.  A null start date means 'show all from earliest until the end date'.  A null end date means
+ * 'show all from start date forward'. Null start and end dates will return all images, so use with
+ * caution.
+ *
+ * options:
+ *
+ *   showMetadata: false by default, set to true to enable display of Image.metadata_raw
+ */
 exports.findByCreationTime = function findByCreationTime( criteria, callback, options ) 
 {
+  var opts = options || {};
   var db = priv.db();
   var aryImgOut = []; // images sorted by creation time
   var imgMap    = {}; // temporary hashmap that stores original images by oid
-  var anImg     = {}; // 
-  // var theStartKey = [];
-  // var theEndKey;
+  var anImg     = {}; 
 
+  // couchdb specific view options
   var view_opts = {
     startkey: []
     ,include_docs: true
@@ -542,11 +577,10 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
           var docBody = body.rows[i].doc;
 
           anImg = new Image(docBody);
+          if (!opts.showMetadata) { delete anImg.metadata_raw; }
 
-          //
           // Assign a URL to the image. Note, this is temporary as the images
           // will eventually move out of Couch / Touch DB.
-          //
           anImg.url = priv.getImageUrl(docBody);
           
           if ( anImg.isOriginal()) {
