@@ -1,0 +1,4 @@
+{ "name" : "MediaManagerAppConfig",
+  "version" : "0.0.0",
+  "main" : "./lib/config.js"
+}
