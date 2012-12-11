@@ -1,11 +1,15 @@
+#! /usr/bin/node
+
 'use strict';
 var 
   imageService = require('./lib/plm-image/ImageService')
   ,_ = require('underscore')
-  ,util = require('util')
   ,async = require('async')
   ,fs = require('fs')
+  ,log4js = require('log4js')
+  ,util = require('util')
 ;
+
 
 var root_dir = './test/resources';
 
@@ -15,6 +19,24 @@ console.log("starting...");
 
 var asset = ['eastwood','obama','clooney','jayz'];
 
+/*
+log4js.configure({
+  appenders: [
+    {
+      type: "file"
+      ,filename: "service.log"
+      ,category: [ 'plm.ImageService' ]
+    },
+    {
+      type: "console"
+    }
+  ]
+  ,replaceConsole: true
+  ,levels: { 'plm.ImageService' : 'DEBUG' }
+
+
+});
+*/
 
 /*
 imageService.parseImage(
@@ -156,14 +178,13 @@ imageService.save(
 
 
 // show by oid
-/*
-var oid = '74e9c5c4-30b2-49d8-ba75-4a623864b01e';
+var oid = '0830a27b-fa78-4f7d-8f92-f865822e9e95';
+// var oid ='somebogus-oid'
 imageService.show(oid, function(err, image) {
   if (err) { console.log("error: " + err); return; };
   //console.log('retrieved image with oid %j: ' +  JSON.stringify(image,null,'  '), oid);
   console.log("retrieved image with oid '%s': %s", oid, util.inspect(image, true, null));
 });
-*/
 
 
 // return all by default
@@ -201,6 +222,7 @@ imageService.index(
 */
 
 
+/*
 var target_dir = "/home/philippe/project/jetsonsys/src/ImageService/test/resources";
 // var target_dir = "test/resources/empty";
 var options = {};
@@ -217,6 +239,7 @@ imageService.batchImportFs(
     ]
   }
 );
+*/
 
 
   }

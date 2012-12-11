@@ -9,6 +9,7 @@ var
   ,Image = require('./Image')
   ,ImportBatch = require('./ImportBatch')
   ,img_util = require('./image_util')
+  ,log4js   = require('log4js')
   ,mime     = require('mime-magic')
   ,moment   = require('moment')
   ,nano  = require('nano')
@@ -29,6 +30,8 @@ var config = {
 
 
 exports.config = config;
+
+var log = log4js.getLogger('plm.ImageService');
 
 // map used to store all private functions
 var priv = {};
@@ -75,12 +78,12 @@ exports.findVersion = function findVersion(oid, callback) {
     },
     function (err, body, hdr) {
       if (err) {
-        if (err.scope == 'couch' && err.status_code == 404) { 
+        if (err.scope === 'couch' && err.status_code === 404) { 
         // there is no doc with that id, return null
         callback(null); return;
         } else { throw err;} // some other error
       }
-      console.log("version is: %j", JSON.parse(hdr.etag));
+      console.log("version is: %s", hdr.etag);
       callback(JSON.parse(hdr.etag));
     }
   );
@@ -457,14 +460,16 @@ function show(oid, callback, options)
       ,include_docs: true
     }, 
     function(err, body) {
-      console.log("Displaying image '%s' and its variants using view '%s'", oid, VIEW_BY_OID_WITH_VARIANT);
+      log.debug("Displaying image '%s' and its variants using view '%s'", oid, VIEW_BY_OID_WITH_VARIANT);
 
-      // console.log("body: %s", util.inspect(body));
-      // console.log("err: %s", util.inspect(err));
+      if (log.isTraceEnabled()) {
+        if (body) log.trace("body: %s", util.inspect(body));
+        if (err)  log.trace("err: %s", util.inspect(err));
+      }
 
       if (!err) {
         if (body.rows.length === 0) {
-          console.log("Warning: unable to find image with oid '%s'", oid);
+          log.warn("Unable to find image with oid '%s'", oid);
         } else {
           var docBody = body.rows[0].doc;
           imgOut = new Image(docBody);
@@ -481,7 +486,7 @@ function show(oid, callback, options)
               imgOut.variants.push(vImage);
             }
           }
-          console.log("Found image with oid '%s': %j", oid, imgOut);
+          log.info("Found image with oid '%s': %j", oid, imgOut);
         }
 
         callback(null, imgOut);
@@ -541,7 +546,7 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
   var db = priv.db();
   var aryImgOut = []; // images sorted by creation time
   var imgMap    = {}; // temporary hashmap that stores original images by oid
-  var anImg     = {}; 
+  var anImg     = {};
 
   // couchdb specific view options
   var view_opts = {
