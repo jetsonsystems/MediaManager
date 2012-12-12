@@ -1,4 +1,4 @@
-'use_strict';
+'use strict';
 
 var 
   nano = require('nano')
@@ -52,24 +52,35 @@ var design_doc_id = '_design/plm-image';
 
 var design_doc_couchdb = {
   "views" : {
-    "by_oid_with_variant" : {
-      "map" : "function(doc) { if (doc.class_name === 'plm.Image') { var key; if (doc.orig_id === ''){ key = [doc.oid,0,doc.size.width]; } else { key = [doc.orig_id,1,doc.size.width]} emit(key, doc.path)} }"
-    },
-    "by_creation_time" : { "map" : "function(doc) { function date_to_array(aDate) { var out = [], d = new Date(aDate); out.push(d.getFullYear()); out.push(d.getMonth()+1); out.push(d.getDate()); out.push(d.getHours()); out.push(d.getMinutes()); out.push(d.getSeconds()); out.push(d.getMilliseconds()); return out;} if (doc.class_name === 'plm.Image') { var key = date_to_array(doc.created_at); if (doc.orig_id === '') { key.push(doc.oid,0,doc.size.width);} else { key.push(doc.orig_id,1,doc.size.width); } emit(key,doc.path)  }}"
+    "image_by_oid_w_variant" : {
+      "map" : "function(doc) { if (doc.class_name === 'plm.Image') { var key; if (doc.orig_id === ''){ key = [doc.oid,0,doc.size.width]; emit(key, doc.path) } else { key = [doc.orig_id,1,doc.size.width]; emit(key, doc.name)}} }"
+    }
+    ,"image_by_ctime" : { 
+      "map" : "function(doc) { if (doc.class_name === 'plm.Image') { var key = date_to_array(doc.created_at); if (doc.orig_id === '') { key.push(doc.oid,0,doc.size.width); emit(key,doc.path)} else { key.push(doc.orig_id,1,doc.size.width); emit(key,doc.name) }} function date_to_array(aDate) { var out = [], d = new Date(aDate); out.push(d.getFullYear()); out.push(d.getMonth()+1); out.push(d.getDate()); out.push(d.getHours()); out.push(d.getMinutes()); out.push(d.getSeconds()); out.push(d.getMilliseconds()); return out;} }"
+    }
+    ,"batch_by_ctime" : {
+      "map" : "function(doc) { if (doc.class_name === 'plm.ImportBatch') { var key = date_to_array(doc.created_at); key.push(doc.oid,0); emit(key,doc.path); } function date_to_array(aDate) { var out = [], d = new Date(aDate); out.push(d.getFullYear()); out.push(d.getMonth()+1); out.push(d.getDate()); out.push(d.getHours()); out.push(d.getMinutes()); out.push(d.getSeconds()); out.push(d.getMilliseconds()); return out; }}"
+    }
+    ,"batch_by_oid_w_image" : {
+      "map" : "function(doc) { var key = []; if (doc.class_name === 'plm.ImportBatch') { key.push(doc.oid,'0',0,0); emit(key,doc.path); } if (doc.class_name === 'plm.Image') { if (doc.orig_id === '') { key.push(doc.batch_id, doc.oid, 1, doc.size.width);} else { key.push(doc.batch_id, doc.orig_id, 2, doc.size.width); } emit(key,doc.name) } function date_to_array(aDate) { var out = [], d = new Date(aDate); out.push(d.getFullYear()); out.push(d.getMonth()+1); out.push(d.getDate()); out.push(d.getHours()); out.push(d.getMinutes()); out.push(d.getSeconds()); out.push(d.getMilliseconds()); return out; }}"
     }
   }
-}
+};
 
 var design_doc_touchdb = {
   "views" : {
-    "by_oid_with_variant" : {
-    },
-    "by_creation_time" : { 
+    "image_by_oid_w_variant" : {
+    }
+    ,"image_by_ctime" : { 
+    }
+    ,"batch_by_ctime" : { 
+    }
+    ,"batch_by_oid_w_image" : { 
     }
   }
-}
+};
 
-var design_doc = undefined;
+var design_doc;
 
 if (argv.t === 'couchdb' ) {
   console.log('DB type is couchdb');

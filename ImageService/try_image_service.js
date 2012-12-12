@@ -7,6 +7,7 @@ var
   ,async = require('async')
   ,fs = require('fs')
   ,log4js = require('log4js')
+  ,str  = require('underscore.string')
   ,util = require('util')
 ;
 
@@ -19,7 +20,6 @@ console.log("starting...");
 
 var asset = ['eastwood','obama','clooney','jayz'];
 
-/*
 log4js.configure({
   appenders: [
     {
@@ -33,10 +33,7 @@ log4js.configure({
   ]
   ,replaceConsole: true
   ,levels: { 'plm.ImageService' : 'DEBUG' }
-
-
 });
-*/
 
 /*
 imageService.parseImage(
@@ -95,7 +92,8 @@ if (err) {
   console.log(err); 
   return;
 } else {
-  console.log("db is ok:\n%s", util.inspect(result));
+  console.log("db is ok:%j", result);
+  // console.log("db is ok:\n%s", util.inspect(result));
 
 // simple save
 /*
@@ -110,21 +108,21 @@ imageService.save(
 );
 */
 
-// save with variants
 
+// save with variants
 /*
 imageService.save(
   root_dir + "/eastwood.png",
   function(err, result) {
     // if (err) { console.log(err); throw err; }
     if (err) { console.log(err); }
-    // console.log("result: " + JSON.stringify(result));
-    console.log("inspect: " + util.inspect(result));
+    console.log("result: %j", result);
+    // console.log("inspect: %s", util.inspect(result));
   },
   { saveOriginal: true 
     ,desiredVariants: [ 
-       { name: 'eastwood_thumb.jpg',  format: "JPG", width: 120, height: 150} 
-      ,{ name: 'eastwood_screen.jpg', format: "JPG", width: 360, height: 450} 
+       { name: 'thumb.jpg',  format: "JPG", width: 120, height: 150} 
+      ,{ name: 'screen.jpg', format: "JPG", width: 360, height: 450} 
     ]
   }
 );
@@ -178,6 +176,7 @@ imageService.save(
 
 
 // show by oid
+/*
 var oid = '0830a27b-fa78-4f7d-8f92-f865822e9e95';
 // var oid ='somebogus-oid'
 imageService.show(oid, function(err, image) {
@@ -185,6 +184,7 @@ imageService.show(oid, function(err, image) {
   //console.log('retrieved image with oid %j: ' +  JSON.stringify(image,null,'  '), oid);
   console.log("retrieved image with oid '%s': %s", oid, util.inspect(image, true, null));
 });
+*/
 
 
 // return all by default
@@ -222,8 +222,9 @@ imageService.index(
 */
 
 
+// batch import from fs
 /*
-var target_dir = "/home/philippe/project/jetsonsys/src/ImageService/test/resources";
+var target_dir = "/home/philippe/project/jetsonsys/src/ImageService/test/resources/gen2/eastwood";
 // var target_dir = "test/resources/empty";
 var options = {};
 imageService.batchImportFs(
@@ -241,6 +242,34 @@ imageService.batchImportFs(
 );
 */
 
+// importBatchFindRecent without images
+/*
+imageService.importBatchFindRecent(8, null, function(err, batches) {
+  if (err) console.log(err);
+  else console.log("done retrieving %s batches: %j", batches.length, batches);
+});
+*/
 
-  }
+// importBatchShow by oid
+/*
+var oid = '07e5be5d-b391-458a-8c79-580a19fc1d63';
+//imageService.importBatchShow(oid, {includeImages: false}, function(err, out) {
+imageService.importBatchShow(oid, null, function(err, out) {
+  if (err) console.log(err);
+  else console.log("importBatch: %j", out);
+  // else console.log("importBatch: %s", util.inspect(out,false,2));
+});
+*/
+
+// importBatchFindRecent with images
+
+imageService.importBatchFindRecent(5, {includeImages: true}, function(err, batches) {
+  if (err) console.log(err);
+  else console.log("done retrieving %s batches: %j", batches.length, batches);
+  // else console.log("done retrieving %s batches:\n%s", batches.length, util.inspect(batches,false,null));
+});
+
+
+
+  } // else from way above
 }); // the initial checkConfig call

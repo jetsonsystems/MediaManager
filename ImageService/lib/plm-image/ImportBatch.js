@@ -22,20 +22,27 @@ module.exports = new Class(
     // for the images that this batch should import
     this.images_to_import = [];
 
+    // transient field that stores processing data
+    this._proc = {};
+
     // transient map of the images that were successfully imported in this batch, keyed by path; 
     // this field not persisted, images will contain a reference to the batch's oid instead
-    this.images = {}; 
+    this._proc.images = {}; 
 
     // map of errors in this batch, keyed by path
     // not persisted, errs will be persisted individually and contain a reference to batch oid
-    this.errs = {};
+    this._proc.errs = {};
+
+    // array of images imported as part of this batch
+    this.images = [];
 
     // if this import batch resulted from a batch import of a folder, 
     // stores the root path of the import
-    this.root_path = '';
+    this.path = '';
 
     var that = this;
 
+    // TODO: move this to Persistent ?
     if (_.isObject(args)) {
       _.each(args, function(value, key) {
         if (value) { that[key] = value; }
@@ -61,10 +68,8 @@ module.exports = new Class(
     delete out.$caller;
     delete out.caller;
 
-    // do not stringify variants, these have to be stringified individually via this.variants;
-    // also, variants are not stored in couch with the original doc
+    delete out.images_to_import;
     delete out.images;
-    delete out.errs;
 
     // cloning will cause functions to be saved to couch if we don't remove them
     for (var prop in out) {
