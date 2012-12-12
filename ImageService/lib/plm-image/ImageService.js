@@ -46,7 +46,7 @@ var
 
 // call this at initialization time to check the db config and connection
 exports.checkConfig = function checkConfig(callback) {
-  console.log('plm-image/ImageService: Checking config - ' + JSON.stringify(config) + '...');
+  log.info('plm-image/ImageService: Checking config - ' + JSON.stringify(config) + '...');
 
   if (!config.db.name) {
     throw "plm-image/ImageService: ImageService.config.db.name must contain a valid database name!";
@@ -73,7 +73,7 @@ exports.findVersion = function findVersion(oid, callback) {
   var db = priv.db();
   step(
     function () {
-      console.log("getting version for oid: %j", oid);
+      log.debug("getting version for oid: %j", oid);
       db.head(oid, this);
     },
     function (err, body, hdr) {
@@ -83,7 +83,7 @@ exports.findVersion = function findVersion(oid, callback) {
         callback(null); return;
         } else { throw err;} // some other error
       }
-      console.log("version is: %s", hdr.etag);
+      log.info("Version of image '%s' is: %s", oid, hdr.etag);
       callback(JSON.parse(hdr.etag));
     }
   );
@@ -105,14 +105,14 @@ function save(anImgPath, callback, options)
         persistMultiple(aryPersist, null, next);
       },
       function(aryResult, next) {
-        console.log("re-retrieving '%s' after save...", anImgPath);
+        log.debug("After save, retrieving image '%s' by oid '%s'", anImgPath, aryResult[0].oid);
         show(aryResult[0].oid, next);
       }
     ],
     function(err, theSavedImage) {
       if (err) { 
         var errMsg = util.format("Error occurred while saving image '%s': '%s'", anImgPath, err);
-        console.log(errMsg);
+        log.error(errMsg);
         if (_.isFunction(callback)) { callback(errMsg); }
       }
       callback(null, theSavedImage);
@@ -169,7 +169,7 @@ function parseAndTransform(anImgPath, options, callback)
 
       if (!_.isObject(variants[0])) {
         // we are done
-        console.log("no variant to process...");
+        log.debug("No variants to process for '%s'", anImgPath);
         callback(null, aryPersist);
       }
       else { 
@@ -178,17 +178,15 @@ function parseAndTransform(anImgPath, options, callback)
           // variant.orig_id = origOid;
           transform(theImgMeta, variant, function(err, theVariantData, theVariantPath) {
             if (err) { next(err); } 
-            console.log('theVariantPath is: %s', theVariantPath);
+            log.trace('theVariantPath is: %s', theVariantPath);
             aryPersist.push({ data: theVariantData, stream: theVariantPath, isTemp: true });
-            // console.log('aryPersist.length: %j', aryPersist.length);
-            console.log("returning the variant...");
             next();
           });
         };
 
         async.forEachSeries( variants, iterator, function(err) {
           if (err) callback(err);
-          console.log("done generating all the variants...");
+          log.info("Done generating all the variants for '%s'", anImgPath);
           callback(null, aryPersist);
         });
       }
@@ -201,6 +199,7 @@ function parseAndTransform(anImgPath, options, callback)
 function transform(anImgMeta, variant, callback) 
 {
   var gmImg = gm(anImgMeta.path);
+  if (log.isDebugEnabled()) { log.debug("Generating variant %j of image '%s'", variant, anImgMeta.path); }
   async.waterfall(
     [
       function(next){
@@ -209,8 +208,7 @@ function transform(anImgMeta, variant, callback)
           var newSize = img_util.fitToSize(anImgMeta.size, { width: variant.width, height: variant.height });
           gmImg.resize(newSize.width, newSize.height);
         } 
-        console.log('generating bits for variant...');
-        // gmImg.stream(variant.format, next);
+
         var tmp_file_name = config.workDir + '/plm-' + anImgMeta.oid + '-' + variant.name;
         gmImg.write(tmp_file_name, function(err) {
         if (err) next(err);
@@ -219,7 +217,6 @@ function transform(anImgMeta, variant, callback)
       },
 
       function(aTmpFileName, next){
-        // parseImage(variant.name, gm(fs.createReadStream(aTmpFileName)), next);
         parseImage(aTmpFileName, next);
       }
     ], 
@@ -236,8 +233,7 @@ function transform(anImgMeta, variant, callback)
       theVariantMeta.created_at = anImgMeta.created_at;
       theVariantMeta.updated_at = anImgMeta.updated_at;
 
-      // console.log('done processing variant: %j', JSON.stringify(theVariantMeta));
-      console.log('done processing variant: %j', theVariantMeta);
+      log.info("Done processing variant '%s' of image '%s': %j", theVariantMeta.name, anImgMeta.name, theVariantMeta);
       callback(err, theVariantMeta, theVariantPath); 
     }
   );
@@ -270,7 +266,7 @@ function parseImage(anImgPath, callback)
 
   step(
     function () {
-      console.log("parsing image file...");
+      log.debug("parsing image file '%s'", anImgPath);
       // the 'bufferStream: true' parm is critical, as it buffers the file in memory 
       // and makes it possible to stream the bits repeatedly
       gmImg.identify({bufferStream: true},this);
@@ -278,22 +274,22 @@ function parseImage(anImgPath, callback)
 
     function (err, data) {
       if (err) { if (_.isFunction(callback)) callback(err); return; }
-      console.log("populating image");
+      log.trace("creating metadata for file '%s'", anImgPath);
       imageMeta.readFromGraphicsMagick(data);
-      // console.log("parsed image: %", util.inspect(imageMeta));
+      // log.trace("parsed image: %", util.inspect(imageMeta));
       // this would fail if 'bufferStream' above were not true
       gmImg.stream(this);
     },
 
     function (err, anImgStream, anErrStream) {
-      console.log("calculating checksum...");
+      log.trace("calculating checksum for file '%s'", anImgPath);
       cs.gen(anImgStream, this);
     },
 
     function (aString) { 
-      console.log("done with checksum: " + aString);
+      log.trace("checksum for file '%s' is: %s", anImgPath, aString);
       imageMeta.checksum = aString;
-      // console.log("checksumed image: " + JSON.stringify(imageMeta,null,"  "));
+      // log.trace("checksumed image: " + JSON.stringify(imageMeta,null,"  "));
       // gmImg.stream(this);
       callback(null, imageMeta, anImgPath);
     }
@@ -312,7 +308,7 @@ function persistMultiple(aryPersist, aryResult, callback)
   if ( !(aryPersist instanceof Array) || aryPersist.length === 0) 
   {
     var err = 'persistMultiple cowardly refused to persist an empty array of persist instructions';
-    console.log(err);
+    log.error(err);
     if (callback instanceof Function) {
       callback(err);
     }
@@ -326,17 +322,17 @@ function persistMultiple(aryPersist, aryResult, callback)
 
   function iterator(element, next) {
     persist(element, function(err, image) {
-      // console.log("persisted img: %j", util.inspect(image));
+      // log.trace("persisted img: %j", util.inspect(image));
       aryResult.push( err ? err : image );
       next();
     });
   }
 
-  console.log('about to call forEachSeries');
   async.forEachSeries(aryPersist, iterator, function(err) {
     if (err) {
-      console.log("Error happened while saving image and its variants: %s", err);
-      callback(err);
+      var errMsg = util.format("Error happened while saving image and its variants: %s", err);
+      log.err(errMsg);
+      callback(errMsg);
     } else {
       callback(null, aryResult);
     }
@@ -367,30 +363,29 @@ function persist(persistCommand, callback)
   step(
 
     function () {
-      console.log("saving to db...");
+      log.trace("saving %j to db...", imgData);
       db.insert(imgData, imgData.oid, this);
     },
 
     function (err, body, headers) {
       if (err) { if (_.isFunction(callback)) callback(err); return; }
-      // console.log("result from 'save': " + JSON.stringify(headers));
-      console.log("result from 'save': " + JSON.stringify(body));
+      if (log.isTraceEnabled())log.trace("result from insert: %j", body );
 
       imgData._storage.type = 'couchdb';
       imgData._storage._id  = body.id;
       imgData._storage._rev = body.rev;
 
-      // console.log("saved image: " + JSON.stringify(imgData,null,"  "));
+      // log.trace("saved image: %j", imgData);
 
       if (_.isString(persistCommand.stream)) {
-        console.log("streaming image bits to storage device from %s", persistCommand.stream);
+        log.trace("streaming image bits to storage device from %s", persistCommand.stream);
         var imgStream = fs.createReadStream(persistCommand.stream);
 
         var attachName = _.last(imgData.path.split('/'));
 
-        //console.log("imgData: %j", util.inspect(imgData));
-        //console.log("attachName: %j", attachName);
-        // console.log("stream: %s", util.inspect(imgStream));
+        //log.trace("imgData: %j", util.inspect(imgData));
+        //log.trace("attachName: %j", attachName);
+        //log.trace("stream: %s", util.inspect(imgStream));
 
         try {
         imgStream.pipe(
@@ -402,8 +397,7 @@ function persist(persistCommand, callback)
             {rev: imgData._storage._rev}, this)
         );  
         }
-        catch(e) { console.log("streaming error: %s", util.inspect(e));}
-        // console.log("stream after: %j", util.inspect(imgStream));
+        catch(e) { log.error("error while streaming: %j", e);}
       } else {
         // we are done
         // TODO this won't work
@@ -413,14 +407,14 @@ function persist(persistCommand, callback)
     },
 
     function(err, body, headers) {
-      console.log("returning saved results");
+      log.trace("returning saved results");
       if (err) { if (_.isFunction(callback)) callback(err); return; }
       imgData._storage._rev = body.rev;
 
       // clean-up work directory if this was a temp file generated in the workDir
       if ( persistCommand.isTemp && _.isString(persistCommand.stream) ) {
         fs.unlink(persistCommand.stream, function(err) { 
-          if (err) { console.log('warning: exception when deleting img from workDir: %j', err); } 
+          if (err) { log.warn('warning: exception when deleting img from workDir: %j', err); } 
         });
       }
       callback(null, imgData);
@@ -460,7 +454,7 @@ function show(oid, callback, options)
       ,include_docs: true
     }, 
     function(err, body) {
-      log.debug("Displaying image '%s' and its variants using view '%s'", oid, VIEW_BY_OID_WITH_VARIANT);
+      log.debug("Retrieving image '%s' and its variants using view '%s'", oid, VIEW_BY_OID_WITH_VARIANT);
 
       if (log.isTraceEnabled()) {
         if (body) log.trace("body: %s", util.inspect(body));
@@ -477,16 +471,16 @@ function show(oid, callback, options)
           if (!opts.showMetadata) { delete imgOut.metadata_raw; }
           if (body.rows.length > 0) {
             for (var i = 1; i < body.rows.length; i++) {
-              // console.log('show: variant - oid - %j, size - %j, orig_id - %j',row.doc.oid, row.doc.geometry, row.doc.orig_id);
+              // log.trace('show: variant - oid - %j, size - %j, orig_id - %j',row.doc.oid, row.doc.geometry, row.doc.orig_id);
               var vDocBody = body.rows[i].doc;
               var vImage = new Image(vDocBody);
               if (!opts.showMetadata) { delete vImage.metadata_raw; }
               vImage.url = priv.getImageUrl(vDocBody);
-              // console.log('show: oid - %j, assigned url - %j',row.doc.oid, vImage.url);
+              // log.trace('show: oid - %j, assigned url - %j',row.doc.oid, vImage.url);
               imgOut.variants.push(vImage);
             }
           }
-          log.info("Found image with oid '%s': %j", oid, imgOut);
+          log.info("Retrieved image '%s' with oid '%s': %j", imgOut.name, oid, imgOut);
         }
 
         callback(null, imgOut);
@@ -496,7 +490,7 @@ function show(oid, callback, options)
       }
     }
   );
-} // end load
+}
 exports.show = show;
 
 
@@ -514,7 +508,7 @@ exports.show = show;
  */
 exports.index = function index( callback, options ) 
 {
-  console.log("options: " + util.inspect(options));
+  log.debug("Calling 'index' with options: %j", options);
 
   // TODO: 
   //  - The use cases below need to be expanded
@@ -525,7 +519,6 @@ exports.index = function index( callback, options )
   } else {
     // TODO: this is temporary, returns all images sorted by creation time
     exports.findByCreationTime( null, callback, options);
-
   }
 };
 
@@ -554,7 +547,7 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
     ,include_docs: true
   };
 
-  console.log("criteria: " + util.inspect(criteria));
+  log.debug("findByCreationTime criteria: %j ", criteria);
 
   if (_.isArray(criteria)) {
     view_opts.startkey = priv.date_to_array(criteria[0]);
@@ -565,20 +558,14 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
     // throw "Invalid Argument Exception: findByCreationTime does not understand options.created argument:: '" + criteria + "'";
   }
 
-  // console.log("startkey: " + util.inspect(theStartKey));
-  // console.log("end: " + util.inspect(theEndKey));
-
-  console.log("view_opts: " + util.inspect(view_opts));
+  log.trace("Finding images and their variants using view '%s' with view_opts %j", VIEW_BY_CTIME, view_opts);
 
   db.view(IMG_DESIGN_DOC, VIEW_BY_CREATION_TIME, view_opts,
     function(err, body) {
-      console.log("Finding images and their variants using view '%s'", VIEW_BY_CREATION_TIME);
       if (!err) {
-
         // TODO: factor this out into a function that maps the body.rows collection 
         // into the proper Array of Image originals and their variants
         for (var i = 0; i < body.rows.length; i++) {
-          // console.log(util.inspect(body.rows[i]));
           var docBody = body.rows[i].doc;
 
           anImg = new Image(docBody);
@@ -594,12 +581,12 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
           } else {
             // if the image is a variant, add it to the original's variants array
             if (_.isObject(imgMap[anImg.orig_id])) {
-              console.log('Variant w/ name - ' + anImg.name);
-              console.log('Variant w/ doc. body keys - (' + JSON.stringify(_.keys(docBody)) + ')');
-              console.log('Variant w/ image keys - (' + JSON.stringify(_.keys(anImg)) + ')');
+              log.trace('Variant w/ name - ' + anImg.name);
+              log.trace('Variant w/ doc. body keys - (' + JSON.stringify(_.keys(docBody)) + ')');
+              log.trace('Variant w/ image keys - (' + JSON.stringify(_.keys(anImg)) + ')');
               imgMap[anImg.orig_id].variants.push(anImg);
             } else {
-              console.log("Warning: found variant image without a parent %j", anImg);
+              log.warn("Warning: found variant image without a parent %j", anImg);
             }
           }
         }
@@ -648,8 +635,7 @@ exports.batchImportFs = function batchImportFs(target_dir, callback, options)
         importBatch = new ImportBatch(
           { root_path: target_dir, oid: priv.genOid(), images_to_import: aryImage }
         );
-        // console.log('new importBatch: %s', util.inspect(importBatch));
-        console.log('new importBatch: %j', importBatch);
+        if (log.isDebugEnabled()) { log.debug('New importBatch: %j', importBatch); }
 
         options.batch_id = importBatch.oid;
         saveBatch(importBatch, options, next);
@@ -679,7 +665,7 @@ function saveBatch(importBatch, options, callback)
       imgPath
       ,function(err, image) {
         if (err) {
-          console.log("error while saving image at '%s': %s", imgPath, err);
+          log.error("error while saving image at '%s': %s", imgPath, err);
           importBatch.errs[imgPath] = err;
         } else {
           importBatch.images[imgPath] = image;
@@ -713,13 +699,16 @@ function collectImagesInDir(target_dir, callback)
   var aryFile  = [];
   var aryImage = [];
 
-
   // This inner function is called further below on each file under the target directory 
   // to determine whether it is an image and to determine its mime type
   function collectImage(file, next) {
-    // console.log("processing %s", file);
+    // log.trace("collecting %s", file);
     mime(file, function(err, mimeType) {
-      if (err) { console.log("error while collecting images: %s", err); next(err); return; }
+      if (err) { 
+        log.warn("error while collecting images: %s", err); 
+        next(err); 
+        return; 
+      }
 
       // converts a string like 'image/jpg' to ['image', 'jpg']
       var mimeData = mimeType.split("/");
@@ -737,11 +726,10 @@ function collectImagesInDir(target_dir, callback)
     [
       // collect all files inside the target directory first
       function(next) {
-        console.log("Diving into %s", target_dir);
+        log.trace("Diving into %s", target_dir);
         dive(target_dir, {directories: false},
           function(err, file) { 
-            // console.log(file);
-            if (err) { console.log("Warning while diving through '%s': %s", target_dir, err); }
+            if (err) { log.warn("error while diving through '%s': %s", target_dir, err); }
             else {aryFile.push(file);}
           },
           function() { next();}
@@ -749,8 +737,7 @@ function collectImagesInDir(target_dir, callback)
       },
 
       function(next) {
-        console.log("Found %s files under '%s'", aryFile.length, target_dir);
-        // _.each(aryFile, function(f){ console.log('file %s',f )});
+        log.debug("found %s files total under '%s'", aryFile.length, target_dir);
         
         // calling 'mime' concurrently can lead to a 'too many open files' error
         // so we limit the number of concurrent calls to mime, with the forEachLimit below.
@@ -763,16 +750,17 @@ function collectImagesInDir(target_dir, callback)
     // called after waterfall completes
     function(err) { 
       if (err) {
-        console.log("Error while collecting images in directory '%s': %s", target_dir, err);
+        log.error("Error while collecting images in directory '%s': %s", target_dir, err);
         callback(err);
       } else {
-        console.log("Found %s images under directory '%s'", aryImage.length, target_dir);
+        log.info("Found %s images under directory '%s'", aryImage.length, target_dir);
         callback(null, aryImage);
       }
     }
   );
 } // end collectImagesInDir
 exports.collectImagesInDir = collectImagesInDir;
+
 
 /*
  *  getImageUrl: Helper to construct a URL to reference the image associated with a document.
@@ -815,8 +803,6 @@ priv.getImageUrl = function(doc) {
  */
 priv.date_to_array = function date_to_array(aDate) 
 {
-  // console.log("date_to_array arg: " + util.inspect(aDate));
-
   if (_.isString(aDate)) {
     aDate = moment(aDate, 'YYYYMMDD').toDate();
   }
@@ -824,8 +810,6 @@ priv.date_to_array = function date_to_array(aDate)
   if (!_.isDate(aDate)) {
     throw "Invalid Argument Exception: argument is not a Date, or unable to parse string argument into a Date";
   }
-
-  // console.log("date_to_array arg: " + util.inspect(aDate));
 
   return [
     aDate.getFullYear()
