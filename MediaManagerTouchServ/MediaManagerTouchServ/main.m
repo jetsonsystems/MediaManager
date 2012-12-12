@@ -47,6 +47,7 @@ int main(int argc, const char * argv[])
         options.readOnly = NO;
         const char* replArg = NULL, *user = NULL, *password = NULL;
         BOOL auth = NO, pull = NO, createTarget = NO, continuous = NO;
+        NSString* dbName = @"plm-media-manager";
                 
         for (int i = 1; i < argc; ++i) {
             if (strcmp(argv[i], "--readonly") == 0) {
@@ -66,13 +67,17 @@ int main(int argc, const char * argv[])
                 user = argv[++i];
             } else if (strcmp(argv[i], "--password") == 0) {
                 password = argv[++i];
+            } else if (strcmp(argv[i], "--db") == 0) {
+                dbName = [[NSString alloc] initWithUTF8String:argv[++i]];
             }
         }
-                
+        
         CouchTouchDBServer* server = [[CouchTouchDBServer alloc]
                                       initWithServerPath: GetServerPath()];
-                
-        NSString* dbName = @"plm-media-manager-test0";
+
+        NSLog(@"MediaManagerTouchServ creating database: %@!",
+              dbName);
+
         CouchDatabase* database = [server databaseNamed: dbName];
                 
         RESTOperation* op = [database create];
