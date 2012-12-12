@@ -33,5 +33,8 @@ module.exports = new Class (
     } else {
       this.updated_at = new Date();
     }
+
+    // a field intended to be private that stores storage-specific metadata
+    this._storage  = {};
   }
 });

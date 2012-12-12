@@ -28,8 +28,6 @@ module.exports = new Class(
     this.variants = [];
     this.metadata_raw = {};
 
-    // a field intended to be private that stores storage-specific metadata
-    this._storage  = {};
 
     
     if (_.isObject(args)) {
