@@ -42,7 +42,7 @@ module.exports = new Class(
         this[key] = args[key];
       }
 
-      if (this.path) {
+      if (!this.name && this.path) {
         this.name = this.extractNameFromPath(this.path);
       }
 

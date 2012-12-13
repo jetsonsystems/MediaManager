@@ -39,8 +39,8 @@ var priv = {};
 // private final constants
 var
   IMG_DESIGN_DOC = 'plm-image'
-  ,VIEW_BY_CTIME            = 'image_by_ctime'
-  ,VIEW_BY_OID_WITH_VARIANT = 'image_by_oid_w_variant'
+  ,VIEW_BY_CTIME            = 'by_creation_time'
+  ,VIEW_BY_OID_WITH_VARIANT = 'by_oid_with_variant'
   ,VIEW_BATCH_BY_CTIME       = 'batch_by_ctime'
   ,VIEW_BATCH_BY_OID_W_IMAGE = 'batch_by_oid_w_image'
 ;
@@ -60,6 +60,7 @@ exports.checkConfig = function checkConfig(callback) {
 
 // returns a db connection
 priv.db = function db() {
+  log.debug('priv.db: Connecting to data base, host - ' + config.db.host + ', port - ' + config.db.port + ', db - ' + config.db.name);
   return nano('http://' + config.db.host + ':' + config.db.port + '/' + config.db.name);
 };
 
@@ -550,8 +551,16 @@ exports.index = function index( callback, options )
  */
 exports.findByCreationTime = function findByCreationTime( criteria, callback, options ) 
 {
+  log.debug("findByCreationTime criteria: %j ", criteria);
+
   var opts = options || {};
+
+  log.debug("findByCreationTime opts: " + JSON.stringify(opts));
+
   var db = priv.db();
+
+  log.debug("findByCreationTime: connected to db...");
+
   var aryImgOut = []; // images sorted by creation time
   var imgMap    = {}; // temporary hashmap that stores original images by oid
   var anImg     = {};
@@ -561,8 +570,6 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
     startkey: []
     ,include_docs: true
   };
-
-  log.debug("findByCreationTime criteria: %j ", criteria);
 
   if (_.isArray(criteria)) {
     view_opts.startkey = priv.date_to_array(criteria[0]);
