@@ -8,6 +8,7 @@
     "media_manager_api_server": "media_manager_api_server.js"
   },
   "dependencies" : {
+    "optimist" : "*",
     "underscore" : "*",
     "mootools" : "*",
     "restify" : "*",
