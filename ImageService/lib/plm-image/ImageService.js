@@ -58,10 +58,13 @@ exports.checkConfig = function checkConfig(callback) {
   server.db.get(config.db.name, callback);
 };
 
+var dbServer = null;
+
 // returns a db connection
 priv.db = function db() {
   log.debug('priv.db: Connecting to data base, host - ' + config.db.host + ', port - ' + config.db.port + ', db - ' + config.db.name);
-  return nano('http://' + config.db.host + ':' + config.db.port + '/' + config.db.name);
+  dbServer = dbServer || nano('http://' + config.db.host + ":" + config.db.port);
+  return dbServer.use(config.db.name);
 };
 
 

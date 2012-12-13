@@ -20,27 +20,27 @@ var storage = require('./lib/storage.js');
 var EventEmitter = require('events').EventEmitter;
 
 var init = function() {
-    var app = Object.create(EventEmitter.prototype);
+  var app = Object.create(EventEmitter.prototype);
 
-    app.config = function() {
-	return config;
-    };
+  app.config = function() {
+    return config;
+  };
 
-    app.shutdown = function() {
-	dataStore.shutdown();
-    }
+  app.shutdown = function() {
+    dataStore.shutdown();
+  }
 
-    var dataStore = storage.init(config);
+  var dataStore = storage.init(config);
+  
+  dataStore.on('localStorageExit', function() {
+    app.emit('localStorageExit');
+  });
 
-    dataStore.on('localStorageExit', function() {
- 	app.emit('localStorageExit');
-    });
+  dataStore.on('localStorageShutdown', function() {
+    app.emit('localStorageShutdown');
+  });
 
-    dataStore.on('localStorageShutdown', function() {
-	app.emit('localStorageShutdown');
-    });
-
-    return app;
+  return app;
 };
 
 module.exports.init = init;

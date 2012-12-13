@@ -132,7 +132,10 @@ var Resource = new Class({
     this.instName = options && _.has(options, 'instName') ? options.instName : this.name;
   },
 
-  index: function(options) { return this; },
+  index: function(options) { 
+    cLogger.log('Resource.index', 'indexing nothing ...');
+    return this; 
+  },
   create: function(attr, options) { return this; },
   read: function(id, options) { return this; },
   update: function(id, attr, options) { return this; },
@@ -147,6 +150,7 @@ var Resource = new Class({
   //        attr - attributes of instance to create, or update.
   //
   doRequest: function(method, options) {
+    cLogger.log('Resource.doRequest', 'method - ' + method);
     var id = options.id || undefined;
 
     if (id) {
@@ -162,6 +166,7 @@ var Resource = new Class({
     }
     else {
       if (method === 'GET') {
+        cLogger.log('Resource.doRequest', 'invoking index ...');
         return this.index(options);
       }
       else if (method === 'POST') {
@@ -182,11 +187,11 @@ var Resource = new Class({
     }
     if (status === 200) {
       if (_.has(options, 'onSuccess') && options.onSuccess) {
-        options.onSuccess(this.createResponseBody(status, options));
+        options.onSuccess(this.createResponseBody(0, options));
       }
     }
     else if (_.has(options, 'onError') && options.onError) {
-      options.onError(this.createResponseBody(status, options));
+      options.onError(this.createResponseBody(1, options));
     }
   },
 
@@ -428,6 +433,22 @@ var Images = exports.Images = new Class({
     }
     return newRep;
   }
+
+});
+
+//
+//  Importers Resource:
+//
+var Importers = exports.Importers = new Class({
+
+  Extends: Resource,
+
+  initialize: function(path, options) {
+    this.parent(path, options);
+    cLogger.log('Importers.initialize', 'Initialized, path - ' + this.path + ', name - ' + this.name + ', instance name - ' + this.instName);
+  },
+
+  create: function(attr, options) { return this; }
 
 });
 
