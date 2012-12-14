@@ -1041,10 +1041,18 @@ priv.getImageUrl = function(doc) {
   else {
     return null;
   }
-  if (doc.path) {
-    url = url + _.last(doc.path.split('/'));
+  if (_.has(doc, '_attachments')) {
+    if (_.has(doc, 'orig_id') && (doc.orig_id !== '')) {
+      url = (_.has(doc, 'name') && _.has(doc._attachments, doc.name))? url + doc.name : null;
+    }
+    else {
+      url = _.keys(doc._attachments)? _.first(_keys(doc._attachments)) : null;
+    }
+    return url;
   }
-  return url;
+  else {
+    return null;
+  }
 };
 
 

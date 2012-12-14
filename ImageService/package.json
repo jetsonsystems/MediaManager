@@ -19,7 +19,7 @@
     ,"moment" : "*"
     ,"mootools" : "*"
     ,"optimist" : "*"
-    ,"nano" : "*"
+    ,"nano" : "https://github.com/jetsonsystems/nano/tarball/master"
     ,"node-uuid" : "*"
     ,"step" : "*"
     ,"underscore" : "*"
