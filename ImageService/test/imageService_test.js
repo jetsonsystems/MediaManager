@@ -8,7 +8,8 @@ var async = require("async")
 
 var chai = require('chai')
     , expect = chai.expect
-    , should = chai.should();
+    , should = require("should");
+
 
 
 
@@ -158,7 +159,6 @@ describe('ImageService Testing', function () {
             expect(theSavedImage.variants).to.be.empty;
             expect(theSavedImage.batch_id).to.be.empty;
             expect(theSavedImage.type).to.be.empty;
-            theSavedImage.geometry.should.equal("480x599");
 
             done();
         });
