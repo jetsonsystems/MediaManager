@@ -39,8 +39,8 @@ var priv = {};
 // private final constants
 var
   IMG_DESIGN_DOC = 'plm-image'
-  ,VIEW_BY_CTIME            = 'by_creation_time'
-  ,VIEW_BY_OID_WITH_VARIANT = 'by_oid_with_variant'
+  ,VIEW_BY_CTIME             = 'by_creation_time'
+  ,VIEW_BY_OID_WITH_VARIANT  = 'by_oid_with_variant'
   ,VIEW_BATCH_BY_CTIME       = 'batch_by_ctime'
   ,VIEW_BATCH_BY_OID_W_IMAGE = 'batch_by_oid_w_image'
 ;
@@ -1059,7 +1059,7 @@ priv.getImageUrl = function(doc) {
       url = (_.has(doc, 'name') && _.has(doc._attachments, doc.name))? url + doc.name : null;
     }
     else {
-      url = _.keys(doc._attachments)? _.first(_keys(doc._attachments)) : null;
+      url = _.keys(doc._attachments)? _.first(_.keys(doc._attachments)) : null;
     }
     return url;
   }
