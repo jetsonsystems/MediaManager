@@ -502,6 +502,28 @@ var Importers = exports.Importers = new Class({
     return this; 
   },
 
+  index: function(options) {
+    cLogger.log('Importers.index', 'Indexing for path - ' + this.path);
+    options = options || {};
+    var that = this;
+    var numBatches = (_.has(options, 'query') && _.has(options.query, 'n')) ? options.query.n : 1;
+    
+    imageService.importBatchFindRecent(numBatches,
+                                       {},
+                                       function(err, result) {
+                                         var status = 200;
+                                         if (err) {
+                                           cLogger.log('Importers.index', 'error from image service - ' + err);
+                                           status = 500;
+                                           options.errorCode = -1;
+                                           options.errorMessage = err;
+                                         }
+                                         cLogger.log('Importers.index', 'invoking callback with status - ' + status + ', path - ' + that.path);
+                                         that.doCallbacks(status, result, options);
+                                       });
+    return that;
+  },
+
   //
   //  transformRep: ImageService returns data which is transformed according
   //  to API specifications.
@@ -516,20 +538,38 @@ var Importers = exports.Importers = new Class({
     var that = this;
     if (options && _.has(options, 'isInstRef')) {
       cLogger.log('Images.transformRep', 'transforming instance to full form...');
-      var newRep = {};
-      newRep.id = _.has(rep, '_id') ? '$' + rep._id : undefined;
-      newRep.import_dir = _.has(rep, 'path') ? rep.path : '';
-      newRep.created_at = rep.created_at;
-      newRep.started_at = rep.created_at;
-      newRep.completed_at = _.has(rep, 'ended_at')? rep.ended_at : undefined;
-      newRep.num_to_import = rep.num_to_import;
-      newRep.num_imported = rep.num_imported;
-      newRep.num_success = rep.num_success;
-      newRep.num_error = rep.num_error;
-      return newRep;
+      return this._transformOne(rep);
+    }
+    else {
+      if (_.isArray(rep)) {
+        cLogger.log('Importers.transformRep', 'transforming collection...');
+        var newRep = [];
+        _.each(rep, 
+               function(aRep) {
+                 var tRep = that._transformOne(aRep);
+                 if (tRep) {
+                   newRep.push(tRep);
+                 }
+               });
+        return newRep;
+      }
     }
     return rep;
   },
+
+  _transformOne: function(rep) {
+    var newRep = {};
+    newRep.id = _.has(rep, '_id') ? '$' + rep._id : undefined;
+    newRep.import_dir = _.has(rep, 'path') ? rep.path : '';
+    newRep.created_at = rep.created_at;
+    newRep.started_at = rep.created_at;
+    newRep.completed_at = _.has(rep, 'ended_at')? rep.ended_at : undefined;
+    newRep.num_to_import = rep.num_to_import;
+    newRep.num_imported = rep.num_imported;
+    newRep.num_success = rep.num_success;
+    newRep.num_error = rep.num_error;
+    return newRep;
+  }
 
 });
 

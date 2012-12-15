@@ -1059,7 +1059,7 @@ priv.getImageUrl = function(doc) {
       url = (_.has(doc, 'name') && _.has(doc._attachments, doc.name))? url + doc.name : null;
     }
     else {
-      url = _.keys(doc._attachments)? _.first(_.keys(doc._attachments)) : null;
+      url = _.keys(doc._attachments)? url + _.first(_.keys(doc._attachments)) : null;
     }
     return url;
   }
