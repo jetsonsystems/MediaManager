@@ -76,6 +76,8 @@ var logger = bunyan.createLogger({
 var server = restify.createServer({name: serverName,
                                    version: version});
 
+server.use(restify.bodyParser({ mapParams: false }));
+
 //
 //  MediaManagerApiRouter: Sets up routing to resources for the Media Manager API.
 //
@@ -92,6 +94,31 @@ var MediaManagerApiRouter = function() {
       //
       //  Collection routes:
       //
+
+      //
+      //  create route (POST resource.path)
+      //
+      server.post(resource.path,
+                  function create(req, res, next) {
+                    logger.info({
+                      event: '__request__',
+                      req: req
+                    });
+                    var options = {
+                      onSuccess: that.genOnSuccess(resource, req, res),
+                      onError: that.genOnError(resource, req, res)
+                    };
+                    var parsedUrl = url.parse(req.url, true);
+                    if (_.has(parsedUrl, 'query')) {
+                      options['query'] = parsedUrl.query;
+                    }
+                    if (_.has(req, 'body') && req.body) {
+                      options.attr = req.body;
+                    }
+                    resource.doRequest('POST',
+                                       options);
+                    return next();
+                  });
 
       //
       //  index route (GET resource.path)
@@ -135,7 +162,9 @@ var MediaManagerApiRouter = function() {
 
   this.resources = {
     Images: new mmApi.Images('/' + urlVersion + '/images', 
-                             {instName: 'image'})
+                             {instName: 'image'}),
+    Importers: new mmApi.Importers('/' + urlVersion + '/importers', 
+                                   {instName: 'importer'})
   };
 
   this.genOnSuccess = function(resource, req, res) {

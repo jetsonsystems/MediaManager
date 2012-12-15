@@ -448,7 +448,88 @@ var Importers = exports.Importers = new Class({
     cLogger.log('Importers.initialize', 'Initialized, path - ' + this.path + ', name - ' + this.name + ', instance name - ' + this.instName);
   },
 
-  create: function(attr, options) { return this; }
+  create: function(attr, options) {
+    cLogger.log('Importers.create', 'Payload - ' + JSON.stringify(attr));
+    var that = this;
+    options.isInstRef = true;
+    var importDir = (attr && _.has(attr, 'import_dir')) ? attr.import_dir : undefined;
+    if (importDir) {
+      try {
+        var importOptions = {
+          recursionDepth: (_.has(options, 'query') && _.has(options.query, 'dive') && (options.query.dive === 'false')) ? 1 : 0,
+          saveOriginal: false,
+          desiredVariants: [{ name: 'thumbnail.jpg', format: 'jpg', width: 80, height: 80}, 
+                            { name: 'web.jpg', format: 'jpg', width: 640, height: 400}, 
+                            { name: 'full-small.jpg', format: 'jpg', width: 1280, height: 800}]
+        };
+        
+        imageService.batchImportFs(
+          importDir,
+          function(err, importBatch) {
+            var status = 200;
+            if (err) { 
+              cLogger.log('Importers.create', 'Error saving image (1) - ' + JSON.stringify(err));
+              status = 500;
+              options.errorCode = -1;
+              options.errorMessage = err;
+            }
+            else {
+              cLogger.log('Importers.create', 'Saved images, batch - ' + JSON.stringify(importBatch));
+            }
+            that.doCallbacks(status, importBatch, options);
+          },
+          importOptions
+        );
+      }
+      catch (err) {
+        cLogger.log('Importers.create', 'Error saving image (2) - ' + err);
+        status = 500;
+        options.errorCode = -1;
+        options.errorMessage = err;
+        that.doCallbacks(status,
+                         {},
+                         options);
+      }
+    }
+    else {
+      status = 500;
+      options.errorCode = -1;
+      options.errorMessage = 'import_dir MUST be specified in the payload.';
+      that.doCallbacks(status,
+                       options.attr,
+                       options);
+    }
+    return this; 
+  },
+
+  //
+  //  transformRep: ImageService returns data which is transformed according
+  //  to API specifications.
+  //
+  //    Args:
+  //      * rep: The result from the image service.
+  //      * options:
+  //        * isInstRef: If true, we are referencing an instance.
+  //
+  transformRep: function(rep, options) {
+    cLogger.log('Importers.transformRep', 'Doing transform, path - ' + this.path);
+    var that = this;
+    if (options && _.has(options, 'isInstRef')) {
+      cLogger.log('Images.transformRep', 'transforming instance to full form...');
+      var newRep = {};
+      newRep.id = _.has(rep, '_id') ? '$' + rep._id : undefined;
+      newRep.import_dir = _.has(rep, 'path') ? rep.path : '';
+      newRep.created_at = rep.created_at;
+      newRep.started_at = rep.created_at;
+      newRep.completed_at = _.has(rep, 'ended_at')? rep.ended_at : undefined;
+      newRep.num_to_import = rep.num_to_import;
+      newRep.num_imported = rep.num_imported;
+      newRep.num_success = rep.num_success;
+      newRep.num_error = rep.num_error;
+      return newRep;
+    }
+    return rep;
+  },
 
 });
 

@@ -714,12 +714,14 @@ function batchImportFs(target_dir, callback, options)
 
         options.batch_id = importBatch.oid;
         log.trace("saving importBatch record to db...");
+        log.debug('Saving batch, name - ' + importBatch.oid + ', rev - ' + importBatch._storage.rev);
         db.insert(importBatch, importBatch.oid, next);
       },
 
       function (body, headers, next) {
         log.debug("Saved importBatch record to db before processing: %j", body);
         priv.setCouchRev(importBatch, body);
+        log.debug('Batch rev updated, id - ' + importBatch.oid + ', rev - ' + importBatch._storage.rev);
         saveBatch(importBatch, options, next);
       }
 
@@ -756,7 +758,12 @@ function saveBatch(importBatch, options, callback)
     // we are done saving each image in the batch
     importBatch.ended_at   = new Date();
     importBatch.updated_at = importBatch.ended_at;
-    db.insert(importBatch, {doc_name: importBatch.oid, rev: importBatch._storage.rev}, function(err, body, headers) {
+
+    importBatch.num_imported = _.keys(importBatch._proc.images).length + _.keys(importBatch._proc.errs).length;
+    importBatch.num_success = _.keys(importBatch._proc.images).length;
+    importBatch.num_error = _.keys(importBatch._proc.errs).length;
+    log.debug('Saving batch, name - ' + importBatch.oid + ', rev - ' + importBatch._storage.rev);
+    db.insert(importBatch, importBatch.oid, function(err, body, headers) {
       if (err) {
         log.error("Error while saving importBatch '%s': %s", importBatch.path, err);
       } else {
@@ -778,8 +785,14 @@ function saveBatch(importBatch, options, callback)
         if (err) {
           log.error("error while saving image at '%s': %s", imgPath, err);
           importBatch._proc.errs[imgPath] = err;
+          importBatch.num_imported = _.keys(importBatch._proc.images).length + _.keys(importBatch._proc.errs).length;
+          importBatch.num_success = _.keys(importBatch._proc.images).length;
+          importBatch.num_error = _.keys(importBatch._proc.errs).length;
         } else {
           importBatch._proc.images[imgPath] = image;
+          importBatch.num_imported = _.keys(importBatch._proc.images).length + _.keys(importBatch._proc.errs).length;
+          importBatch.num_success = _.keys(importBatch._proc.images).length;
+          importBatch.num_error = _.keys(importBatch._proc.errs).length;
         }
         next();
       }

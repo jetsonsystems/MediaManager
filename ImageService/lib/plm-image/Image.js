@@ -100,10 +100,14 @@ module.exports = new Class(
     if (!this.exposeRawMetadata) { delete out.metadata_raw; }
     
     // cloning will cause functions to be saved to couch if we don't remove them
+    var storage = this._storage;
     for (var prop in out) {
       if ( prop.indexOf("_") === 0 || _.isFunction(out[prop]) ) {
         delete out[prop];
       }
+    }
+    if (_.has(storage, 'rev')) {
+      out._rev = storage.rev;
     }
     return out;
   },
