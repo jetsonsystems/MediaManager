@@ -113,7 +113,7 @@ cLogger.log('', 'Using ImageService version - ' + imageServicePackage.version);
 //        GET     resource collection         index
 //        POST    resource collection         create
 //        GET     resource instance           read
-//        PUTE    resource instance           update
+//        PUT     resource instance           update
 //        DELETE  resource instance           delete
 //
 var Resource = new Class({
@@ -125,11 +125,59 @@ var Resource = new Class({
   //      * options:
   //        * instName: Resource name to use in the context of
   //          references to a single instance of a resource.
+  //        * subResource: A subordinate resource which is used to make up this 
+  //          resource. IE: We can express things like:
+  //          /importers/<importer ID>/images
+  //        * resourceName: Name to use for the resource.
   //
   initialize: function(path, options) {
     this.path = path;
-    this.name = _.last(path.split('/'));
+    this.pathPrefix = options.pathPrefix || "";
+    this.name = path ? _.last(path.split('/')) : options.resourceName ? options.resourceName : "";
     this.instName = options && _.has(options, 'instName') ? options.instName : this.name;
+    this.subResource = options && _.has(options, 'subResource') ? options.subResource : null;
+    //
+    //  requestPath: Returns the path to use for a particular request.
+    //    Maybe a string or regex. When a resource instance is referenced
+    //    the returned value will be a regexp. Hierarchical resources are also
+    //    supported which subResources are defined.
+    //
+    //    Args:
+    //      requestType:
+    //        create | index | read | update | delete
+    //  
+    this.requestPath = function(requestType) {
+      if ((requestType !== 'create') && (requestType !== 'index') && (requestType !== 'read') && (requestType !== 'update') && (requestType !== 'delete')) {
+        throw Object.create(new Error(),
+                            { name: { value: 'InvalidRequestType' },
+                              message: { value: 'MediaManager/lib/MediaManagerApiCore.Resource.requestPath: invalid requestType.' } });
+      }
+      var _requestPath = this.pathPrefix ? "\\" + this.pathPrefix : "";
+      var _instIdPath = '\\/(\\$[^\\/]+)'
+      var _doRequestPath = function(requestType, resource) {
+        if ((requestType === 'create') || (requestType === 'index')) {
+          if (resource.path) {
+            _requestPath = _requestPath + "\\" + resource.path;
+          }
+        }
+        else {
+          if (resource.path) {
+            _requestPath = _requestPath + "\\" + resource.path + _instIdPath;
+          }
+        }
+        if (resource.subResource) {
+          if (((requestType === 'create') || (requestType === 'index')) && resource.path) {
+            _requestPath = _requestPath + _instIdPath;
+          }
+          _doRequestPath(requestType, resource.subResource);
+        }
+        else {
+          _requestPath = _requestPath + "\\/?";
+        }
+      }
+      _doRequestPath(requestType, this);
+      return new RegExp('^' + _requestPath + '$');
+    };
   },
 
   index: function(options) { 
@@ -350,7 +398,7 @@ var Images = exports.Images = new Class({
   transformRep: function(rep, options) {
     cLogger.log('Images.transformRep', 'Doing transform, path - ' + this.path);
     var that = this;
-    if (options && _.has(options, 'isInstRef')) {
+    if (options && _.has(options, 'isInstRef') && options.isInstRef) {
       cLogger.log('Images.transformRep', 'transforming instance to full form...');
       return that._transformToFullFormRep(rep);
     }
@@ -524,6 +572,27 @@ var Importers = exports.Importers = new Class({
     return that;
   },
 
+  read: function(id, options) {
+    cLogger.log('Importers.read', 'Reading for path - ' + this.path + ', id - ' + id);
+    var that = this;
+    imageService.importBatchShow(id.replace('$', ''),
+                                 { includeImages: false },
+                                 function(err, result) {
+                                   var status = 200;
+                                   if (err) {
+                                     cLogger.log('Importers.show', 'error from image service - ' + err);
+                                     status = 500;
+                                     options.errorCode = -1;
+                                     options.errorMessage = err;
+                                   }
+                                   cLogger.log('Importers.show', 'invoking callback with status - ' + status + ', path - ' + that.path);
+                                   var callbackOptions = options ? _.clone(options) : {};
+                                   callbackOptions['isInstRef'] = true;
+                                   that.doCallbacks(status, result, callbackOptions);
+                                 });
+    return this;
+  },
+
   //
   //  transformRep: ImageService returns data which is transformed according
   //  to API specifications.
@@ -536,8 +605,8 @@ var Importers = exports.Importers = new Class({
   transformRep: function(rep, options) {
     cLogger.log('Importers.transformRep', 'Doing transform, path - ' + this.path);
     var that = this;
-    if (options && _.has(options, 'isInstRef')) {
-      cLogger.log('Images.transformRep', 'transforming instance to full form...');
+    if (options && _.has(options, 'isInstRef') && options.isInstRef) {
+      cLogger.log('Importers.transformRep', 'transforming instance to full form...');
       return this._transformOne(rep);
     }
     else {
@@ -568,6 +637,93 @@ var Importers = exports.Importers = new Class({
     newRep.num_imported = rep.num_imported;
     newRep.num_success = rep.num_success;
     newRep.num_error = rep.num_error;
+    return newRep;
+  }
+
+});
+
+//
+//  ImportersImages Resource:
+//
+var ImportersImages = exports.ImportersImages = new Class({
+
+  Extends: Resource,
+
+  //
+  //  Initialize:
+  //    options:
+  //      pathPrefix: ie - /v0
+  //      subResource: Importers where Importers has a sub-resource of Images.
+
+  //
+  initialize: function(path, options) {
+    this.parent(path, options);
+    cLogger.log('ImportersImages.initialize', 'Initialized, path - ' + this.path + ', name - ' + this.name + ', instance name - ' + this.instName);
+    if (!_.has(options, 'subResource')) {
+      throw Object.create(new Error(),
+                          { name: { value: 'MissingSubResource' },
+                            message: { value: 'MediaManager/lib/MediaManagerApiCore.ImportersImages.initialize: Importers subResource required.' } });
+    }
+    this.importersResource = options.subResource;
+    if (!_.has(this.importersResource, 'subResource')) {
+      throw Object.create(new Error(),
+                          { name: { value: 'MissingSubResource' },
+                            message: { value: 'MediaManager/lib/MediaManagerApiCore.ImportersImages.initialize: Importers Images subResource required.' } });
+    }
+    this.imagesResource = this.importersResource.subResource;
+  },
+
+  //
+  //  index:
+  //    Args:
+  //      req: The request, S.T. req.params[0] contains the importers instance ID.
+  //
+  index: function(options) {
+    cLogger.log('ImportersImages.index', 'Indexing...');
+    options = options || {};
+    var that = this;
+    var batchId = options.req.params[0];
+    imageService.importBatchShow(batchId.replace('$', ''),
+                                 { includeImages: true },
+                                 function(err, result) {
+                                   var status = 200;
+                                   if (err) {
+                                     cLogger.log('ImportersImages.index', 'error from image service - ' + err);
+                                     status = 500;
+                                     options.errorCode = -1;
+                                     options.errorMessage = err;
+                                   }
+                                   cLogger.log('ImportersImages.index', 'invoking callback with status - ' + status + ', path - ' + that.path);
+                                   var callbackOptions = options ? _.clone(options) : {};
+                                   callbackOptions['isInstRef'] = true;
+                                   callbackOptions['resourceName'] = 'importer';
+                                   that.doCallbacks(status, result, callbackOptions);
+                                 });
+    return this;
+  },
+
+  //
+  //  transformRep: ImageService returns data which is transformed according
+  //  to API specifications for /Importers/<import ID>/images
+  //
+  //    Args:
+  //      * rep: The result from the image service.
+  //
+  transformRep: function(rep, options) {
+    cLogger.log('ImportersImages.transformRep', 'Doing transform...');
+    var newRep = this.importersResource.transformRep(rep, { isInstRef: true,
+                                                            resourceName: 'importer' });
+    if (newRep) {
+      if (rep.images) {
+        cLogger.log('ImportersImages.transformRep', 'Doing image transorm - ' + JSON.stringify(rep.images));
+        newRep.images = this.imagesResource.transformRep(rep.images,
+                                                         { isInstRef: false,
+                                                           resourceName: 'images' } );
+      }
+      else {
+        newRep.images = [];
+      }
+    }
     return newRep;
   }
 
