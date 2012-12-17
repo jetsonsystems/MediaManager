@@ -76,6 +76,8 @@ var logger = bunyan.createLogger({
 var server = restify.createServer({name: serverName,
                                    version: version});
 
+server.use(restify.bodyParser({ mapParams: false }));
+
 //
 //  MediaManagerApiRouter: Sets up routing to resources for the Media Manager API.
 //
@@ -94,14 +96,43 @@ var MediaManagerApiRouter = function() {
       //
 
       //
+      //  create route (POST resource.path)
+      //
+      console.log('MediaManagerApiRouter.initialize: create...');
+      server.post(resource.requestPath('create'),
+                  function create(req, res, next) {
+                    logger.info({
+                      event: '__request__',
+                      req: req
+                    });
+                    var options = {
+                      onSuccess: that.genOnSuccess(resource, req, res),
+                      onError: that.genOnError(resource, req, res)
+                    };
+                    var parsedUrl = url.parse(req.url, true);
+                    if (_.has(parsedUrl, 'query')) {
+                      options['query'] = parsedUrl.query;
+                    }
+                    if (_.has(req, 'body') && req.body) {
+                      options.attr = req.body;
+                    }
+                    resource.doRequest('POST',
+                                       options);
+                    return next();
+                  });
+
+      //
       //  index route (GET resource.path)
       //
-      server.get(resource.path,
+      var pat = resource.requestPath('index');
+      console.log('MediaManagerApiRouter.initialize: index, request path to match - ' + pat);
+      server.get(pat,
                  function(req, res) {
                    logger.info({
                      event: '__request__',
                      req: req});
                    var options = {
+                     req: req,
                      onSuccess: that.genOnSuccess(resource, req, res),
                      onError: that.genOnError(resource, req, res)
                    };
@@ -120,7 +151,8 @@ var MediaManagerApiRouter = function() {
       //
       //  read route (GET resource.path, where resource.path points to an instance)
       //
-      server.get(/^\/v0\/images\/(\$[^\/]+)$/,
+      console.log('MediaManagerApiRouter.initialize: read...');
+      server.get(resource.requestPath('read'),
                  function(req, res) {
                    logger.info({event: '__request__',
                                 id: req.params[0],
@@ -134,8 +166,22 @@ var MediaManagerApiRouter = function() {
   };
 
   this.resources = {
-    Images: new mmApi.Images('/' + urlVersion + '/images', 
-                             {instName: 'image'})
+    Images: new mmApi.Images('/images', 
+                             {instName: 'image',
+                              pathPrefix: '/' + urlVersion}),
+    Importers: new mmApi.Importers('/importers', 
+                                   {instName: 'importer',
+                                    pathPrefix: '/' + urlVersion}),
+    ImportersImages: new mmApi.ImportersImages(null,
+                                               {pathPrefix: '/' + urlVersion,
+                                                subResource: new mmApi.Importers(
+                                                  '/importers', 
+                                                  {instName: 'importer',
+                                                   subResource: new mmApi.Images(
+                                                     '/images', 
+                                                     {instName: 'image'})
+                                                  })
+                                               })
   };
 
   this.genOnSuccess = function(resource, req, res) {

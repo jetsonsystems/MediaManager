@@ -40,6 +40,14 @@ module.exports = new Class(
     // stores the root path of the import
     this.path = '';
 
+    //
+    // stats and progress
+    //
+    this.num_to_import = 0;
+    this.num_imported = 0;
+    this.num_success = 0;
+    this.num_error = 0;
+
     var that = this;
 
     // TODO: move this to Persistent ?
@@ -47,6 +55,10 @@ module.exports = new Class(
       _.each(args, function(value, key) {
         if (value) { that[key] = value; }
       });
+    }
+
+    if (this.images_to_import.length > 0) {
+      this.num_to_import = this.images_to_import.length;
     }
   },
 
@@ -72,10 +84,14 @@ module.exports = new Class(
     delete out.images;
 
     // cloning will cause functions to be saved to couch if we don't remove them
+    var storage = this._storage;
     for (var prop in out) {
       if ( prop.indexOf("_") === 0 || _.isFunction(out[prop]) ) {
         delete out[prop];
       }
+    }
+    if (_.has(storage, 'rev')) {
+      out._rev = storage.rev;
     }
     return out;
   }
