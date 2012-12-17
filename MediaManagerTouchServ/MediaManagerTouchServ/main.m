@@ -241,7 +241,7 @@ int main(int argc, const char * argv[])
                      docPath);
             }
             else if ([[doc objectForKey: @"class_name"]
-                     isEqualToString:@"plm.Import"]) {
+                     isEqualToString:@"plm.Image"]) {
                 //
                 //  original doc:
                 //    emit([doc.batch_id, doc.oid, 1, doc.size.width], doc.path)
@@ -271,7 +271,7 @@ int main(int argc, const char * argv[])
                       nil],
                      docPath);
             }
-        }) version: @"0.0.0"];
+        }) version: @"0.0.1"];
         
         [design saveChanges];
                 

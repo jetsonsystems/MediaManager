@@ -5,4 +5,7 @@ build/
 DerivedData/
 obj/
 derived_src/
+MediaManagerTouchServ/MediaManagerTouchServ.xcodeproj/project.xcworkspace/xcuserdata/*.xcuserdatad/UserInterfaceState.xcuserstate
+
+
 
