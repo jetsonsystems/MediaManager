@@ -510,7 +510,7 @@ var Importers = exports.Importers = new Class({
         var importOptions = {
           recursionDepth: (_.has(options, 'query') && _.has(options.query, 'dive') && (options.query.dive === 'false')) ? 1 : 0,
           saveOriginal: false,
-          desiredVariants: [{ name: 'thumbnail.jpg', format: 'jpg', width: 80, height: 80}, 
+          desiredVariants: [{ name: 'thumbnail.jpg', format: 'jpg', width: 132, height: 132}, 
                             { name: 'web.jpg', format: 'jpg', width: 640, height: 400}, 
                             { name: 'full-small.jpg', format: 'jpg', width: 1280, height: 800}]
         };
