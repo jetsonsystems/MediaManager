@@ -40,7 +40,6 @@ var argv = opts.argv;
 
 var argsOk = function(argv) {
   if (argv._.length !== 2) {
-    console.log('<dbname> and <import dir> are required arguments.');
     return false;
   }
   return true;

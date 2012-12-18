@@ -52,7 +52,7 @@ var design_doc_id = '_design/plm-image';
 
 var design_doc_couchdb = {
   "views" : {
-    "by_oid_w_variant" : {
+    "by_oid_with_variant" : {
       "map" : "function(doc) { if (doc.class_name === 'plm.Image') { var key; if (doc.orig_id === ''){ key = [doc.oid,0,doc.size.width]; emit(key, doc.path) } else { key = [doc.orig_id,1,doc.size.width]; emit(key, doc.name)}} }"
     }
     ,"by_creation_time" : { 
