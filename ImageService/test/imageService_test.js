@@ -143,7 +143,9 @@ describe('ImageService Testing', function () {
         it("The saved image should have some properties", function (done) {
 
             util.inspect(theSavedImage,true,null,true);
-            theSavedImage.url.should.equal('clooney.png');
+
+
+
             theSavedImage.name.should.equal('clooney.png');
             theSavedImage.class_name.should.equal('plm.Image');
             theSavedImage.filesize.should.equal('486.3K');
@@ -159,6 +161,10 @@ describe('ImageService Testing', function () {
             expect(theSavedImage.variants).to.be.empty;
             expect(theSavedImage.batch_id).to.be.empty;
             expect(theSavedImage.type).to.be.empty;
+
+            var url = util.format("http://%s:%s/%s/%s/clooney.png", 
+                imageService.config.db.host, imageService.config.db.port, imageService.config.db.name, theSavedImage.oid);
+            theSavedImage.url.should.equal(url);
 
             done();
         });
