@@ -45,22 +45,6 @@ module.exports = new Class(
       if (!this.name && this.path) {
         this.name = this.extractNameFromPath(this.path);
       }
-
-      /*
-      this.path     = args.path;
-      this.name     = args.name;
-      this.format   = args.format;
-      this.geometry = args.geometry;
-      this.size     = args.size;
-      this.type     = args.type;
-      this.filesize = args.filesize;
-      this.checksum = args.checksum;
-      this.metadata_raw = args.metadata_raw;
-
-      if(_.isString(args.orig_id))  {this.orig_id  = args.orig_id;}
-      if(_.isString(args.batch_id)) {this.batch_id = args.batch_id;}
-      */
-
     }
   },
 

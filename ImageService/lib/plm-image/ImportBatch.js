@@ -40,13 +40,19 @@ module.exports = new Class(
     // stores the root path of the import
     this.path = '';
 
+    // The status of this batch, currently one of:
+    // - empty string: unitialized batch
+    // - 'IN_PROCESS': batch was triggered and is in-process
+    // - 'COMPLETED': batch has finished processing, possibly with errors
+    this.status = '';
+
     //
     // stats and progress
     //
     this.num_to_import = 0;
-    this.num_imported = 0;
-    this.num_success = 0;
-    this.num_error = 0;
+    this.num_imported  = 0;
+    this.num_success   = 0;
+    this.num_error     = 0;
 
     var that = this;
 
@@ -57,9 +63,11 @@ module.exports = new Class(
       });
     }
 
+    /*
     if (this.images_to_import.length > 0) {
       this.num_to_import = this.images_to_import.length;
     }
+    */
   },
 
   // returns the time at which the batch began - synonym for created_at
@@ -70,6 +78,55 @@ module.exports = new Class(
   getEndedAt: function getEndedAt() {
     return this.ended_at;
   },
+
+  /** sets the ended_at date, updates the updated_at to match */
+  setEndedAt: function setEndedAt(aDate) {
+    this.ended_at   = aDate;
+    this.updated_at = this.ended_at;
+  },
+
+
+  /** Add an image to the map of successfully processed images */
+  addSuccess: function (anImage) {
+    this._proc.images[anImage.path] = anImage;
+  },
+
+  /** Add an error to the map of import errors */
+  addErr: function (path, anError) {
+    this._proc.errs[path] = anError;
+  },
+
+
+  /** Returns the number of images to be processed in this importBatch */
+  getNumToBeImported: function () {
+    if (this.images_to_import.length > 0) {
+      this.num_to_import = this.images_to_import.length;
+    }
+    return this.num_to_import;
+
+  },
+
+  /** Return the number of errors in this import batch */
+  getNumError: function () {
+    if (_.keys(this._proc.errs).length > 0) {
+      this.num_error = _.keys(this._proc.errs).length;
+    }
+    return this.num_error;
+  },
+
+  /** Returns the number of images successfully imported in this import batch */
+  getNumSuccess: function () {
+    if (_.keys(this._proc.images).length > 0) {
+      this.num_success = _.keys(this._proc.images).length;
+    }
+    return this.num_success;
+  },
+
+  /** Returns the number of images processed in this importBatch, equal to the sum of getNumError() and getNumSuccess() */
+  getNumImported: function () {
+    return this.getNumError() + this.getNumSuccess();
+  },
+
 
 
   // returns a sanitized cloned instance without extraneous fields,
@@ -93,6 +150,11 @@ module.exports = new Class(
     if (_.has(storage, 'rev')) {
       out._rev = storage.rev;
     }
+
+    out.num_to_import = this.getNumToBeImported();
+    out.num_success   = this.getNumSuccess();
+    out.num_error     = this.getNumError();
+    out.num_imported  = this.getNumImported();
     return out;
   }
 
