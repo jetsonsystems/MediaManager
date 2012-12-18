@@ -144,10 +144,14 @@ var Resource = new Class({
     //
     //    Args:
     //      requestType:
-    //        create | index | read | update | delete
+    //        create | index | read | update | delete | collection | instance
+    //
+    //        Note:
+    //          collection: References a collection. Equiv. to create | index
+    //          instance: References an instance of a resource. Equiv. to reqd | update | delete
     //  
     this.requestPath = function(requestType) {
-      if ((requestType !== 'create') && (requestType !== 'index') && (requestType !== 'read') && (requestType !== 'update') && (requestType !== 'delete')) {
+      if ((requestType !== 'create') && (requestType !== 'index') && (requestType !== 'read') && (requestType !== 'update') && (requestType !== 'delete') && (requestType !== 'collection') && (requestType !== 'instance')) {
         throw Object.create(new Error(),
                             { name: { value: 'InvalidRequestType' },
                               message: { value: 'MediaManager/lib/MediaManagerApiCore.Resource.requestPath: invalid requestType.' } });
@@ -155,7 +159,7 @@ var Resource = new Class({
       var _requestPath = this.pathPrefix ? "\\" + this.pathPrefix : "";
       var _instIdPath = '\\/(\\$[^\\/]+)'
       var _doRequestPath = function(requestType, resource) {
-        if ((requestType === 'create') || (requestType === 'index')) {
+        if ((requestType === 'create') || (requestType === 'index') || (requestType === 'collection')) {
           if (resource.path) {
             _requestPath = _requestPath + "\\" + resource.path;
           }
@@ -166,7 +170,7 @@ var Resource = new Class({
           }
         }
         if (resource.subResource) {
-          if (((requestType === 'create') || (requestType === 'index')) && resource.path) {
+          if (((requestType === 'create') || (requestType === 'index') || (requestType === 'collection')) && resource.path) {
             _requestPath = _requestPath + _instIdPath;
           }
           _doRequestPath(requestType, resource.subResource);

@@ -16,19 +16,26 @@
 
 var config = require('MediaManagerAppConfig');
 var storage = require('./lib/storage.js');
+var mmApi = require('MediaManagerApi/lib/MediaManagerApiCore');
+mmApi.config({dbHost: 'localhost',
+              dbPort: config.db.local.port,
+              dbName: config.db.database});
+var MediaManagerApiRouter = require('./lib/MediaManagerApiRouter.js');
 
 var EventEmitter = require('events').EventEmitter;
 
-var init = function() {
+var init = function(router) {
   var app = Object.create(EventEmitter.prototype);
 
-  app.config = function() {
-    return config;
-  };
+  app.router = router;
+
+  app.config = config;
+
+  app.mediaManagerApiRouter = new MediaManagerApiRouter(router);
 
   app.shutdown = function() {
     dataStore.shutdown();
-  }
+  };
 
   var dataStore = storage.init(config);
   
