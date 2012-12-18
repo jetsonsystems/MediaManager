@@ -41,8 +41,7 @@ var MediaManagerApiRouter = function(router) {
           //  Need to populate attr with the request body.
           //
           try {
-            // options.attr = JSON.parse(req.payload);
-            options.attr = req.data;
+            options.attr = req.body;
           }
           catch (err) {
             //
