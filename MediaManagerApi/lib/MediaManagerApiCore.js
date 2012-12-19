@@ -632,7 +632,7 @@ var Importers = exports.Importers = new Class({
 
   _transformOne: function(rep) {
     var newRep = {};
-    newRep.id = _.has(rep, '_id') ? '$' + rep._id : undefined;
+    newRep.id = _.has(rep, 'oid') ? '$' + rep.oid : undefined;
     newRep.import_dir = _.has(rep, 'path') ? rep.path : '';
     newRep.created_at = rep.created_at;
     newRep.started_at = rep.created_at;
