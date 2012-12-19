@@ -27,11 +27,13 @@ log4js.configure({
       ,filename: "service.log"
       ,category: [ 'plm.ImageService' ]
     },
+    /*
     {
       type: "console"
     }
+    */
   ]
-  ,replaceConsole: true
+  ,replaceConsole: false
   ,levels: { 'plm.ImageService' : 'DEBUG' }
 });
 
@@ -223,7 +225,6 @@ imageService.index(
 
 
 // batch import from fs
-/*
 var target_dir = "/home/philippe/project/jetsonsys/src/ImageService/test/resources/gen2/eastwood";
 // var target_dir = "test/resources/empty";
 var options = {};
@@ -231,7 +232,21 @@ imageService.batchImportFs(
   target_dir, 
   function(err, importBatch) {
     if (err) console.log("err: %s", err);
-    else console.log("importBatch: %s", util.inspect(importBatch,null,'  '));
+    else { 
+      console.log("importBatch: %s", util.inspect(importBatch,null,'  '));
+
+      var oid = importBatch.oid;
+      var checkBatch = setInterval( function() {
+        imageService.importBatchShow(oid, {}, function(err, importBatch) {
+          if (err) console.log("err: %s", err);
+          console.log("checking status of importBatch '%s': %j", oid, importBatch);
+          if (importBatch.status === 'COMPLETED') {
+            console.log("importBatch completed!");
+            clearInterval(checkBatch);
+          }
+        });
+      }, 500);
+    }
   }, 
   { saveOriginal: true 
     ,desiredVariants: [ 
@@ -240,7 +255,6 @@ imageService.batchImportFs(
     ]
   }
 );
-*/
 
 // importBatchFindRecent without images
 /*
@@ -262,12 +276,13 @@ imageService.importBatchShow(oid, null, function(err, out) {
 */
 
 // importBatchFindRecent with images
-
+/*
 imageService.importBatchFindRecent(5, {includeImages: true}, function(err, batches) {
   if (err) console.log(err);
   else console.log("done retrieving %s batches: %j", batches.length, batches);
   // else console.log("done retrieving %s batches:\n%s", batches.length, util.inspect(batches,false,null));
 });
+*/
 
 
 

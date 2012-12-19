@@ -43,7 +43,32 @@ var
   ,VIEW_BY_OID_WITH_VARIANT  = 'by_oid_with_variant'
   ,VIEW_BATCH_BY_CTIME       = 'batch_by_ctime'
   ,VIEW_BATCH_BY_OID_W_IMAGE = 'batch_by_oid_w_image'
+  ,BATCH_IN_PROCESS = 'IN_PROCESS'
+  ,BATCH_COMPLETED  = 'COMPLETED'
 ;
+
+// a hashmap, keyed by oid, that caches importBatch objects while they are being processed
+priv.batch_in_process = {};
+
+priv.markBatchInProcess = function (anImportBatch) {
+  anImportBatch.status = BATCH_IN_PROCESS;
+  priv.batch_in_process[anImportBatch.oid] = anImportBatch;
+};
+
+priv.markBatchComplete = function (anImportBatch) 
+{
+  if (_.isObject(anImportBatch)) {
+    anImportBatch.setEndedAt(new Date());
+
+    anImportBatch.status = BATCH_COMPLETED;
+    if (_.has(priv.batch_in_process, anImportBatch.oid)) {
+      delete priv.batch_in_process[anImportBatch.oid];
+    }
+
+  } else {
+    log.warn("Illegal Argument in markBatchComplete: '%j'", anImportBatch);
+  }
+};
 
 
 // call this at initialization time to check the db config and connection
@@ -62,7 +87,7 @@ var dbServer = null;
 
 // returns a db connection
 priv.db = function db() {
-  log.debug('priv.db: Connecting to data base, host - ' + config.db.host + ', port - ' + config.db.port + ', db - ' + config.db.name);
+  log.trace("priv.db: Connecting to data base, host - '%s' - port '%s' - db '%s'", config.db.host, config.db.port, config.db.name);
   dbServer = dbServer || nano('http://' + config.db.host + ":" + config.db.port);
   return dbServer.use(config.db.name);
 };
@@ -605,10 +630,13 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
             aryImgOut.push(anImg);
           } else {
             // if the image is a variant, add it to the original's variants array
-            if (_.isObject(imgMap[anImg.orig_id])) {
-              log.trace('Variant w/ name - ' + anImg.name);
-              log.trace('Variant w/ doc. body keys - (' + JSON.stringify(_.keys(docBody)) + ')');
-              log.trace('Variant w/ image keys - (' + JSON.stringify(_.keys(anImg)) + ')');
+            if (_.isObject(imgMap[anImg.orig_id])) 
+            {
+              if (log.isTraceEnabled()) {
+                log.trace('Variant w/ name - %s', anImg.name);
+                log.trace('Variant w/ doc. body keys - (%j)', _.keys(docBody));
+                log.trace('Variant w/ image keys - (%j)', _.keys(anImg));
+              }
               imgMap[anImg.orig_id].variants.push(anImg);
             } else {
               log.warn("Warning: found variant image without a parent %j", anImg);
@@ -626,7 +654,7 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
 
 /**
  * This method converts an array of image docs returned by couch, into an array of images with
- * variants. The documents are assumed to be ordered a sequence of original images and their
+ * variants. The couch documents are assumed to be ordered a sequence of original images and their
  * variants: 
  *   [Orig, Var, Var..., Orig, Var, Var..., ]
  * it returns:
@@ -683,10 +711,9 @@ function convertImageViewToCollection(docs, options)
  *   - all options that can be passed to ImageService.save() which will be applied to all images in
  *     the import batch
  *
- * callback is invoked with:
- *   - err: error that may have prevented process from running at all
- *   - failure: map of errs for paths that were not saved, keyed by path
- *   - success: map of images that were saved successfully, keyed by path
+ * callback is invoked with the initialized importBatch, and processing of the batch will be
+ * triggered asynchronously. importBatchShow(oid) can be called to monitor the progress of the
+ * importPatch's processing.
  */
 function batchImportFs(target_dir, callback, options) 
 {
@@ -710,6 +737,8 @@ function batchImportFs(target_dir, callback, options)
         importBatch = new ImportBatch(
           { path: target_dir, oid: priv.genOid(), images_to_import: aryImage }
         );
+
+        priv.markBatchInProcess(importBatch);
         if (log.isDebugEnabled()) { log.debug('New importBatch: %j', importBatch); }
 
         options.batch_id = importBatch.oid;
@@ -719,20 +748,26 @@ function batchImportFs(target_dir, callback, options)
       },
 
       function (body, headers, next) {
-        log.debug("Saved importBatch record to db before processing: %j", body);
         priv.setCouchRev(importBatch, body);
-        log.debug('Batch rev updated, id - ' + importBatch.oid + ', rev - ' + importBatch._storage.rev);
+        log.debug("Saved importBatch record to db before processing:  id '%s' -  rev '%s'", importBatch.oid, importBatch._storage.rev);
+
+        // return the initialized importBatch...
+        if (_.isFunction(callback)) {
+          callback(null, importBatch);
+        }
+
+        log.info("Starting importBatch processing of path '%s': %j", importBatch.path, importBatch);
+
+        // and continue processing asynchronously
         saveBatch(importBatch, options, next);
       }
 
     ],
-    function(err, importBatch) {
+    function(err) {
+      priv.markBatchComplete(importBatch);
       if (err) { 
-        var errMsg = "Error in batchImportFs: " + err;
-        callback(errMsg, importBatch);
-      } else {
-        callback(null, importBatch);
-      }
+        var errMsg = util.format("Error while processing batchImportFs '%s': %s", importBatch.oid,err);
+      } 
     }
   );
 }
@@ -742,10 +777,19 @@ exports.batchImportFs = batchImportFs;
 /**
  * Saves all the images specified in the ImportBatch, and
  * collects saved images or errors, as the case may be
+ *
+ * options:
+ *   - retrieveBatchOnSave: false by default, 
+ *     if true, performs an importBatchShow(oid) after saving the batch
  */
 function saveBatch(importBatch, options, callback)
 {
   var db = priv.db();
+  var opts = options || opts;
+
+  if (!_.has(opts, "retrieveBatchOnSave")) {
+    opts.retrieveBatchOnSave = false;
+  }
 
   log.debug("Saving images in importBatch '%s'", importBatch.path);
 
@@ -755,13 +799,14 @@ function saveBatch(importBatch, options, callback)
   // increases substantially without a further increase in throughput. Mileage may vary on your
   // system.
   async.forEachLimit(importBatch.images_to_import, 3, saveBatchImage, function(err) {
-    // we are done saving each image in the batch
-    importBatch.ended_at   = new Date();
-    importBatch.updated_at = importBatch.ended_at;
+    // we are done processing each image in the batch
+    priv.markBatchComplete(importBatch);
 
+    /*
     importBatch.num_imported = _.keys(importBatch._proc.images).length + _.keys(importBatch._proc.errs).length;
     importBatch.num_success = _.keys(importBatch._proc.images).length;
     importBatch.num_error = _.keys(importBatch._proc.errs).length;
+    */
     log.debug('Saving batch, name - ' + importBatch.oid + ', rev - ' + importBatch._storage.rev);
     db.insert(importBatch, importBatch.oid, function(err, body, headers) {
       if (err) {
@@ -771,8 +816,9 @@ function saveBatch(importBatch, options, callback)
         priv.setCouchRev(importBatch, body); // just in case
         log.info("Successfully saved importBatch '%s': %j", importBatch.path, importBatch);
       }
-      importBatchShow(importBatch.oid, null, callback);
-      // callback(err, importBatch);
+      if (opts.retrieveBatchOnSave) {
+        importBatchShow(importBatch.oid, null, callback);
+      }
     });
   });
 
@@ -784,15 +830,21 @@ function saveBatch(importBatch, options, callback)
       ,function(err, image) {
         if (err) {
           log.error("error while saving image at '%s': %s", imgPath, err);
-          importBatch._proc.errs[imgPath] = err;
+          // importBatch._proc.errs[imgPath] = err;
+          importBatch.addErr(imgPath, err);
+          /*
           importBatch.num_imported = _.keys(importBatch._proc.images).length + _.keys(importBatch._proc.errs).length;
           importBatch.num_success = _.keys(importBatch._proc.images).length;
           importBatch.num_error = _.keys(importBatch._proc.errs).length;
+          */
         } else {
-          importBatch._proc.images[imgPath] = image;
+          // importBatch._proc.images[imgPath] = image;
+          importBatch.addSuccess(image);
+          /*
           importBatch.num_imported = _.keys(importBatch._proc.images).length + _.keys(importBatch._proc.errs).length;
           importBatch.num_success = _.keys(importBatch._proc.images).length;
           importBatch.num_error = _.keys(importBatch._proc.errs).length;
+          */
         }
         next();
       }
@@ -812,8 +864,18 @@ function saveBatch(importBatch, options, callback)
  *   
  */
 function importBatchShow(oid, options, callback) {
-  var db = priv.db();
+
   var batchOut = {};
+
+  if (_.isObject(priv.batch_in_process[oid])) 
+  {
+    batchOut = priv.batch_in_process[oid];
+    log.info("Retrieved importBatch with oid '%s' from in-process cache: %j", oid, batchOut);
+    callback(null, batchOut);
+    return;
+  }
+
+  var db = priv.db();
   var opts = _.isObject(options) ? options : {};
 
   if (!_.has(opts,'includeImages')) { opts.includeImages = true; }
