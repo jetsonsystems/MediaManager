@@ -13,5 +13,12 @@
     "mootools" : "*",
     "restify" : "*",
     "bunyan" : "*"
-  }
+  },
+  "scripts": {
+        "test": "make test"
+    },
+  "devDependencies": {
+    "mocha": "*",
+    "should":"*"
+    }
 }
