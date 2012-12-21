@@ -336,7 +336,6 @@ var Images = exports.Images = new Class({
       format: 'format',
       geometry: 'geometry',
       size: 'size',
-      depth: 'depth',
       filesize: 'filesize',
       checksum: 'checksum',
       taken_at: 'taken_at',
