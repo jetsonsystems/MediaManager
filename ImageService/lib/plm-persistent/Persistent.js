@@ -31,7 +31,7 @@ module.exports = new Class (
     if (_.isObject(args) && _.isDate(args.updated_at)) { 
       this.updated_at = args.updated_at;
     } else {
-      this.updated_at = new Date();
+      this.updated_at = this.created_at;
     }
 
     // a field intended to be private that stores storage-specific metadata
