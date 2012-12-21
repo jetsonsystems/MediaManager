@@ -102,7 +102,7 @@ describe('ImageService Testing', function () {
 
         /*
          Test1 Setup:
-         - pick an image path from 'test/resources'
+         - pick an image path from 'test/resources/images'
          - create an image record in couch using ImageService.save(imagePath)
          - perform various 'Assertions' on the Image object returned by
          save(imagePath), comparing the values of the object to a pre-determined set of
@@ -110,7 +110,7 @@ describe('ImageService Testing', function () {
          *
          *
          */
-        var path_to_images = './test/resources';
+        var path_to_images = './test/resources/images';
 
         var theSavedImage = null;
 
