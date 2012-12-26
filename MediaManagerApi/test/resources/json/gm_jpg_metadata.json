@@ -1,0 +1,78 @@
+{
+  "Format": "JPEG (Joint Photographic Experts Group JFIF format)",
+  "format": "JPEG",
+  "Geometry": "1472x1104",
+  "size": {
+    "width": 1472,
+    "height": 1104
+  },
+  "Class": "DirectClass",
+  "Type": "true color",
+  "Depth": "8 bits-per-pixel component",
+  "depth": 8,
+  "Channel Depths": {
+    "Red": "8 bits",
+    "Green": "8 bits",
+    "Blue": "8 bits"
+  },
+  "Channel Statistics": {
+    "Red": {
+      "Minimum": "0.00 (0.0000)",
+      "Maximum": "255.00 (1.0000)",
+      "Mean": "95.22 (0.3734)",
+      "Standard Deviation": "57.09 (0.2239)"
+    },
+    "Green": {
+      "Minimum": "0.00 (0.0000)",
+      "Maximum": "255.00 (1.0000)",
+      "Mean": "92.80 (0.3639)",
+      "Standard Deviation": "55.73 (0.2186)"
+    },
+    "Blue": {
+      "Minimum": "0.00 (0.0000)",
+      "Maximum": "255.00 (1.0000)",
+      "Mean": "103.09 (0.4043)",
+      "Standard Deviation": "58.23 (0.2284)"
+    }
+  },
+  "Filesize": "389.6K",
+  "Interlace": "No",
+  "Orientation": "TopLeft",
+  "Background Color": "white",
+  "Border Color": "#DFDFDF",
+  "Matte Color": "#BDBDBD",
+  "Compose": "Over",
+  "Dispose": "Undefined",
+  "Iterations": "0",
+  "Compression": "JPEG",
+  "JPEG-Quality": "85",
+  "JPEG-Colorspace": "2",
+  "JPEG-Colorspace-Name": "RGB",
+  "JPEG-Sampling-factors": "2x1,1x1,1x1",
+  "Signature": "85ac9bc55bf995a95bb1ea78b0677e84aa3819449b11a1457a091dc6dcd3146d",
+  "Profile-EXIF": {
+    "Image Width": "2048",
+    "Image Length": "1536",
+    "Orientation": "1",
+    "Make": "Motorola",
+    "Model": "MB520",
+    "Software": "2.2.1",
+    "Date Time": "2011:10:31 17:11:13",
+    "Resolution Unit": "2",
+    "X Resolution": "300/1",
+    "Y Resolution": "300/1",
+    "Y Cb Cr Positioning": "1",
+    "GPS Info": "228",
+    "GPS Latitude Ref": "N",
+    "GPS Latitude": "38/1,14/1,19/1",
+    "GPS Longitude Ref": "W",
+    "GPS Longitude": "122/1,39/1,6/1",
+    "GPS Time Stamp": "825307186/976236858",
+    "GPS Date Stamp": "2011:10:31",
+    "0x001B": "ASCII"
+  },
+  "Tainted": "False",
+  "User Time": "0.060u",
+  "Elapsed Time": "0:01",
+  "Pixels Per Second": "17.2M"
+}
