@@ -33,7 +33,7 @@ describe('Images', function () {
   ;
 
   var
-    ,IMG_NAME = 'anImage.jpg'
+    IMG_NAME = 'anImage.jpg'
     ,IMG_PATH = '/some/path/to/' + IMG_NAME
     ,IMG_OID  = 'aaa-bbb-ccc'
     ,IMG_METADATA = JSON.parse(fs.readFileSync('./test/resources/json/gm_jpg_metadata.json'))
