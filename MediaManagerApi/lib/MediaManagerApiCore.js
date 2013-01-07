@@ -634,12 +634,12 @@ var Importers = exports.Importers = new Class({
     newRep.id = _.has(rep, 'oid') ? '$' + rep.oid : undefined;
     newRep.import_dir = _.has(rep, 'path') ? rep.path : '';
     newRep.created_at = rep.created_at;
-    newRep.started_at = rep.created_at;
-    newRep.completed_at = _.has(rep, 'ended_at')? rep.ended_at : undefined;
-    newRep.num_to_import = rep.num_to_import;
-    newRep.num_imported = rep.num_imported;
-    newRep.num_success = rep.num_success;
-    newRep.num_error = rep.num_error;
+    newRep.started_at = rep.getStartedAt();
+    newRep.completed_at  = _.has(rep, 'ended_at')? rep.ended_at : undefined;
+    newRep.num_to_import = rep.getNumToImport();
+    newRep.num_imported  = rep.getNumImported();
+    newRep.num_success   = rep.getNumSuccess();
+    newRep.num_error     = rep.getNumError();
     return newRep;
   }
 

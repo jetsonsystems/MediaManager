@@ -71,7 +71,7 @@ module.exports = new Class(
   },
 
   // returns the time at which the batch began - synonym for created_at
-  getBeganAt: function getBeginAt() {
+  getStartedAt: function getStartedAt() {
     return this.created_at;
   },
 
@@ -98,7 +98,7 @@ module.exports = new Class(
 
 
   /** Returns the number of images to be processed in this importBatch */
-  getNumToBeImported: function () {
+  getNumToImport: function () {
     if (this.images_to_import.length > 0) {
       this.num_to_import = this.images_to_import.length;
     }
@@ -151,7 +151,7 @@ module.exports = new Class(
       out._rev = storage.rev;
     }
 
-    out.num_to_import = this.getNumToBeImported();
+    out.num_to_import = this.getNumToImport();
     out.num_success   = this.getNumSuccess();
     out.num_error     = this.getNumError();
     out.num_imported  = this.getNumImported();
