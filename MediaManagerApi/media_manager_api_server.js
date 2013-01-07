@@ -18,7 +18,7 @@ var infoLogfile = serverName + '.log';
 var errorLogfile = serverName + '.log';
 var _ = require('underscore');
 var url = require('url');
-var mmApi = require('MediaManagerApi/lib/MediaManagerApiCore');
+var mmApi = require('./lib/MediaManagerApiCore');
 var restify = require('restify');
 
 var opts = require('optimist')
