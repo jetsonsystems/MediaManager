@@ -2,12 +2,11 @@
 
 var
   should  = require('should')
+  ,config = require('./config')
   ,expect = require('chai').expect
   ,fs     = require('fs')
   ,Image  = require('ImageService/lib/plm-image/Image')
-  ,Images = require('../lib/MediaManagerApiCore')({dbHost:'localhost',
-                                                   dbPort:5984,
-                                                   dbName:'plm-media-manager-dev0'}).Images
+  ,Images = require('../lib/MediaManagerApiCore')(config).Images
   ,util   = require('util')
 ;
 

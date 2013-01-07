@@ -2,10 +2,11 @@
 
 var
   should  = require('should')
+  ,config = require('./config')
   ,expect = require('chai').expect
   ,fs     = require('fs')
   ,ImportBatch = require('ImageService/lib/plm-image/ImportBatch')
-  ,Importers = require('../lib/MediaManagerApiCore').Importers
+  ,Importers = require('../lib/MediaManagerApiCore')(config).Importers
   ,util   = require('util')
 ;
 
