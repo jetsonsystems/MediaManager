@@ -18,13 +18,23 @@ var infoLogfile = serverName + '.log';
 var errorLogfile = serverName + '.log';
 var _ = require('underscore');
 var url = require('url');
-var mmApi = require('MediaManagerApi/lib/MediaManagerApiCore');
 var restify = require('restify');
 
 var opts = require('optimist')
   .boolean('v')
-  .usage('Usage: $0 [<options>] <port> <dbname>\n\nMedia Managager API Server.')
+  .boolean('c')
+  .usage('Usage: $0 [<options>] <port>\n\nMedia Managager API Server.')
   .options({
+    'c' : {
+      'alias' : 'config',
+      'default' : false,
+      'describe' : 'Use MediaManageAppConfig instead of -d, -h, and/or -p options.'
+    },
+    'd' : {
+      'alias' : 'dbname',
+      'default' : 'plm-media-manager',
+      'describe' : 'Database name.'
+    },
     'h' : {
       'alias' : 'dbhost',
       'default' : 'localhost',
@@ -39,7 +49,7 @@ var opts = require('optimist')
 var argv = opts.argv;
 
 var argsOk = function(argv) {
-  if (argv._.length !== 2) {
+  if (argv._.length !== 1) {
     return false;
   }
   return true;
@@ -51,11 +61,25 @@ if (!argsOk) {
 }
 
 var serverPort = argv._[0];
-var dbName = argv._[1];
 
-mmApi.config({dbHost: argv.h,
-              dbPort: argv.p,
-              dbName: dbName});
+var config = undefined;
+
+if (argv.c) {
+  config = require('MediaManagerAppConfig');
+}
+else {
+  config = {
+    db: {
+      database: argv.d,
+      local: {
+        host: argv.h,
+        port: argv.p
+      }
+    }
+  };
+}
+
+var mmApi = require('MediaManagerApi/lib/MediaManagerApiCore')(config);
 
 var bunyan = require('bunyan');
 var logger = bunyan.createLogger({
@@ -97,8 +121,9 @@ var MediaManagerApiRouter = function() {
       //
       //  create route (POST resource.path)
       //
-      console.log('MediaManagerApiRouter.initialize: create...');
-      server.post(resource.requestPath('create'),
+      var pat = resource.requestPath('create');
+      console.log('MediaManagerApiRouter.initialize: create, request path to match - ' + pat);
+      server.post(pat,
                   function create(req, res, next) {
                     logger.info({
                       event: '__request__',
@@ -123,10 +148,10 @@ var MediaManagerApiRouter = function() {
       //
       //  index route (GET resource.path)
       //
-      var pat = resource.requestPath('index');
+      pat = resource.requestPath('index');
       console.log('MediaManagerApiRouter.initialize: index, request path to match - ' + pat);
       server.get(pat,
-                 function(req, res) {
+                 function(req, res, next) {
                    logger.info({
                      event: '__request__',
                      req: req});
@@ -141,6 +166,7 @@ var MediaManagerApiRouter = function() {
                    }
                    resource.doRequest('GET',
                                       options);
+                   return next();
                  });
 
       //
@@ -150,9 +176,10 @@ var MediaManagerApiRouter = function() {
       //
       //  read route (GET resource.path, where resource.path points to an instance)
       //
-      console.log('MediaManagerApiRouter.initialize: read...');
-      server.get(resource.requestPath('read'),
-                 function(req, res) {
+      pat = resource.requestPath('read');
+      console.log('MediaManagerApiRouter.initialize: read, request path to match - ' + pat);
+      server.get(pat,
+                 function(req, res, next) {
                    logger.info({event: '__request__',
                                 id: req.params[0],
                                 req: req});
@@ -160,9 +187,13 @@ var MediaManagerApiRouter = function() {
                                       {id: req.params[0],
                                        onSuccess: that.genOnSuccess(resource, req, res),
                                        onError: that.genOnError(resource, req, res)});
+                   return next();
                  });
+      console.log('MediaManagerApiRouter.initialize: read defined!');
     });
   };
+
+  console.log('MediaManagerApiRouter.constructor: Setting up resources, typeof(mmApi) === ' + typeof(mmApi) + ', mmApi attributes - ' + _.keys(mmApi));
 
   this.resources = {
     Images: new mmApi.Images('/images', 
@@ -180,7 +211,10 @@ var MediaManagerApiRouter = function() {
                                                      '/images', 
                                                      {instName: 'image'})
                                                   })
-                                               })
+                                               }),
+    StorageSynchronizers: new mmApi.StorageSynchronizers('/storage/synchronizers',
+                                                         {instName: 'synchronizer',
+                                                          pathPrefix: '/' + urlVersion })
   };
 
   this.genOnSuccess = function(resource, req, res) {

@@ -5,7 +5,9 @@ var
   ,expect = require('chai').expect
   ,fs     = require('fs')
   ,Image  = require('ImageService/lib/plm-image/Image')
-  ,Images = require('../lib/MediaManagerApiCore').Images
+  ,Images = require('../lib/MediaManagerApiCore')({dbHost:'localhost',
+                                                   dbPort:5984,
+                                                   dbName:'plm-media-manager-dev0'}).Images
   ,util   = require('util')
 ;
 
@@ -33,7 +35,7 @@ describe('Images', function () {
   ;
 
   var
-    ,IMG_NAME = 'anImage.jpg'
+    IMG_NAME = 'anImage.jpg'
     ,IMG_PATH = '/some/path/to/' + IMG_NAME
     ,IMG_OID  = 'aaa-bbb-ccc'
     ,IMG_METADATA = JSON.parse(fs.readFileSync('./test/resources/json/gm_jpg_metadata.json'))

@@ -18,7 +18,8 @@ var infoLogfile = serverName + '.log';
 var errorLogfile = serverName + '.log';
 var _ = require('underscore');
 var url = require('url');
-var mmApi = require('../lib/MediaManagerApiCore');
+var mmApiModule = require('../lib/MediaManagerApiCore');
+var mmApi = undefined;
 var restify = require('restify');
 var async = require('async');
 
@@ -36,10 +37,19 @@ function startServer(options, callback) {
   var dbPort = options.dbOptions.port;
   var dbName = options.dbOptions.dbName;
 
+  console.log('MediaManagerApi/test/media_manager_api_server.js: Initializing MediaManagerApi, module type - ' + typeof(mmApiModule) + ', host - ' + dbHost + ', port - ' + dbPort + ', database - ' + dbName);
 
-  mmApi.config({dbHost:dbHost,
-    dbPort:dbPort,
-    dbName:dbName});
+  try {
+    mmApi = mmApiModule({dbHost:dbHost,
+                         dbPort:dbPort,
+                         dbName:dbName});
+  }
+  catch (err) {
+    console.log('MediaManagerApi/test/media_manager_api_server.js: Error initialing MediaManagerApi, error - ' + err);
+    throw err;
+  }
+
+  console.log('MediaManagerApi/test/media_manager_api_server.js: Initialized!');
 
   var bunyan = require('bunyan');
   var logger = bunyan.createLogger({
