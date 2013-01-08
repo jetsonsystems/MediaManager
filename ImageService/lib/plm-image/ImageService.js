@@ -58,7 +58,7 @@ priv.markBatchInProcess = function (anImportBatch) {
 priv.markBatchComplete = function (anImportBatch) 
 {
   if (_.isObject(anImportBatch)) {
-    anImportBatch.setEndedAt(new Date());
+    anImportBatch.setCompletedAt(new Date());
 
     anImportBatch.status = BATCH_COMPLETED;
     if (_.has(priv.batch_in_process, anImportBatch.oid)) {

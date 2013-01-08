@@ -15,7 +15,7 @@ module.exports = new Class(
     this.class_name = 'plm.ImportBatch'; 
 
     // stores the time at which the batch ended processing
-    this.ended_at = undefined;
+    this.completed_at = undefined;
 
     // transient field that stores an array of tuples such as: 
     //   {path: 'someImagePath', format: 'jpg'}
@@ -74,14 +74,14 @@ module.exports = new Class(
     return this.created_at;
   },
 
-  getEndedAt: function getEndedAt() {
-    return this.ended_at;
+  getCompletedAt: function getCompletedAt() {
+    return this.completed_at;
   },
 
-  /** sets the ended_at date, updates the updated_at to match */
-  setEndedAt: function setEndedAt(aDate) {
-    this.ended_at   = aDate;
-    this.updated_at = this.ended_at;
+  /** sets the completed_at date, updates the updated_at to match */
+  setCompletedAt: function setCompletedAt(aDate) {
+    this.completed_at   = aDate;
+    this.updated_at = this.completed_at;
   },
 
 

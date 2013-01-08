@@ -94,7 +94,7 @@ describe('Importers', function () {
   batchImport.num_success   = 2;
   batchImport.num_error     = 1;
 
-  batchImport.setEndedAt( new Date(batchImport.getStartedAt().getTime() + 1000) );
+  batchImport.setCompletedAt( new Date(batchImport.getStartedAt().getTime() + 1000) );
   batchImport.status = 'COMPLETED';
 
   it("should transform a batchImport with images via ImportersImages.transformRep", function () 
@@ -105,7 +105,7 @@ describe('Importers', function () {
     rep.id.should.equal('$' + batchImport.oid);
     rep.created_at.should.equal(batchImport.created_at);
     rep.started_at.should.equal(batchImport.getStartedAt());
-    rep.completed_at.should.equal(batchImport.ended_at);
+    rep.completed_at.should.equal(batchImport.getCompletedAt());
     rep.num_to_import.should.equal(batchImport.getNumToImport());
     rep.num_imported.should.equal(batchImport.getNumAttempted());
     rep.num_success.should.equal(batchImport.getNumSuccess());
