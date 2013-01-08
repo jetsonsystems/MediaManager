@@ -21,7 +21,8 @@ function assertShortForm(rep, image)
   rep.filesize.should.equal(image.filesize);
   rep.created_at.should.equal(image.created_at);
   rep.taken_at.should.equal(image.taken_at);
-}
+};
+exports.assertShortForm = assertShortForm;
 
 describe('Images', function () {
 

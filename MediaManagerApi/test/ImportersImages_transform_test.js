@@ -10,9 +10,23 @@ var
   ,Images      = require('../lib/MediaManagerApiCore')(config).Images
   ,Importers   = require('../lib/MediaManagerApiCore')(config).Importers
   ,ImportersImages = require('../lib/MediaManagerApiCore')(config).ImportersImages
+  ,ImagesTest = require('./Images_transform_test')
   ,util   = require('util')
 ;
 
+/*
+function assertShortForm(rep, image) 
+{
+  rep.id.should.equal('$' + image.oid);
+  rep.name.should.equal(image.name);
+  rep.url.should.equal(image.url);
+  rep.geometry.should.equal(image.geometry);
+  rep.size.should.equal(image.size);
+  rep.filesize.should.equal(image.filesize);
+  rep.created_at.should.equal(image.created_at);
+  rep.taken_at.should.equal(image.taken_at);
+}
+*/
 
 describe('Importers', function () {
 
@@ -66,6 +80,12 @@ describe('Importers', function () {
   img1.readFromGraphicsMagick(JSON.parse(fs.readFileSync(TEST_DIR + '/gm_jpg_metadata.json')));
   img2.readFromGraphicsMagick(JSON.parse(fs.readFileSync(TEST_DIR + '/gm_png_metadata.json')));
 
+  img1.taken_at = new Date();
+  img2.taken_at = new Date();
+
+  img1.url = 'http://localhost:5984/some_db/' + img1.oid;
+  img2.url = 'http://localhost:5984/some_db/' + img2.oid;
+
   batchImport.images.push(img1);
   batchImport.images.push(img2);
 
@@ -74,7 +94,7 @@ describe('Importers', function () {
   batchImport.num_success   = 2;
   batchImport.num_error     = 1;
 
-  // batchImport.setEndedAt(new Date(batchImport.getStartedAt().UTC() + 1000));
+  batchImport.setEndedAt( new Date(batchImport.getStartedAt().getTime() + 1000) );
   batchImport.status = 'COMPLETED';
 
   it("should transform a batchImport with images via ImportersImages.transformRep", function () 
@@ -85,12 +105,15 @@ describe('Importers', function () {
     rep.id.should.equal('$' + batchImport.oid);
     rep.created_at.should.equal(batchImport.created_at);
     rep.started_at.should.equal(batchImport.getStartedAt());
-    // rep.completed_at.should.equal(batchImport.ended_at);
+    rep.completed_at.should.equal(batchImport.ended_at);
     rep.num_to_import.should.equal(batchImport.getNumToImport());
     rep.num_imported.should.equal(batchImport.getNumAttempted());
     rep.num_success.should.equal(batchImport.getNumSuccess());
     rep.num_error.should.equal(batchImport.getNumError());
-    console.log("done with assertions");
+    rep.images.length.should.equal(2);
+
+    ImagesTest.assertShortForm(rep.images[0], img1);
+    ImagesTest.assertShortForm(rep.images[1], img2);
   });
 
 });
