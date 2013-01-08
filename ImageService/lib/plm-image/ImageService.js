@@ -715,7 +715,7 @@ function convertImageViewToCollection(docs, options)
  * triggered asynchronously. importBatchShow(oid) can be called to monitor the progress of the
  * importPatch's processing.
  */
-function batchImportFs(target_dir, callback, options) 
+function importBatchFs(target_dir, callback, options) 
 {
   var db = priv.db();
   var importBatch;
@@ -766,12 +766,12 @@ function batchImportFs(target_dir, callback, options)
     function(err) {
       priv.markBatchComplete(importBatch);
       if (err) { 
-        var errMsg = util.format("Error while processing batchImportFs '%s': %s", importBatch.oid,err);
+        var errMsg = util.format("Error while processing importBatchFs '%s': %s", importBatch.oid,err);
       } 
     }
   );
 }
-exports.batchImportFs = batchImportFs;
+exports.importBatchFs = importBatchFs;
 
 
 /**

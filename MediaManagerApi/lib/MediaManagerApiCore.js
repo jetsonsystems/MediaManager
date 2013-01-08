@@ -624,7 +624,7 @@ var Importers = new Class({
                             { name: 'full-small.jpg', format: 'jpg', width: 1280, height: 800}]
         };
         
-        imageService.batchImportFs(
+        imageService.importBatchFs(
           importDir,
           function(err, importBatch) {
             var status = 200;
