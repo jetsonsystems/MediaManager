@@ -747,7 +747,7 @@ var Importers = new Class({
     newRep.started_at = rep.getStartedAt();
     newRep.completed_at  = _.has(rep, 'ended_at')? rep.ended_at : undefined;
     newRep.num_to_import = rep.getNumToImport();
-    newRep.num_imported  = rep.getNumImported();
+    newRep.num_imported  = rep.getNumAttempted();
     newRep.num_success   = rep.getNumSuccess();
     newRep.num_error     = rep.getNumError();
     return newRep;

@@ -12,8 +12,8 @@ describe('Image', function () {
     ,NAME = 'anImage.jpg'
     ,PATH = '/some/path/to/' + NAME
     ,OID  = 'aaa-bbb-ccc'
-    ,image = new Image({path: PATH, oid: OID}
-  );
+    ,image = new Image({path: PATH, oid: OID})
+  ;
 
   it("should have default values at initialization", function (done) 
   {

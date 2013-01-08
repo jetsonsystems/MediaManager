@@ -50,7 +50,6 @@ module.exports = new Class(
     // stats and progress
     //
     this.num_to_import = 0;
-    this.num_imported  = 0;
     this.num_success   = 0;
     this.num_error     = 0;
 
@@ -123,7 +122,7 @@ module.exports = new Class(
   },
 
   /** Returns the number of images processed in this importBatch, equal to the sum of getNumError() and getNumSuccess() */
-  getNumImported: function () {
+  getNumAttempted: function () {
     return this.getNumError() + this.getNumSuccess();
   },
 
@@ -154,7 +153,7 @@ module.exports = new Class(
     out.num_to_import = this.getNumToImport();
     out.num_success   = this.getNumSuccess();
     out.num_error     = this.getNumError();
-    out.num_imported  = this.getNumImported();
+    out.num_attempted = this.getNumAttempted();
     return out;
   }
 

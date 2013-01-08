@@ -49,7 +49,7 @@ describe('Importers', function () {
     rep.started_at.should.equal(batchImport.getStartedAt());
     // rep.completed_at.should.equal(batchImport.ended_at);
     rep.num_to_import.should.equal(batchImport.getNumToImport());
-    rep.num_imported.should.equal(batchImport.getNumImported());
+    rep.num_imported.should.equal(batchImport.getNumAttempted());
     rep.num_success.should.equal(batchImport.getNumSuccess());
     rep.num_error.should.equal(batchImport.getNumError());
   });
