@@ -1,3 +1,7 @@
+//
+// MediaManager/MediaManagerApi/lib/Notifications.js
+//
+
 var uuid  = require('node-uuid');
 var postal = require('postal');
 

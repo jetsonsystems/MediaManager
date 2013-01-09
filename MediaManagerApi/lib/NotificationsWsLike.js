@@ -50,20 +50,61 @@
 
 var notifications = require('Notifications');
 
+//
+// WsLikeConstructor: Create a WebSocket like object.
+//
+//  Notes:
+//    * readyState is CONNECTING when object is constructed.
+//    * readyState changes to OPEN 0.1 sec latter via a timer to emulate a
+//      connection being establish. At that time onopen is invoked.
+//
 module.exports = function WsLikeConstructor(url, protocal) {
+
+  var that = this;
 
   this.URL = url;
 
   this.CONNECTING = 0;
   this.OPEN = 1;
-  this.CLOSED = 2;
+  this.CLOSING = 2;
+  this.CLOSED = 3;
+
+  //
+  //  Make the state connecting after construction.
+  //
+  var readyState = this.CONNECTING;
+  var bufferedAmount = 0;
 
   this.onopen = undefined;
   this.onmessage = undefined;
   this.onclose = undefined
 
+  //
+  // Emulate the connection opening 0.1 sec. latter by invoking openConnection 
+  // and setting readyState appropriately. The timer is the last thing in the
+  // constructor.
+  //
+  
+  function openEvent() {
+    return {};
+  }
+
+  function openConnection() {
+    readyState = that.OPEN;
+    if (that.onopen) {
+      that.onopen(openEvent());
+    }
+  };
+
   this.send = function(event) {
     var parsedEvent;
+
+    if (readyState !== this.OPEN) {
+      //
+      //  Silently return if we haven't considered ourselves open yet.
+      //
+      return;
+    }
 
     try {
       parsedEvent = JSON.parse('data');
@@ -100,7 +141,38 @@ module.exports = function WsLikeConstructor(url, protocal) {
     }
   };
 
-  this.close = function() {};
+  //
+  // close: support for emulating a close.
+  //
+  //  For generating a close event, see:
+  //
+  //    https://developer.mozilla.org/en-US/docs/WebSockets/WebSockets_reference/CloseEvent
+  //
+  var closeCodes = {
+    NORMAL: 1000
+  };
+  
+  function closeEvent(code) {
+    return {
+      code: code,
+      reason: "UserRequestedClose",
+      wasClean: true
+    };
+  };
+
+  function closeConnection() {
+    readyState = that.CLOSED;
+    if (that.onclose) {
+      that.onclose(closeEvent(closeCodes.NORMAL));
+    }
+  }
+
+  //
+  // close: The public close method.
+  //
+  this.close = function() {
+    setTimeout(closeConnection, 0.1);
+  };
 
   //
   //  All subscriptions shared by this instance.
@@ -129,7 +201,7 @@ module.exports = function WsLikeConstructor(url, protocal) {
       var subscription = notifications.subscribe(parsedEvent.data.resource, handleCallbacks);
       subscriptions[parsedEvent.data.resource] = subscription;
     }
-  }
+  };
 
   //
   // sendUnsubscribe: like sendSubscribe.
@@ -139,6 +211,8 @@ module.exports = function WsLikeConstructor(url, protocal) {
       notifications.unsubscribe(subscriptions[parsedEvent.data.resource]);
       delete subscriptions[parsedEvent.data.resource];
     }
-  }
+  };
+
+  setTimeout(openConnection, 0.1);
 
  };

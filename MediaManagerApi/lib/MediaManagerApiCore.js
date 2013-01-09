@@ -865,7 +865,7 @@ var StorageSynchronizers = new Class({
       function publishSyncEvent(event, synchronizer) {
         notifications.publish('/storage/synchronizers',
                               event,
-                              synchronizer);
+                              that.transformRep(synchronizer));
       };
       synchronizer.on('sync.started', 
                       function(synchronizer) {
