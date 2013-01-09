@@ -228,7 +228,7 @@ imageService.index(
 var target_dir = "/home/philippe/project/jetsonsys/src/ImageService/test/resources/gen2/eastwood";
 // var target_dir = "test/resources/empty";
 var options = {};
-imageService.batchImportFs(
+imageService.importBatchFs(
   target_dir, 
   function(err, importBatch) {
     if (err) console.log("err: %s", err);

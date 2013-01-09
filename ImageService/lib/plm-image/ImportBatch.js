@@ -15,7 +15,7 @@ module.exports = new Class(
     this.class_name = 'plm.ImportBatch'; 
 
     // stores the time at which the batch ended processing
-    this.ended_at = undefined;
+    this.completed_at = undefined;
 
     // transient field that stores an array of tuples such as: 
     //   {path: 'someImagePath', format: 'jpg'}
@@ -50,7 +50,6 @@ module.exports = new Class(
     // stats and progress
     //
     this.num_to_import = 0;
-    this.num_imported  = 0;
     this.num_success   = 0;
     this.num_error     = 0;
 
@@ -75,14 +74,14 @@ module.exports = new Class(
     return this.created_at;
   },
 
-  getEndedAt: function getEndedAt() {
-    return this.ended_at;
+  getCompletedAt: function getCompletedAt() {
+    return this.completed_at;
   },
 
-  /** sets the ended_at date, updates the updated_at to match */
-  setEndedAt: function setEndedAt(aDate) {
-    this.ended_at   = aDate;
-    this.updated_at = this.ended_at;
+  /** sets the completed_at date, updates the updated_at to match */
+  setCompletedAt: function setCompletedAt(aDate) {
+    this.completed_at   = aDate;
+    this.updated_at = this.completed_at;
   },
 
 
@@ -123,7 +122,7 @@ module.exports = new Class(
   },
 
   /** Returns the number of images processed in this importBatch, equal to the sum of getNumError() and getNumSuccess() */
-  getNumImported: function () {
+  getNumAttempted: function () {
     return this.getNumError() + this.getNumSuccess();
   },
 
@@ -154,7 +153,7 @@ module.exports = new Class(
     out.num_to_import = this.getNumToImport();
     out.num_success   = this.getNumSuccess();
     out.num_error     = this.getNumError();
-    out.num_imported  = this.getNumImported();
+    out.num_attempted = this.getNumAttempted();
     return out;
   }
 

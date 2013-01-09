@@ -59,9 +59,10 @@ module.exports = function mediaManagerApiModule(config) {
     //  Not the first time, you can leave off the config. Otherwise, it must be the same as the previous one.
     //
     if (config && !_.isEqual(mediaManagerApi.config, config)) {
-      throw Object.create(new Error(),
+      var msg = 'MediaManagerApi/lib/MediaManagerApiCore.js: Reinstantiating with a different configuration. Module is a singleton.';
+      throw Object.create(new Error(msg),
                           { name: { value: 'ReinstantiatingWithDifferentConfig' },
-                            message: { value: 'MediaManagerApi/lib/MediaManagerApiCore.js: Reinstantiating with a different configuration. Module is a singleton.' } });
+                            message: { value: msg } });
     }
     cLogger.log('mediaManagerApiModule', 'Returning alreading created module instance!');
     return mediaManagerApi;
@@ -71,9 +72,10 @@ module.exports = function mediaManagerApiModule(config) {
   //  Must pass a config. the first time.
   //
   if (!config) {
-    throw Object.create(new Error(),
+    var msg = 'MediaManagerApi/lib/MediaManagerApiCore.js: A config. is required to instantiate the module.';
+    throw Object.create(new Error(msg),
                         { name: { value: 'NoConfig' },
-                          message: { value: 'MediaManagerApi/lib/MediaManagerApiCore.js: A config. is required to instantiate the module.' } });
+                          message: { value: msg } });
   }
 
   init(config);
@@ -624,7 +626,7 @@ var Importers = new Class({
                             { name: 'full-small.jpg', format: 'jpg', width: 1280, height: 800}]
         };
         
-        imageService.batchImportFs(
+        imageService.importBatchFs(
           importDir,
           function(err, importBatch) {
             var status = 200;
@@ -745,9 +747,9 @@ var Importers = new Class({
     newRep.import_dir = _.has(rep, 'path') ? rep.path : '';
     newRep.created_at = rep.created_at;
     newRep.started_at = rep.getStartedAt();
-    newRep.completed_at  = _.has(rep, 'ended_at')? rep.ended_at : undefined;
+    newRep.completed_at  = rep.getCompletedAt();
     newRep.num_to_import = rep.getNumToImport();
-    newRep.num_imported  = rep.getNumImported();
+    newRep.num_imported  = rep.getNumAttempted();
     newRep.num_success   = rep.getNumSuccess();
     newRep.num_error     = rep.getNumError();
     return newRep;
