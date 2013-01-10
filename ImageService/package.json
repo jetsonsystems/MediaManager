@@ -1,37 +1,36 @@
 {
   "name": "ImageService",
-  "preferGlobal": "true",
-  "description": "ImageService",
+  "description": "Service Facade that provides Image Storage and Processing services",
   "version": "0.0.2",
-  "author": "Philippe <philippe@jetsonsys.com>",
+  "author": "Philippe Paravicini <pparavicini@jetsonsys.com>",
   "main": "./lib/plm-image/ImageService",
   "bin": {
     "update_design_doc": "./update_design_doc.js",
     "store-images": "./store-images.js"
   },
+  "scripts": {
+    "test": "make test"
+  },
+  "engine": [ "node >=0.8.0" ],
   "dependencies" : {
-    "async" : "*"
-    ,"dive": "*"
-    ,"gm" : "*"
-    ,"imagemagick" : "*"
-    ,"log4js" : "*"
-    ,"mime-magic" : "*"
-    ,"moment" : "*"
-    ,"mootools" : "*"
-    ,"optimist" : "*"
-    ,"nano" : "https://github.com/jetsonsystems/nano/tarball/master"
-    ,"node-uuid" : "*"
-    ,"step" : "*"
-    ,"underscore" : "*"
-    ,"underscore.string" : "*"
-    ,"mockdata" : "*"
-    },
-    "scripts": {
-        "test": "make test"
-    },
-    "devDependencies": {
-        "mocha": "*",
-        "should":"*",
-        "chai":"*"
+    "async"       : "~0.1.22"
+    ,"dive"       : "~0.3.0"
+    ,"gm"         : "~1.6.1"
+    ,"log4js"     : "~0.5.6"
+    ,"mime-magic" : "~0.4.1"
+    ,"moment"     : "~1.7.2"
+    ,"mootools"   : "=1.4.5"
+    ,"optimist"   : "~0.3.5"
+    ,"nano"       : "https://github.com/jetsonsystems/nano/tarball/master"
+    ,"node-uuid"  : "~1.4.0"
+    ,"step"       : "~0.0.5"
+    ,"underscore" : "~1.4.3"
+    ,"underscore.string" : "~2.3.1"
+   },
+   "devDependencies": {
+     "chai"      : "~1.4.2"
+     ,"mocha"    : "~1.7.4"
+     ,"mockdata" : "~0.0.3"
+     ,"should"   : "~1.2.1"
   }
 }

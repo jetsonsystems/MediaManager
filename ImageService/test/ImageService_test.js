@@ -94,6 +94,7 @@ describe('ImageService Testing', function () {
 
         ], function (err, results) {
             db = server.use(db_name);
+            // console.log("done with test suite setup");
             done();
         });
     });//end before
