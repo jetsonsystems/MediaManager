@@ -40,6 +40,8 @@ var imageServicePackage = require('ImageService/package.json');
 var storageModule = require('MediaManagerStorage');
 var storage = null;
 
+var notifications = require('Notifications');
+
 //
 // mediaManagerApi: Single instance of our module.
 //
@@ -860,6 +862,19 @@ var StorageSynchronizers = new Class({
     options.isInstRef = true;
     try {
       var synchronizer = storage.sync();
+      function publishSyncEvent(event, synchronizer) {
+        notifications.publish('/storage/synchronizers',
+                              event,
+                              that.transformRep(synchronizer));
+      };
+      synchronizer.on('sync.started', 
+                      function(synchronizer) {
+                        publishSyncEvent('sync.started', synchronizer);
+                      });
+      synchronizer.on('sync.completed',
+                      function(synchronizer) {
+                        publishSyncEvent('sync.completed', synchronizer);
+                      });
       that.doCallbacks(200, synchronizer, options);
     }
     catch (err) {
