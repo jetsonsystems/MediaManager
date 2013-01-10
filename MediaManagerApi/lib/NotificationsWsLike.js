@@ -30,7 +30,6 @@
 //          onopen: onopen callback.
 //          onmessage: onmessage callback.
 //          onclose: onclose callback.
-
 //          boolean send(data): Send data.
 //          void close(): Close WebSocket.
 //
@@ -41,14 +40,15 @@
 //
 //      var WebSocket = require('NotificationsWsLike');
 //
-//      var ws = new WebSocket('ws://appjs');
+//      var ws = new WebSocket('ws://appjs/notifications');
 //
 //      Notes:
 //        * the protocal must be 'ws' or 'wss'.
 //        * the host MUST be 'appjs'.
 //
 
-var notifications = require('Notifications');
+var _ = require('underscore');
+var notifications = require('MediaManagerApi/lib/Notifications');
 
 //
 // WsLikeConstructor: Create a WebSocket like object.
@@ -94,6 +94,10 @@ module.exports = function WsLikeConstructor(url, protocal) {
     if (that.onopen) {
       that.onopen(openEvent());
     }
+    if (that.onmessage) {
+      that.onmessage({ data: JSON.stringify({resource: '/notifications',
+                                             event: 'connection.established' })});
+    }
   };
 
   this.send = function(event) {
@@ -107,7 +111,7 @@ module.exports = function WsLikeConstructor(url, protocal) {
     }
 
     try {
-      parsedEvent = JSON.parse('data');
+      parsedEvent = JSON.parse(event);
     }
     catch (err) {
       throw Object.create(new Error(),
@@ -129,7 +133,7 @@ module.exports = function WsLikeConstructor(url, protocal) {
     // Have a valid client event to send.
     //
     if (parsedEvent.event === 'subscribe') {
-      sendSubscribe.call(this, parsedEvent);
+      sendSubscribe(parsedEvent);
     }
     else if (parsedEvent.event === 'unsubscribe') {
       sendUnsubscribe(parsedEvent);
@@ -194,8 +198,8 @@ module.exports = function WsLikeConstructor(url, protocal) {
   function sendSubscribe(parsedEvent) {
     if (!_.has(subscriptions, parsedEvent.data.resource)) {
       function handleCallbacks(msg) {
-        if (this.onmessage) {
-          this.onmessage({ data: JSON.stringify(msg) });
+        if (that.onmessage) {
+          that.onmessage({ data: JSON.stringify(msg) });
         }
       }
       var subscription = notifications.subscribe(parsedEvent.data.resource, handleCallbacks);

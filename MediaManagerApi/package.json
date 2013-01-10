@@ -12,7 +12,9 @@
     "underscore" : "*",
     "mootools" : "*",
     "restify" : "*",
-    "bunyan" : "*"
+    "bunyan" : "*",
+    "node-uuid" : "*",
+    "postal" : "*"
   },
   "scripts": {
         "test": "make test"
