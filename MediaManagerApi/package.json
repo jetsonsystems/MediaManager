@@ -7,21 +7,25 @@
   "bin": {
     "media_manager_api_server": "media_manager_api_server.js"
   },
-  "dependencies" : {
-    "optimist" : "*",
-    "underscore" : "*",
-    "mootools" : "*",
-    "restify" : "*",
-    "bunyan" : "*",
-    "node-uuid" : "*",
-    "postal" : "*"
-  },
   "scripts": {
-        "test": "make test"
-    },
+    "test": "make test"
+  },
+  "comment": "scripts - \"preinstall\": \"./preinstall.sh\", Internal deps -     ,\"ImageService\" : \"=0.0.2\" ,\"MediaManagerStorage\" : \"0.0.0\"",
+  "dependencies" : {
+    "bunyan"        : "~0.16.8"
+    ,"mootools"     : "=1.4.5"
+    ,"node-uuid"    : "~1.4.0"
+    ,"optimist"     : "~0.3.5"
+    ,"postal"       : "~0.7.3"
+    ,"restify"      : "~2.0.4"
+    ,"underscore"   : "~1.4.2"
+    ,"postal" : "*"
+  },
   "devDependencies": {
-    "mocha": "*",
-    "should":"*",
-    "nano":"*"
-    }
+    "async"  : "~0.1.22"
+    ,"chai"  : "~1.4.2"
+    ,"mocha" : "~1.7.4"
+    ,"nano"  : "https://github.com/jetsonsystems/nano/tarball/master"
+    ,"should": "~1.2.1"
+  }
 }

@@ -40,7 +40,7 @@ var imageServicePackage = require('ImageService/package.json');
 var storageModule = require('MediaManagerStorage');
 var storage = null;
 
-var notifications = require('MediaManagerApi/lib/Notifications');
+var notifications = require('./Notifications');
 
 //
 // mediaManagerApi: Single instance of our module.
