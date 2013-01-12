@@ -3,6 +3,11 @@
   "description": "Service Facade that provides Image Storage and Processing services",
   "version": "0.0.2",
   "author": "Philippe Paravicini <pparavicini@jetsonsys.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jetsonsystems/MediaManager.git",
+    "path": "ImageService"
+  },
   "main": "./lib/plm-image/ImageService",
   "bin": {
     "update_design_doc": "./update_design_doc.js",

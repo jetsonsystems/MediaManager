@@ -3,14 +3,14 @@
   "preferGlobal": "true",
   "description": "Media Manager API",
   "version": "0.0.1",
-	"author": "Marek J. Ryniejski <marek@jetsonsys.com>",
+  "author": "Marek J. Ryniejski <marek@jetsonsys.com>",
   "bin": {
     "media_manager_api_server": "media_manager_api_server.js"
   },
   "scripts": {
     "test": "make test"
   },
-  "comment": "scripts - \"preinstall\": \"./preinstall.sh\", Internal deps -     ,\"ImageService\" : \"=0.0.2\" ,\"MediaManagerStorage\" : \"0.0.0\"",
+  "comment": "scripts - \"preinstall\": \"./preinstall.sh\"",
   "dependencies" : {
     "bunyan"        : "~0.16.8"
     ,"mootools"     : "=1.4.5"
@@ -19,7 +19,9 @@
     ,"postal"       : "~0.7.3"
     ,"restify"      : "~2.0.4"
     ,"underscore"   : "~1.4.2"
-    ,"postal" : "*"
+    ,"postal"       : "~0.7"
+    ,"ImageService" : "=0.0.2"
+    ,"MediaManagerStorage" : "~0.0.0"
   },
   "devDependencies": {
     "async"  : "~0.1.22"
