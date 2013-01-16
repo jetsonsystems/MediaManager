@@ -48,7 +48,7 @@
 //
 
 var _ = require('underscore');
-var notifications = require('MediaManagerApi/lib/Notifications');
+var notifications = require('./Notifications');
 
 //
 // WsLikeConstructor: Create a WebSocket like object.

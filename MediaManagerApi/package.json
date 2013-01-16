@@ -21,7 +21,7 @@
     ,"underscore"   : "~1.4.2"
     ,"postal"       : "~0.7"
     ,"ImageService" : "=0.0.2"
-    ,"MediaManagerStorage" : "~0.0.0"
+    ,"MediaManagerStorage" : "~0.0.1"
   },
   "devDependencies": {
     "async"  : "~0.1.22"
@@ -29,5 +29,6 @@
     ,"mocha" : "~1.7.4"
     ,"nano"  : "https://github.com/jetsonsystems/nano/tarball/master"
     ,"should": "~1.2.1"
+    ,"MediaManagerAppSupport" : "*"
   }
 }

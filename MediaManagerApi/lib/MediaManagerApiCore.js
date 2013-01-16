@@ -5,10 +5,17 @@
 //
 //    Note, to require the module, do as follows:
 //
-//    var mmApi = require('MediaManagerApiCore')(<your config>);
+//    var mmApi = require('MediaManagerApiCore')(<your config>, <options>);
 //
 //      <your config> ::= config as defined in MediaManagerAppConfig. See init() below for
 //        backward compatability.
+//
+//      <options>:
+//        singleton: true | false, default is true.
+//          By default, a single instance of the API is returned, which is a safer approach
+//          when multiple requires may be performed in the context of a single application.
+//          However, at times, one may desire multiple instances such as in the context of
+//          a test harness.
 //
 //    The API defines RESTful resources which are exported. See the Resource class below.
 //    Other resources such as Images derive from it.
@@ -53,8 +60,12 @@ var mediaManagerApi = null;
 //
 //    var mmApi = require('MediaManagerApiCore')(<some config>);
 //
-module.exports = function mediaManagerApiModule(config) {
-  if (mediaManagerApi !== null) {
+module.exports = function mediaManagerApiModule(config, options) {
+  options = options || {}
+  if (!_.has(options, 'singleton')) {
+    options.singleton = true;
+  }
+  if (options.singleton && (mediaManagerApi !== null)) {
     //
     //  Not the first time, you can leave off the config. Otherwise, it must be the same as the previous one.
     //
@@ -78,7 +89,7 @@ module.exports = function mediaManagerApiModule(config) {
                           message: { value: msg } });
   }
 
-  init(config);
+  init(config, options);
 
   //
   //  mediaManagerApi: The return object as a result of module instantiation.
@@ -106,7 +117,7 @@ module.exports = function mediaManagerApiModule(config) {
 //      dbPort
 //      dbName
 //
-var init = function(config) {
+var init = function(config, options) {
 
   cLogger.log('init', 'Initializing...');
 
@@ -157,7 +168,7 @@ var init = function(config) {
   if (_.has(useConfig.db, 'database')) {
     imageService.config.db.name = useConfig.db.database;
   }
-  storage = storageModule(useConfig.db);
+  storage = storageModule(useConfig.db, options);
 };
 
 var ConsoleLogger = function(debugLevel) {
@@ -860,8 +871,9 @@ var StorageSynchronizers = new Class({
     cLogger.log('StorageSynchronizers.create', 'Payload - ' + JSON.stringify(attr));
     var that = this;
     options.isInstRef = true;
+    var synchronizer = undefined;
     try {
-      var synchronizer = storage.sync();
+      synchronizer = storage.sync();
       function publishSyncEvent(event, synchronizer) {
         notifications.publish('/storage/synchronizers',
                               event,
@@ -875,12 +887,20 @@ var StorageSynchronizers = new Class({
                       function(synchronizer) {
                         publishSyncEvent('sync.completed', synchronizer);
                       });
+      synchronizer.run();
       that.doCallbacks(200, synchronizer, options);
     }
     catch (err) {
+      cLogger.log('StorageSynchronizers.create', 'Caught error - ' + err);
       options.errorCode = -1;
-      options.errorMessage = err;
-      that.doCallbacks(500, {}, options);
+      options.errorMessage = err.message;
+      try {
+
+        that.doCallbacks(500, synchronizer, options);
+      }
+      catch (err) {
+        that.doCallbacks(500, undefined, options);
+      }
     }
   },
 
@@ -904,13 +924,16 @@ var StorageSynchronizers = new Class({
   //
   transformRep: function(rep, options) {
     cLogger.log('StorageSynchronizers.transformRep', 'Doing transform, path - ' + this.path + ', id - ' + rep.id + ', state - ' + rep.state);
-    var newRep = { id: '$' + rep.id,
-                   state: rep.state,
-                   push: { id: '$' + rep.push.id,
-                           state: rep.push.state },
-                   pull: { id: '$' + rep.pull.id,
-                           state: rep.pull.state } 
-              };
+    var newRep = {};
+    if (rep) {
+      newRep = { id: '$' + rep.id,
+                 state: rep.state,
+                 push: { id: '$' + rep.push.id,
+                         state: rep.push.state },
+                 pull: { id: '$' + rep.pull.id,
+                         state: rep.pull.state } 
+               };
+    }
     return newRep;
   }
 
