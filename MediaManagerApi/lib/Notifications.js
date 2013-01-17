@@ -2,10 +2,11 @@
 // MediaManager/MediaManagerApi/lib/Notifications.js
 //
 
+var _ = require('underscore');
 var uuid  = require('node-uuid');
 var postal = require('postal');
 
-var createModule function() {
+var createModule = function() {
 
   //
   // defaultFormatter: simply convert to our message format.
@@ -20,8 +21,8 @@ var createModule function() {
   };
 
   ResourcePrototype = {
-    resource: unknown,
-    channel: unknown,
+    resource: undefined,
+    channels: [],
     format: defaultFormatter
   };
 
@@ -30,10 +31,11 @@ var createModule function() {
   //    Resource (channels) emit events (send messages).
   //    They can be subscribed to, and published to.
   //
+  var syncPath = '/storage/synchronizers';
   var resources = {
-    '/storage/sychronizers': Object.create(ResourcePrototype,
-                                           { resource: '/storage/synchronizers',
-                                             channel: postal.channel('/storage/synchronizers') })
+    "/storage/synchronizers": Object.create(ResourcePrototype,
+                                            { resource: { value: syncPath },
+                                              channels: { value: [ postal.channel(syncPath, 'sync.#') ] } })
   };
 
   //
@@ -60,10 +62,14 @@ var createModule function() {
     function callbackWrapper(data, envelope) {
       callback(resources[resource].format(envelope.topic, data));
     };
-    var sub = postal.subscribe({ channel: resource ,
-                                 callback: callbackWrapper });
+
     var subId = uuid.v4();
-    subscriptions[subId] = sub;
+    subscriptions[subId] = [];
+    _.each(resources[resource].channels,
+           function(channel) {
+             var sub = channel.subscribe(callbackWrapper);
+             subscriptions[subId].append(sub);
+           });
     return subId;
   };
 
@@ -72,7 +78,12 @@ var createModule function() {
   //
   function unsubscribe(subId) {
     if (_.has(subscriptions, subId)) {
-      subscriptions[subId].unsubscribe();
+      _.each(subscriptions[subId],
+             function(subscriptions) {
+               _.each(subscriptions, function(subscription) {
+                   subscription.unsubscribe();
+               });
+             });
       delete subscriptions[subId];
     }
   };
@@ -81,13 +92,13 @@ var createModule function() {
   // publish: Resource publishes an event.
   //
   function publish(resource, event, eventData) {
-    if (_.has(channels, resource)) {
-      var msg = {
+    if (_.has(resources, resource)) {
+      var envelope = {
         channel: resource,
         topic: event,
         data: eventData
       }
-      channels[resource].publish(msg);
+      postal.publish(envelope);
     }
   };
 

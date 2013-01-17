@@ -42,7 +42,8 @@ function startServer(options, callback) {
   try {
     mmApi = mmApiModule({dbHost:dbHost,
                          dbPort:dbPort,
-                         dbName:dbName});
+                         dbName:dbName},
+                        {singleton: false});
   }
   catch (err) {
     console.log('MediaManagerApi/test/media_manager_api_server.js: Error initialing MediaManagerApi, error - ' + err);
