@@ -6,7 +6,7 @@ var
   ,expect = require('chai').expect
   ,fs     = require('fs')
   ,ImportBatch = require('ImageService/lib/plm-image/ImportBatch')
-  ,Importers = require('../lib/MediaManagerApiCore')(config).Importers
+  ,Importers = require('../lib/MediaManagerApiCore')(config, {singleton: false}).Importers
   ,util   = require('util')
 ;
 
@@ -41,6 +41,7 @@ describe('Importers', function () {
 
   it("should transform a batchImport via Importers.transformRep", function () 
   {
+    batchImport.setStartedAt(new Date());
     var rep = importers.transformRep(batchImport, {isInstRef: true});
     // console.log("batch: %s", util.inspect(batchImport));
     // console.log("rep: %s", util.inspect(rep));

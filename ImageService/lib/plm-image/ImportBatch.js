@@ -1,18 +1,41 @@
 'use strict';
-var _ = require('underscore');
 require('mootools');
-var Persistent = require('../plm-persistent');
+
+var 
+  _ = require('underscore')
+  ,Event = require('./Event')
+  ,Persistent = require('../plm-persistent')
+;
+
 
 // ImportBatch represents basic information on an batch import process
 // ----------------------------------------------
 module.exports = new Class(
 {
   Extends: Persistent,
+  Implements: process.EventEmitter,
+
+  // constants for batch status
+  BATCH_INIT     : 'INIT',
+  BATCH_STARTED  : 'STARTED',
+  BATCH_COMPLETED: 'COMPLETED',
+
+  // constants for event names
+  event: {
+    STARTED:    "import.started"
+    ,IMG_SAVE:  "import.image.save"
+    ,IMG_ERROR: "import.image.error"
+    ,COMPLETED: "import.completed"
+  },
+
 
   initialize : function(args)
   {
     this.parent(args);
     this.class_name = 'plm.ImportBatch'; 
+
+    // stores the time at which the batch starts processing
+    this.started_at = undefined;
 
     // stores the time at which the batch ended processing
     this.completed_at = undefined;
@@ -42,7 +65,8 @@ module.exports = new Class(
 
     // The status of this batch, currently one of:
     // - empty string: unitialized batch
-    // - 'IN_PROCESS': batch was triggered and is in-process
+    // - 'INIT': a batch record was created but batch processing has not started
+    // - 'STARTED': batch was triggered and is in-process
     // - 'COMPLETED': batch has finished processing, possibly with errors
     this.status = '';
 
@@ -53,25 +77,44 @@ module.exports = new Class(
     this.num_success   = 0;
     this.num_error     = 0;
 
-    var that = this;
+    var self = this;
 
     // TODO: move this to Persistent ?
     if (_.isObject(args)) {
       _.each(args, function(value, key) {
-        if (value) { that[key] = value; }
+        if (value) { self[key] = value; }
       });
     }
-
-    /*
-    if (this.images_to_import.length > 0) {
-      this.num_to_import = this.images_to_import.length;
-    }
-    */
   },
 
-  // returns the time at which the batch began - synonym for created_at
-  getStartedAt: function getStartedAt() {
+
+  getStatus: function getStatus() {
+    return this.status;
+  },
+
+  setStatus: function setStatus(str) {
+    this.status = str;
+  },
+
+  // returns the time at which the batch was first instantiated
+  getCreatedAt: function getCreatedAt() {
     return this.created_at;
+  },
+
+  setCreatedAt: function setCreatedAt(aDate) {
+    this.created_at = aDate;
+  },
+
+  // returns the time at which the batch begins processing
+  getStartedAt: function getStartedAt() {
+    return this.started_at;
+  },
+
+  // sets the time at which the batch began processing, and changes the status to BATCH_STARTED
+  setStartedAt: function setStartedAt(aDate) {
+    this.status = this.BATCH_STARTED;
+    this.started_at = aDate;
+    this.emit(this.event.STARTED, new Event(this));
   },
 
   getCompletedAt: function getCompletedAt() {
@@ -80,19 +123,31 @@ module.exports = new Class(
 
   /** sets the completed_at date, updates the updated_at to match */
   setCompletedAt: function setCompletedAt(aDate) {
-    this.completed_at   = aDate;
-    this.updated_at = this.completed_at;
+    this.completed_at = aDate;
+    this.status = this.BATCH_COMPLETED;
+    this.emit(this.event.COMPLETED, new Event(this));
+  },
+
+  // returns the time at which the batch was first instantiated
+  getUpdatedAt: function getUpdatedAt() {
+    return this.updated_at;
+  },
+
+  setUpdatedAt: function setUpdatedAt(aDate) {
+    this.updated_at = aDate;
   },
 
 
   /** Add an image to the map of successfully processed images */
   addSuccess: function (anImage) {
     this._proc.images[anImage.path] = anImage;
+    this.emit(this.event.IMG_SAVE, new Event(anImage));
   },
 
   /** Add an error to the map of import errors */
   addErr: function (path, anError) {
     this._proc.errs[path] = anError;
+    this.emit(this.event.IMG_ERROR, new Event({path: path, error: anError}));
   },
 
 
@@ -102,7 +157,6 @@ module.exports = new Class(
       this.num_to_import = this.images_to_import.length;
     }
     return this.num_to_import;
-
   },
 
   /** Return the number of errors in this import batch */
@@ -138,6 +192,10 @@ module.exports = new Class(
 
     delete out.images_to_import;
     delete out.images;
+
+    delete out.BATCH_INIT;
+    delete out.BATCH_STARTED;
+    delete out.BATCH_COMPLETED;
 
     // cloning will cause functions to be saved to couch if we don't remove them
     var storage = this._storage;
