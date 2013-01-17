@@ -1,17 +1,18 @@
 'use strict';
 
 var async = require("async")
+  ,dbMan = require('./databaseManager.js')
   ,imageService = require('../lib/plm-image/ImageService')
+  ,log4js = require('log4js')
   ,nano = require('nano')
   ,util = require('util')
-  ,updateDesignDoc = require('./update_design_doc');
+;
 
 var chai = require('chai')
   , expect = chai.expect
   , should = require("should");
 
-
-
+// log4js.configure('./test/log4js.json');
 
 /**
  * "describe" function is a container for test cases
@@ -37,65 +38,8 @@ describe('ImageService Testing', function () {
 
   //This will be called before all tests
   before(function (done) {
-
-    async.waterfall([
-
-        function checkIfTestDatabaseExists(callback) {
-        var existsTestDatabase = false;
-        //check if the testing database exists by getting information about database
-        server.db.get(db_name, function (err, body) {
-            if (!err) {
-              existsTestDatabase = true;
-            }
-            callback(null, existsTestDatabase);
-          }
-        );
-      },
-
-      function deleteTestDatabase(existsTestDatabase, callback) {
-        if (existsTestDatabase) {
-          console.log('Attempting to destroy existing test database: ' + db_name);
-          server.db.destroy(db_name, function (err, body) {
-            if (!err) {
-              console.log('Existing test database ' + db_name + '  was destroyed');
-            }
-            callback();
-          });
-
-        } else {
-          callback();
-        }
-      },
-
-      function createTestDatabase(callback) {
-        server.db.create(db_name, function (err, body) {
-          if (!err) {
-            console.log('database ' + imageService.config.db.name + '  created!');
-          }
-          callback(null);
-
-        });
-
-      },
-      function insertDesignDocs(callback) {
-
-        updateDesignDoc.updateDesignDoc(options,function(err,result){
-            if(err){
-              console.log(err);
-            }
-            else{
-              console.log("Updated Design Doc: " + util.inspect(result,true,null,true));
-            }
-            callback(null);
-          }
-
-        );
-      }
-
-    ], function (err, results) {
-      db = server.use(db_name);
-      done();
-    });
+    dbMan.startDatabase(options);
+    done();
   });//end before
 
   describe('ImageService.save', function () {
@@ -107,8 +51,6 @@ describe('ImageService Testing', function () {
      - perform various 'Assertions' on the Image object returned by
      save(imagePath), comparing the values of the object to a pre-determined set of
      values in the test (size, format, checksum, oid present, etc...)
-     *
-     *
      */
     var path_to_images = './test/resources/images';
 
@@ -125,7 +67,7 @@ describe('ImageService Testing', function () {
             console.log(err);
             process.exit(1);
           }
-          console.log("result: " + JSON.stringify(result));
+          // console.log("result: " + JSON.stringify(result));
           // console.log("inspect: " + util.inspect(result));
           theSavedImage = result;
           done();
@@ -143,8 +85,6 @@ describe('ImageService Testing', function () {
     it("The saved image should have some properties", function (done) {
 
       util.inspect(theSavedImage,true,null,true);
-
-
 
       theSavedImage.name.should.equal('clooney.png');
       theSavedImage.class_name.should.equal('plm.Image');
@@ -174,23 +114,9 @@ describe('ImageService Testing', function () {
    * after would be called at the end of executing a describe block, when all tests finished
    */
   after(function (done) {
-
-    async.waterfall([
-
-      function destroyTestDatabase(callback) {
-        server.db.destroy(db_name, function (err, body) {
-          if (!err) {
-            console.log('database ' + imageService.config.db.name + '  destroyed!');
-          }
-          callback(null);
-
-        });
-
-      }
-    ], function (err, results) {
+    dbMan.destroyDatabase( function() {
       done();
     });
   });//end after
-
 
 });
