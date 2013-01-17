@@ -79,7 +79,7 @@ else {
   };
 }
 
-var mmApi = require('MediaManagerApi/lib/MediaManagerApiCore')(config);
+var mmApi = require('./lib/MediaManagerApiCore')(config);
 
 var bunyan = require('bunyan');
 var logger = bunyan.createLogger({

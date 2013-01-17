@@ -532,6 +532,7 @@ var Images = new Class({
       if (_.isArray(rep)) {
         cLogger.log('Images.transformRep', 'transforming collection to array of short forms...');
         cLogger.log('Images.transformRep', 'type of - ' + typeof(that._shortFormAttrs) + ', desired short form attributes - ' + JSON.stringify(_.values(that._shortFormAttrs)));
+        rep.reverse();
         var newRep = [];
         _.each(rep, 
                function(aRep) {
