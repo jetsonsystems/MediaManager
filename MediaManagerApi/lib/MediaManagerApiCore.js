@@ -1,7 +1,21 @@
 //
 //  MediaManagerApiCore: Sever side Node.js implemenation of the Media Manager API. This module can
-//    be imported into a server and requests routed to the resources and/or methods exposed in this
+//    be required into a server and requests routed to the resources and/or methods exposed in this
 //    supporting module. 
+//
+//    Note, to require the module, do as follows:
+//
+//    var mmApi = require('MediaManagerApiCore')(<your config>, <options>);
+//
+//      <your config> ::= config as defined in MediaManagerAppConfig. See init() below for
+//        backward compatability.
+//
+//      <options>:
+//        singleton: true | false, default is true.
+//          By default, a single instance of the API is returned, which is a safer approach
+//          when multiple requires may be performed in the context of a single application.
+//          However, at times, one may desire multiple instances such as in the context of
+//          a test harness.
 //
 //    The API defines RESTful resources which are exported. See the Resource class below.
 //    Other resources such as Images derive from it.
@@ -27,25 +41,134 @@ var imageService = require('ImageService');
 var imageServicePackage = require('ImageService/package.json');
 
 //
-// config: configuration function. 
-//    Note, perhaps this should be an object which when values change we
-//    update values in the image service.
+// Require the storage module. Don't instantiate the module by invoking
+// it until we have a proper configuration.
 //
-//    options:
+var storageModule = require('MediaManagerStorage');
+var storage = null;
+
+var notifications = require('./Notifications');
+
+//
+// mediaManagerApi: Single instance of our module.
+//
+var mediaManagerApi = null;
+
+//
+// mediaManagerApi: The module which is our single export. 
+//  Suggested usage is:
+//
+//    var mmApi = require('MediaManagerApiCore')(<some config>);
+//
+module.exports = function mediaManagerApiModule(config, options) {
+  options = options || {}
+  if (!_.has(options, 'singleton')) {
+    options.singleton = true;
+  }
+  if (options.singleton && (mediaManagerApi !== null)) {
+    //
+    //  Not the first time, you can leave off the config. Otherwise, it must be the same as the previous one.
+    //
+    if (config && !_.isEqual(mediaManagerApi.config, config)) {
+      var msg = 'MediaManagerApi/lib/MediaManagerApiCore.js: Reinstantiating with a different configuration. Module is a singleton.';
+      throw Object.create(new Error(msg),
+                          { name: { value: 'ReinstantiatingWithDifferentConfig' },
+                            message: { value: msg } });
+    }
+    cLogger.log('mediaManagerApiModule', 'Returning alreading created module instance!');
+    return mediaManagerApi;
+  }
+
+  //
+  //  Must pass a config. the first time.
+  //
+  if (!config) {
+    var msg = 'MediaManagerApi/lib/MediaManagerApiCore.js: A config. is required to instantiate the module.';
+    throw Object.create(new Error(msg),
+                        { name: { value: 'NoConfig' },
+                          message: { value: msg } });
+  }
+
+  init(config, options);
+
+  //
+  //  mediaManagerApi: The return object as a result of module instantiation.
+  //
+  mediaManagerApi = Object.create({}, { 
+    config: { value: config },
+    Images: { value: Images },
+    Importers: { value: Importers },
+    ImportersImages: { value: ImportersImages },
+    StorageSynchronizers: { value: StorageSynchronizers }
+  });
+
+  cLogger.log('mediaManagerApiModule', 'Returning new module instance...');
+
+  return mediaManagerApi;
+};
+
+//
+// init: init from configuration.
+//
+//    config: Accepts a config as in MediaManagerAppConfig, and for backward
+//      compatability, also the following inividual properties:
+//
 //      dbHost
 //      dbPort
 //      dbName
 //
-var config = exports.config = function(options) {
-  if (_.has(options, 'dbHost')) {
-    imageService.config.db.host = options.dbHost;
+var init = function(config, options) {
+
+  cLogger.log('init', 'Initializing...');
+
+  var useConfig;
+
+  if (_.has(config, 'db')) {
+    useConfig = config;
+    if (!_.has(config.db, 'local')) {
+      useConfig.db.local = {};
+    }
   }
-  if (_.has(options, 'dbPort')) {
-    imageService.config.db.port = options.dbPort;
+  else {
+    useConfig = { db: 
+                  {
+                    local: {},
+                    remote: {}
+                  }
+                };
+    if (_.has(config, 'dbHost')) {
+      useConfig.db.local.host = config.dbHost;
+    }
+    if (_.has(config, 'dbPort')) {
+      useConfig.db.local.port = config.dbPort;
+    }
+    if (_.has(config, 'dbName')) {
+      useConfig.db.database = config.dbName;
+    }
   }
-  if (_.has(options, 'dbName')) {
-    imageService.config.db.name = options.dbName;
+
+  if (!_.has(useConfig.db.local, 'host')) {
+    useConfig.db.local.host = 'localhost';
   }
+  if (!_.has(useConfig.db.local, 'port')) {
+    useConfig.db.local.port = 59840;
+  }
+  if (!_.has(useConfig.db, 'database')) {
+    useConfig.db.database = 'plm-media-manager';
+  }
+
+  if (_.has(useConfig.db, 'local')) {
+    if (_.has(useConfig.db.local, 'host')) {
+      imageService.config.db.host = useConfig.db.local.host;
+    }
+    if (_.has(useConfig.db.local, 'port')) {
+      imageService.config.db.port = useConfig.db.local.port;
+    }
+  }
+  if (_.has(useConfig.db, 'database')) {
+    imageService.config.db.name = useConfig.db.database;
+  }
+  storage = storageModule(useConfig.db, options);
 };
 
 var ConsoleLogger = function(debugLevel) {
@@ -156,17 +279,17 @@ var Resource = new Class({
                             { name: { value: 'InvalidRequestType' },
                               message: { value: 'MediaManager/lib/MediaManagerApiCore.Resource.requestPath: invalid requestType.' } });
       }
-      var _requestPath = this.pathPrefix ? "\\" + this.pathPrefix : "";
-      var _instIdPath = '\\/(\\$[^\\/]+)'
+      var _requestPath = this.pathPrefix ? this.pathPrefix.replace(/\//g, '\\/') : "";
+      var _instIdPath = '\\/(\\$[0-9a-zA-Z\\$\\-_@\\.\\&\\+]+)';
       var _doRequestPath = function(requestType, resource) {
         if ((requestType === 'create') || (requestType === 'index') || (requestType === 'collection')) {
           if (resource.path) {
-            _requestPath = _requestPath + "\\" + resource.path;
+            _requestPath = _requestPath + resource.path.replace(/\//g, '\\/');
           }
         }
         else {
           if (resource.path) {
-            _requestPath = _requestPath + "\\" + resource.path + _instIdPath;
+            _requestPath = _requestPath + resource.path.replace(/\//g, '\\/') + _instIdPath;
           }
         }
         if (resource.subResource) {
@@ -175,11 +298,11 @@ var Resource = new Class({
           }
           _doRequestPath(requestType, resource.subResource);
         }
-        else {
-          _requestPath = _requestPath + "\\/?";
-        }
       }
       _doRequestPath(requestType, this);
+      if ((requestType === 'create') || (requestType === 'index') || (requestType === 'collection')) {
+        _requestPath = _requestPath + '\\/?';
+      }
       return new RegExp('^' + _requestPath + '$');
     };
   },
@@ -306,7 +429,7 @@ var Resource = new Class({
 //
 //  Images Resource:
 //
-var Images = exports.Images = new Class({
+var Images = new Class({
 
   Extends: Resource,
 
@@ -409,6 +532,7 @@ var Images = exports.Images = new Class({
       if (_.isArray(rep)) {
         cLogger.log('Images.transformRep', 'transforming collection to array of short forms...');
         cLogger.log('Images.transformRep', 'type of - ' + typeof(that._shortFormAttrs) + ', desired short form attributes - ' + JSON.stringify(_.values(that._shortFormAttrs)));
+        rep.reverse();
         var newRep = [];
         _.each(rep, 
                function(aRep) {
@@ -490,7 +614,7 @@ var Images = exports.Images = new Class({
 //
 //  Importers Resource:
 //
-var Importers = exports.Importers = new Class({
+var Importers = new Class({
 
   Extends: Resource,
 
@@ -514,7 +638,7 @@ var Importers = exports.Importers = new Class({
                             { name: 'full-small.jpg', format: 'jpg', width: 1280, height: 800}]
         };
         
-        imageService.batchImportFs(
+        imageService.importBatchFs(
           importDir,
           function(err, importBatch) {
             var status = 200;
@@ -634,12 +758,12 @@ var Importers = exports.Importers = new Class({
     newRep.id = _.has(rep, 'oid') ? '$' + rep.oid : undefined;
     newRep.import_dir = _.has(rep, 'path') ? rep.path : '';
     newRep.created_at = rep.created_at;
-    newRep.started_at = rep.created_at;
-    newRep.completed_at = _.has(rep, 'ended_at')? rep.ended_at : undefined;
-    newRep.num_to_import = rep.num_to_import;
-    newRep.num_imported = rep.num_imported;
-    newRep.num_success = rep.num_success;
-    newRep.num_error = rep.num_error;
+    newRep.started_at = rep.getStartedAt();
+    newRep.completed_at  = rep.getCompletedAt();
+    newRep.num_to_import = rep.getNumToImport();
+    newRep.num_imported  = rep.getNumAttempted();
+    newRep.num_success   = rep.getNumSuccess();
+    newRep.num_error     = rep.getNumError();
     return newRep;
   }
 
@@ -648,7 +772,7 @@ var Importers = exports.Importers = new Class({
 //
 //  ImportersImages Resource:
 //
-var ImportersImages = exports.ImportersImages = new Class({
+var ImportersImages = new Class({
 
   Extends: Resource,
 
@@ -732,6 +856,86 @@ var ImportersImages = exports.ImportersImages = new Class({
 
 });
 
-config({dbHost: 'localhost',
-        dbPort: 5984,
-        dbName: 'plm-media-manager-test0'});
+//
+//  StorageSynchronizers Resource:
+//
+var StorageSynchronizers = new Class({
+
+  Extends: Resource,
+
+  initialize: function(path, options) {
+    this.parent(path, options);
+    cLogger.log('StorageSynchronizers.initialize', 'Initialized, path - ' + this.path + ', name - ' + this.name + ', instance name - ' + this.instName);
+  },
+
+  create: function(attr, options) {
+    cLogger.log('StorageSynchronizers.create', 'Payload - ' + JSON.stringify(attr));
+    var that = this;
+    options.isInstRef = true;
+    var synchronizer = undefined;
+    try {
+      synchronizer = storage.sync();
+      function publishSyncEvent(event, synchronizer) {
+        notifications.publish('/storage/synchronizers',
+                              event,
+                              that.transformRep(synchronizer));
+      };
+      synchronizer.on('sync.started', 
+                      function(synchronizer) {
+                        publishSyncEvent('sync.started', synchronizer);
+                      });
+      synchronizer.on('sync.completed',
+                      function(synchronizer) {
+                        publishSyncEvent('sync.completed', synchronizer);
+                      });
+      synchronizer.run();
+      that.doCallbacks(200, synchronizer, options);
+    }
+    catch (err) {
+      cLogger.log('StorageSynchronizers.create', 'Caught error - ' + err);
+      options.errorCode = -1;
+      options.errorMessage = err.message;
+      try {
+
+        that.doCallbacks(500, synchronizer, options);
+      }
+      catch (err) {
+        that.doCallbacks(500, undefined, options);
+      }
+    }
+  },
+
+  read: function(id, options) {
+    cLogger.log('StorageSynchronizers.read', 'Reading for path - ' + this.path + ', id - ' + id);
+    var that = this;
+    options.isInstRef = true;
+    var synchronizerId = id.replace('$', '');
+    var synchronizer = storage.syncState(synchronizerId, 
+                                         function(err, synchronizer) {
+                                           that.doCallbacks(200, synchronizer, options);
+                                         });
+  },
+
+  //
+  //  transformRep: transform a synchronizer.
+  //
+  //    Args:
+  //      * rep: A synchronizer.
+  //      * options:
+  //
+  transformRep: function(rep, options) {
+    cLogger.log('StorageSynchronizers.transformRep', 'Doing transform, path - ' + this.path + ', id - ' + rep.id + ', state - ' + rep.state);
+    var newRep = {};
+    if (rep) {
+      newRep = { id: '$' + rep.id,
+                 state: rep.state,
+                 push: { id: '$' + rep.push.id,
+                         state: rep.push.state },
+                 pull: { id: '$' + rep.pull.id,
+                         state: rep.pull.state } 
+               };
+    }
+    return newRep;
+  }
+
+});

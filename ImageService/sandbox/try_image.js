@@ -9,7 +9,7 @@ var img_path = 'asset/eastwood.png';
 gm(img_path).identify(function(err, data) {
 		if (err) console.log(err);
     img = new Image(img_path);
-    img.gm(data);
+    img.readFromGraphicsMagick(data);
 		console.log(JSON.stringify(img,null,'  '));
 });
 

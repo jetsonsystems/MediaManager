@@ -1,0 +1,60 @@
+{
+  "Format": "PNG (Portable Network Graphics)",
+  "format": "PNG",
+  "Geometry": "480x602",
+  "size": {
+    "width": 480,
+    "height": 602
+  },
+  "Class": "DirectClass",
+  "Type": "true color",
+  "Depth": "8 bits-per-pixel component",
+  "depth": 8,
+  "Channel Depths": {
+    "Red": "8 bits",
+    "Green": "8 bits",
+    "Blue": "8 bits",
+    "Opacity": "1 bits"
+  },
+  "Channel Statistics": {
+    "Red": {
+      "Minimum": "23.00 (0.0902)",
+      "Maximum": "253.00 (0.9922)",
+      "Mean": "195.58 (0.7670)",
+      "Standard Deviation": "37.44 (0.1468)"
+    },
+    "Green": {
+      "Minimum": "8.00 (0.0314)",
+      "Maximum": "235.00 (0.9216)",
+      "Mean": "168.09 (0.6592)",
+      "Standard Deviation": "44.70 (0.1753)"
+    },
+    "Blue": {
+      "Minimum": "4.00 (0.0157)",
+      "Maximum": "239.00 (0.9373)",
+      "Mean": "153.78 (0.6030)",
+      "Standard Deviation": "58.37 (0.2289)"
+    },
+    "Opacity": {
+      "Minimum": "0.00 (0.0000)",
+      "Maximum": "0.00 (0.0000)",
+      "Mean": "0.00 (0.0000)",
+      "Standard Deviation": "0.00 (0.0000)"
+    }
+  },
+  "Filesize": "450.4K",
+  "Interlace": "No",
+  "Orientation": "Unknown",
+  "Background Color": "white",
+  "Border Color": "#DFDFDF00",
+  "Matte Color": "#BDBDBD00",
+  "Compose": "Over",
+  "Dispose": "Undefined",
+  "Iterations": "0",
+  "Compression": "Zip",
+  "Signature": "9b70e9749afe9cb38df7de986674dec0b1685bde560fea0bf2ebfe022e38c03e",
+  "Tainted": "False",
+  "User Time": "0.040u",
+  "Elapsed Time": "0:01",
+  "Pixels Per Second": "9.2M"
+}

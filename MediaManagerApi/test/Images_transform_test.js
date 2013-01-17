@@ -2,10 +2,11 @@
 
 var
   should  = require('should')
+  ,config = require('./config')
   ,expect = require('chai').expect
   ,fs     = require('fs')
   ,Image  = require('ImageService/lib/plm-image/Image')
-  ,Images = require('../lib/MediaManagerApiCore').Images
+  ,Images = require('../lib/MediaManagerApiCore')(config).Images
   ,util   = require('util')
 ;
 
@@ -20,7 +21,8 @@ function assertShortForm(rep, image)
   rep.filesize.should.equal(image.filesize);
   rep.created_at.should.equal(image.created_at);
   rep.taken_at.should.equal(image.taken_at);
-}
+};
+exports.assertShortForm = assertShortForm;
 
 describe('Images', function () {
 
@@ -33,7 +35,7 @@ describe('Images', function () {
   ;
 
   var
-    ,IMG_NAME = 'anImage.jpg'
+    IMG_NAME = 'anImage.jpg'
     ,IMG_PATH = '/some/path/to/' + IMG_NAME
     ,IMG_OID  = 'aaa-bbb-ccc'
     ,IMG_METADATA = JSON.parse(fs.readFileSync('./test/resources/json/gm_jpg_metadata.json'))

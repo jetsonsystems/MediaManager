@@ -6,7 +6,7 @@ var config = {
       port: "59840"
     },
     remote: {
-      host: "localhost",
+      host: "72.52.106.218",
       port: "5984"
     }
   }

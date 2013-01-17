@@ -16,10 +16,7 @@
 
 var config = require('MediaManagerAppConfig');
 var storage = require('./lib/storage.js');
-var mmApi = require('MediaManagerApi/lib/MediaManagerApiCore');
-mmApi.config({dbHost: 'localhost',
-              dbPort: config.db.local.port,
-              dbName: config.db.database});
+var mmApi = require('MediaManagerApi/lib/MediaManagerApiCore')(config);
 var MediaManagerRouter = require('./lib/MediaManagerRouter.js');
 
 var EventEmitter = require('events').EventEmitter;

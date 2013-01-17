@@ -43,30 +43,31 @@ var
   ,VIEW_BY_OID_WITH_VARIANT  = 'by_oid_with_variant'
   ,VIEW_BATCH_BY_CTIME       = 'batch_by_ctime'
   ,VIEW_BATCH_BY_OID_W_IMAGE = 'batch_by_oid_w_image'
-  ,BATCH_IN_PROCESS = 'IN_PROCESS'
-  ,BATCH_COMPLETED  = 'COMPLETED'
 ;
 
 // a hashmap, keyed by oid, that caches importBatch objects while they are being processed
 priv.batch_in_process = {};
 
-priv.markBatchInProcess = function (anImportBatch) {
-  anImportBatch.status = BATCH_IN_PROCESS;
+priv.markBatchInit = function (anImportBatch) {
   priv.batch_in_process[anImportBatch.oid] = anImportBatch;
+  anImportBatch.setStatus(anImportBatch.BATCH_INIT);
 };
+
+/*
+priv.markBatchStarted = function (anImportBatch) {
+  anImportBatch.setStartedAt(new Date());
+};
+*/
 
 priv.markBatchComplete = function (anImportBatch) 
 {
   if (_.isObject(anImportBatch)) {
-    anImportBatch.setEndedAt(new Date());
-
-    anImportBatch.status = BATCH_COMPLETED;
     if (_.has(priv.batch_in_process, anImportBatch.oid)) {
       delete priv.batch_in_process[anImportBatch.oid];
     }
-
+    anImportBatch.setCompletedAt(new Date());
   } else {
-    log.warn("Illegal Argument in markBatchComplete: '%j'", anImportBatch);
+    log.warn("Illegal Argument in markBatchComplete: '%s'", anImportBatch);
   }
 };
 
@@ -715,7 +716,7 @@ function convertImageViewToCollection(docs, options)
  * triggered asynchronously. importBatchShow(oid) can be called to monitor the progress of the
  * importPatch's processing.
  */
-function batchImportFs(target_dir, callback, options) 
+function importBatchFs(target_dir, callback, options) 
 {
   var db = priv.db();
   var importBatch;
@@ -738,7 +739,6 @@ function batchImportFs(target_dir, callback, options)
           { path: target_dir, oid: priv.genOid(), images_to_import: aryImage }
         );
 
-        priv.markBatchInProcess(importBatch);
         if (log.isDebugEnabled()) { log.debug('New importBatch: %j', importBatch); }
 
         options.batch_id = importBatch.oid;
@@ -750,6 +750,8 @@ function batchImportFs(target_dir, callback, options)
       function (body, headers, next) {
         priv.setCouchRev(importBatch, body);
         log.debug("Saved importBatch record to db before processing:  id '%s' -  rev '%s'", importBatch.oid, importBatch._storage.rev);
+
+        priv.markBatchInit(importBatch);
 
         // return the initialized importBatch...
         if (_.isFunction(callback)) {
@@ -766,12 +768,12 @@ function batchImportFs(target_dir, callback, options)
     function(err) {
       priv.markBatchComplete(importBatch);
       if (err) { 
-        var errMsg = util.format("Error while processing batchImportFs '%s': %s", importBatch.oid,err);
+        var errMsg = util.format("Error while processing importBatchFs '%s': %s", importBatch.oid,err);
       } 
     }
   );
 }
-exports.batchImportFs = batchImportFs;
+exports.importBatchFs = importBatchFs;
 
 
 /**
@@ -791,6 +793,7 @@ function saveBatch(importBatch, options, callback)
     opts.retrieveBatchOnSave = false;
   }
 
+  importBatch.setStartedAt(new Date());
   log.debug("Saving images in importBatch '%s'", importBatch.path);
 
   // The literal integer in the function call below limits the number of concurrent 
@@ -802,12 +805,8 @@ function saveBatch(importBatch, options, callback)
     // we are done processing each image in the batch
     priv.markBatchComplete(importBatch);
 
-    /*
-    importBatch.num_imported = _.keys(importBatch._proc.images).length + _.keys(importBatch._proc.errs).length;
-    importBatch.num_success = _.keys(importBatch._proc.images).length;
-    importBatch.num_error = _.keys(importBatch._proc.errs).length;
-    */
     log.debug('Saving batch, name - ' + importBatch.oid + ', rev - ' + importBatch._storage.rev);
+
     db.insert(importBatch, importBatch.oid, function(err, body, headers) {
       if (err) {
         log.error("Error while saving importBatch '%s': %s", importBatch.path, err);
@@ -822,7 +821,7 @@ function saveBatch(importBatch, options, callback)
     });
   });
 
-  // pathSpec will be of the form: {path: 'somePath', format: 'jpg'}
+  /** pathSpec will be of the form: {path: 'somePath', format: 'jpg'} */
   function saveBatchImage(pathSpec, next) {
     var imgPath = pathSpec.path;
     save(
@@ -830,21 +829,9 @@ function saveBatch(importBatch, options, callback)
       ,function(err, image) {
         if (err) {
           log.error("error while saving image at '%s': %s", imgPath, err);
-          // importBatch._proc.errs[imgPath] = err;
           importBatch.addErr(imgPath, err);
-          /*
-          importBatch.num_imported = _.keys(importBatch._proc.images).length + _.keys(importBatch._proc.errs).length;
-          importBatch.num_success = _.keys(importBatch._proc.images).length;
-          importBatch.num_error = _.keys(importBatch._proc.errs).length;
-          */
         } else {
-          // importBatch._proc.images[imgPath] = image;
           importBatch.addSuccess(image);
-          /*
-          importBatch.num_imported = _.keys(importBatch._proc.images).length + _.keys(importBatch._proc.errs).length;
-          importBatch.num_success = _.keys(importBatch._proc.images).length;
-          importBatch.num_error = _.keys(importBatch._proc.errs).length;
-          */
         }
         next();
       }

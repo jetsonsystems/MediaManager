@@ -26,6 +26,8 @@ var runDir = './var/run';
 //        events:
 //          localStorageExit: When the storage process has exited, and not explicitly shutdown.
 //          localStorageShutdown: When the storage process has exited due to a normal shutdown.
+//          syncStarted: Synchronization has starged.
+//          syncCompleted: Sychronization has completed.
 //
 var init = function(config, options) {
 

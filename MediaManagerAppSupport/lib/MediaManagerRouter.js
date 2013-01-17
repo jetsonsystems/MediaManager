@@ -6,7 +6,8 @@
 
 var _ = require('underscore');
 var url = require('url');
-var mmApi = require('MediaManagerApi/lib/MediaManagerApiCore');
+var config = require('MediaManagerAppConfig');
+var mmApi = require('MediaManagerApi/lib/MediaManagerApiCore')(config);
 var Router = require('browserver-router');
 
 var staticRoutesPat = /^\/(css)|(js)|(fonts)|(html)\/*$/;
