@@ -91,7 +91,7 @@ function destroyDatabase(callback) {
 
   async.waterfall([
     function destroyDatabase(next) {
-      console.log("attempting to destroy db:'%s'", dbName);
+      // console.log("attempting to destroy db:'%s'", dbName);
       server.db.destroy(dbName, function (err, body) {
         if (!err) {
           console.log('database ' + dbName + '  destroyed!');

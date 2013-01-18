@@ -12,7 +12,7 @@ var chai = require('chai')
   , expect = chai.expect
   , should = require("should");
 
-// log4js.configure('./test/log4js.json');
+log4js.configure('./test/log4js.json');
 
 /**
  * "describe" function is a container for test cases
