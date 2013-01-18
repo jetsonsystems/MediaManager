@@ -197,6 +197,7 @@ module.exports = function WsLikeConstructor(url, protocal) {
   //
   function sendSubscribe(parsedEvent) {
     if (!_.has(subscriptions, parsedEvent.data.resource)) {
+      console.log('MediaManagerApi/lib/NotificationsWsLike.sendSubscribe: Sending subscripiton event...');
       function handleCallbacks(msg) {
         if (that.onmessage) {
           that.onmessage({ data: JSON.stringify(msg) });

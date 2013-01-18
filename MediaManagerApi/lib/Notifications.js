@@ -59,17 +59,24 @@ var createModule = function() {
                           { name: { value: 'SubscribingToInvalidResource' },
                             message: { value: 'MediaManagerApi/lib/Notifications.subscribe: Invalid resource - ' + resource + '!' } });
     }
+
+    console.log('MediaManagerApi/lib/Notifications.subscribe: Doing subscription to resource - ' + resource);
+
     function callbackWrapper(data, envelope) {
       callback(resources[resource].format(envelope.topic, data));
     };
 
     var subId = uuid.v4();
+
     subscriptions[subId] = [];
     _.each(resources[resource].channels,
            function(channel) {
              var sub = channel.subscribe(callbackWrapper);
              subscriptions[subId].append(sub);
            });
+
+    console.log('MediaManagerApi/lib/Notifications.subscribe: Subscribed to resource - ' + resource + ' w/ id - ' + subId);
+
     return subId;
   };
 
@@ -109,3 +116,5 @@ var createModule = function() {
 };
 
 module.exports = createModule();
+
+console.log('MediaManagerApi/lib/Notifications: Testing uuid - ' + uuid.v4());
