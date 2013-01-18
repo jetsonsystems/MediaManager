@@ -172,7 +172,11 @@ var MediaManagerRouter = function(appjs, routes) {
                                                      '/images', 
                                                      {instName: 'image'})
                                                   })
-                                               })
+                                               }),
+    StorageSynchronizers: new mmApi.StorageSynchronizers('/storage/synchronizers',
+                                                         {instName: 'synchronizer',
+                                                          pathPrefix: pathPrefix})
+
   };
 
   this.genOnSuccess = function(resource, req, res) {
