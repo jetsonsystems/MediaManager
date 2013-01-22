@@ -124,6 +124,7 @@ module.exports = new Class(
   /** sets the completed_at date, updates the updated_at to match */
   setCompletedAt: function setCompletedAt(aDate) {
     this.completed_at = aDate;
+    this.updated_at   = aDate;
     this.status = this.BATCH_COMPLETED;
     this.emit(this.event.COMPLETED, new Event(this));
   },
@@ -196,6 +197,7 @@ module.exports = new Class(
     delete out.BATCH_INIT;
     delete out.BATCH_STARTED;
     delete out.BATCH_COMPLETED;
+    delete out.event;
 
     // cloning will cause functions to be saved to couch if we don't remove them
     var storage = this._storage;
