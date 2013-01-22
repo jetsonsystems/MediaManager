@@ -253,7 +253,7 @@ describe('ImportBatch', function () {
     anImportBatch.getNumSuccess().should.equal(1);
     anImportBatch.getNumError().should.equal(1);
     anImportBatch.getCreatedAt().should.equal(CREATED_AT);
-    anImportBatch.getUpdatedAt().should.equal(CREATED_AT); // updated_at gets updated on a save to persistent storage
+    anImportBatch.getUpdatedAt().should.equal(COMPLETED_AT);
     anImportBatch.getStartedAt().should.equal(STARTED_AT);
     anImportBatch.getCompletedAt().should.equal(COMPLETED_AT);
     anImportBatch.getStatus().should.equal(anImportBatch.BATCH_COMPLETED);
@@ -266,7 +266,7 @@ describe('ImportBatch', function () {
     out.num_success.should.equal(1);
     out.num_error.should.equal(1);
     out.created_at.should.equal(CREATED_AT);
-    out.updated_at.should.equal(CREATED_AT);
+    out.updated_at.should.equal(COMPLETED_AT);
     out.started_at.should.equal(STARTED_AT);
     out.completed_at.should.equal(COMPLETED_AT);
     out.status.should.equal(anImportBatch.BATCH_COMPLETED);
