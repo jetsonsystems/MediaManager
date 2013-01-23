@@ -20,8 +20,8 @@ log4js.configure('./test/log4js.json');
  * while beforeEach and afterEach are called before and after each test case of a describe block.
  */
 describe('ImageService.importBatchFs Setup/Teardown', function () {
-  // set a one minute time-out because it may take a while to run the import
-  this.timeout(60000);
+  // set a high time-out because it may take a while to run the import
+  this.timeout(180000);  // 3 minutes
 
   imageService.config.db.host = "localhost";
   imageService.config.db.port = 5984;
@@ -36,76 +36,119 @@ describe('ImageService.importBatchFs Setup/Teardown', function () {
     design_doc:'couchdb'
   };
 
-  var db = null;
+  var 
+    db = null
+    ,theImportBatch = {}
+    ,img_saved_event_count = 0
+  ;
 
-  function assertStarted(anEvent) {
-    var importBatch = anEvent.data;
+  var
+    PATH = './test/resources/images'
+    ,NUM_TO_IMPORT = 12
+  ;
 
-    console.log("importBatch event emitted at '%s', status is: '%s'", anEvent.emitted_at, importBatch.getStatus());
+  function assertStarted(importBatch) {
+    importBatch.class_name.should.equal('plm.ImportBatch');
+    importBatch.oid.should.not.be.empty;
+    importBatch.getNumToImport().should.equal(NUM_TO_IMPORT);
+    importBatch.getNumAttempted().should.equal(0);
+    importBatch.getNumSuccess().should.equal(0);
+    importBatch.getNumError().should.equal(0);
+
+    should.exist(importBatch.getCreatedAt());
+    should.exist(importBatch.getStartedAt());
+    importBatch.getUpdatedAt().should.be.equal(importBatch.getCreatedAt());
+    should.not.exist(importBatch.getCompletedAt());
+    importBatch.getStatus().should.equal(importBatch.BATCH_STARTED);
+
   }
 
-  function assertCompleted(anEvent) {
-    var importBatch = anEvent.data;
+  function assertImageSaved(image) {
+    image.class_name.should.equal('plm.Image');
+    image.oid.should.not.be.empty;
+    image.checksum.should.not.be.empty;
+    image.variants.length.should.equal(3);
+    /*
+    importBatch.getNumToImport().should.equal(NUM_TO_IMPORT);
+    importBatch.getNumAttempted().should.equal(NUM_TO_IMPORT);
+    importBatch.getNumSuccess().should.equal(NUM_TO_IMPORT);
+    importBatch.getNumError().should.equal(0);
+    should.exist(importBatch.getCreatedAt());
+    should.exist(importBatch.getStartedAt());
+    should.exist(importBatch.getCompletedAt());
+    importBatch.getUpdatedAt().should.be.equal(importBatch.getCompletedAt());
+    importBatch.getStatus().should.equal(importBatch.BATCH_COMPLETED);
+    */
+  }
 
-    console.log("importBatch event emitted at '%s', status is: '%s'", anEvent.emitted_at, importBatch.getStatus());
+  function assertCompleted(importBatch, anEventCount) {
+    importBatch.getNumToImport().should.equal(NUM_TO_IMPORT);
+    importBatch.getNumAttempted().should.equal(NUM_TO_IMPORT);
+    importBatch.getNumSuccess().should.equal(NUM_TO_IMPORT);
+    importBatch.getNumError().should.equal(0);
+    should.exist(importBatch.getCreatedAt());
+    should.exist(importBatch.getStartedAt());
+    should.exist(importBatch.getCompletedAt());
+    importBatch.getUpdatedAt().should.be.equal(importBatch.getCompletedAt());
+    importBatch.getStatus().should.equal(importBatch.BATCH_COMPLETED);
+    anEventCount.should.equal(NUM_TO_IMPORT);
   }
 
 
   //This will be called before all tests
   before(function (done) {
     dbMan.startDatabase(options);
-    done();
+
+    imageService.importBatchFs(
+      PATH
+      // callback
+      ,function(err, importBatch) {
+        if (err) console.log("err: %s", err);
+        else {
+          theImportBatch = importBatch;
+          // add listeners
+          importBatch.once(importBatch.event.STARTED, function(anEvent) {
+            // console.log("event: %s", util.inspect(anEvent));
+            console.log("event '%s' emitted at '%s', status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.getStatus());
+            assertStarted(anEvent.data);
+          });
+
+          // add the image listener
+          importBatch.on(importBatch.event.IMG_SAVED, function(anEvent) {
+            // console.log("event: %s", util.inspect(anEvent));
+            console.log("event '%s' emitted at '%s', status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.getStatus());
+            assertImageSaved(anEvent.data);
+            img_saved_event_count += 1;
+          });
+
+          importBatch.once(importBatch.event.COMPLETED, function(anEvent) {
+            console.log("event '%s' emitted at '%s', status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.getStatus());
+            assertCompleted(anEvent.data, img_saved_event_count);
+            setTimeout(done, 1000);
+          });
+        }
+      }
+      //options
+      ,{ saveOriginal: true
+        ,desiredVariants: [
+           { name: 'thumbnail.jpg',  format: "JPG", width: 80,   height: 80}
+          ,{ name: 'web.jpg',        format: "JPG", width: 640,  height: 400}
+          ,{ name: 'full-small.jpg', format: "JPG", width: 1280, height: 800}
+        ]
+      }
+    );
   });//end before
 
-  describe('ImageService.importBatchFs', function () {
 
-    var PATH = './test/resources/images';
+  //Define the tests
 
-    var theImportBatch = {};
-
-    before(function (done) {
-
-      // simple save
-      imageService.importBatchFs(
-        PATH
-        // callback
-        ,function(err, importBatch) {
-          if (err) console.log("err: %s", err);
-          else {
-            theImportBatch = importBatch;
-            // add listeners
-            importBatch.once(importBatch.event.STARTED, assertStarted);
-            importBatch.once(importBatch.event.COMPLETED, function(anEvent) {
-              assertCompleted(anEvent);
-              setTimeout(done, 1000);
-            });
-          }
-        }
-        //options
-        ,{ saveOriginal: true
-          ,desiredVariants: [
-             { name: 'thumb.jpg',  format: "JPG", width: 120, height: 150}
-            ,{ name: 'screen.jpg', format: "JPG", width: 360, height: 450}
-          ]
-        }
-      );
-
-    });//end before
-
-    //Define the tests
-
-    /**
-     * Each "it" function is a test case
-     * The done parameter indicates that the test is asynchronous
-     */
-    it("The saved image should have some properties", function (done) {
-
-      // console.log("theImportBatch: %s", util.inspect(theImportBatch,true,null,true));
-
-      done();
-    });
-
+  /**
+    */
+  it("should have the proper values after it completes", function (done) {
+    assertCompleted(theImportBatch, img_saved_event_count);
+    done();
   });
+
   /**
    * after would be called at the end of executing a describe block, when all tests finished
    */
