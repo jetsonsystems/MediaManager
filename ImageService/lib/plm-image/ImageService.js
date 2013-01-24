@@ -43,6 +43,7 @@ var
   ,VIEW_BY_OID_WITH_VARIANT  = 'by_oid_with_variant'
   ,VIEW_BATCH_BY_CTIME       = 'batch_by_ctime'
   ,VIEW_BATCH_BY_OID_W_IMAGE = 'batch_by_oid_w_image'
+  ,VIEW_BY_TAG               = 'by_tag'
 ;
 
 // a hashmap, keyed by oid, that caches importBatch objects while they are being processed
@@ -162,6 +163,7 @@ exports.save = save;
 function parseAndTransform(anImgPath, options, callback) 
 {
   if (!_.isFunction(callback)) throw "parseAndTransform is not very useful if you don't provide a valid callback";
+
 
   var saveOriginal = options && _.has(options, 'saveOriginal') ? 
     options.saveOriginal : true;

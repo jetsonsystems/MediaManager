@@ -26,6 +26,7 @@ module.exports = new Class(
     this.checksum = '';
     this.variants = [];
     this.metadata_raw = {};
+    this.tags = [];
 
     // by default, we suppress display of raw metadata in toJSON,
     // set this to true prior to calling toJSON to expose the metadata
@@ -105,7 +106,48 @@ module.exports = new Class(
       this.filesize = obj.Filesize;
       this.metadata_raw = obj;
     }
+  },
+
+
+  tags_get : function(){
+    return this.tags;
+  },
+
+  tags_add : function(tags,callback){
+
+    // handle empty array_of_tags
+    if (_.isArray(tags))// array_of_tags instanceof Array) || array_of_tags.length === 0)
+    {
+
+      //check that only strings are valid
+      for(var i=0;i< tags.length;i++){
+        var tag = tags[i];
+        if(!(typeof tag =='string')){
+          var err = 'Invalid array_of_tags: elements must be of type String';
+          if (callback instanceof Function) {
+            callback(err);
+          }
+          return;
+
+        }
+        else{
+          this.tags.push(tag);
+        }
+      }
+    }else if (_.isString(tags)){
+      this.tags.push(tags);
+    }
+
+    this.tags.sort();
+    //remove duplicates
+    //skip the sort step in _.uniq
+    var alreadySorted=true;
+    this.tags = _.uniq(this.tags,alreadySorted);
+
   }
+
+
+
 }); 
 
 // var img = new Image();
