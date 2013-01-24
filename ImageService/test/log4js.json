@@ -3,7 +3,6 @@
     {
       "type": "file"
       ,"filename": "test/service.log"
-      ,"category": ["plm.ImageService"]
       ,"layout" : {
         "type" : "pattern"
         ,"pattern" : "%d | %p | %c | %m"
@@ -13,7 +12,7 @@
       "type": "console" 
       ,"layout" : {
         "type" : "pattern"
-        ,"pattern" : "%[%d | %p | %c%] | %m"
+        ,"pattern" : "%[%d | %p | %c |%] %m"
       }
     }
   ]

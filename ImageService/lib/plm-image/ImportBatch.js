@@ -23,7 +23,7 @@ module.exports = new Class(
   // constants for event names
   event: {
     STARTED:    "import.started"
-    ,IMG_SAVE:  "import.image.save"
+    ,IMG_SAVED: "import.image.saved"
     ,IMG_ERROR: "import.image.error"
     ,COMPLETED: "import.completed"
   },
@@ -114,7 +114,7 @@ module.exports = new Class(
   setStartedAt: function setStartedAt(aDate) {
     this.status = this.BATCH_STARTED;
     this.started_at = aDate;
-    this.emit(this.event.STARTED, new Event(this));
+    this.emit(this.event.STARTED, new Event(this.event.STARTED, this));
   },
 
   getCompletedAt: function getCompletedAt() {
@@ -124,8 +124,9 @@ module.exports = new Class(
   /** sets the completed_at date, updates the updated_at to match */
   setCompletedAt: function setCompletedAt(aDate) {
     this.completed_at = aDate;
+    this.updated_at   = aDate;
     this.status = this.BATCH_COMPLETED;
-    this.emit(this.event.COMPLETED, new Event(this));
+    this.emit(this.event.COMPLETED, new Event(this.event.COMPLETED, this));
   },
 
   // returns the time at which the batch was first instantiated
@@ -141,13 +142,14 @@ module.exports = new Class(
   /** Add an image to the map of successfully processed images */
   addSuccess: function (anImage) {
     this._proc.images[anImage.path] = anImage;
-    this.emit(this.event.IMG_SAVE, new Event(anImage));
+    console.log("emmitting imageSave event");
+    this.emit(this.event.IMG_SAVED, new Event(this.event.IMG_SAVED, anImage));
   },
 
   /** Add an error to the map of import errors */
   addErr: function (path, anError) {
     this._proc.errs[path] = anError;
-    this.emit(this.event.IMG_ERROR, new Event({path: path, error: anError}));
+    this.emit(this.event.IMG_ERROR, new Event(this.event.IMG_ERROR, {path: path, error: anError}));
   },
 
 
@@ -196,6 +198,7 @@ module.exports = new Class(
     delete out.BATCH_INIT;
     delete out.BATCH_STARTED;
     delete out.BATCH_COMPLETED;
+    delete out.event;
 
     // cloning will cause functions to be saved to couch if we don't remove them
     var storage = this._storage;

@@ -147,6 +147,7 @@ function save(anImgPath, callback, options)
         log.error(errMsg);
         if (_.isFunction(callback)) { callback(errMsg); }
       }
+      log.info("Saved image '%s': '%j'", theSavedImage.name, theSavedImage);
       callback(null, theSavedImage);
     }
   );
@@ -404,11 +405,6 @@ function persist(persistCommand, callback)
       if (err) { if (_.isFunction(callback)) callback(err); return; }
       if (log.isTraceEnabled())log.trace("result from insert: %j", body );
 
-      /*
-      imgData._storage.type = 'couchdb';
-      imgData._storage.id  = body.id;
-      imgData._storage.rev = body.rev;
-      */
       priv.setCouchRev(imgData, body);
 
       // log.trace("saved image: %j", imgData);
@@ -525,7 +521,8 @@ function show(oid, callback, options)
               imgOut.variants.push(vImage);
             }
           }
-          log.info("Retrieved image '%s' with oid '%s': %j", imgOut.name, oid, imgOut);
+          // this is logged at DEBUG because it occurs often, and would make the logs verbose
+          log.debug("Retrieved image '%s' with oid '%s': %j", imgOut.name, oid, imgOut);
         }
 
         callback(null, imgOut);
