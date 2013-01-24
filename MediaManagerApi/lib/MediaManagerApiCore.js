@@ -522,16 +522,16 @@ var Images = new Class({
   //          otherwise rep is a collection (array of result).
   //
   transformRep: function(rep, options) {
-    cLogger.log('Images.transformRep', 'Doing transform, path - ' + this.path);
+    // cLogger.log('Images.transformRep', 'Doing transform, path - ' + this.path);
     var that = this;
     if (options && _.has(options, 'isInstRef') && options.isInstRef) {
-      cLogger.log('Images.transformRep', 'transforming instance to full form...');
+      // cLogger.log('Images.transformRep', 'transforming instance to full form...');
       return that._transformToFullFormRep(rep);
     }
     else {
       if (_.isArray(rep)) {
-        cLogger.log('Images.transformRep', 'transforming collection to array of short forms...');
-        cLogger.log('Images.transformRep', 'type of - ' + typeof(that._shortFormAttrs) + ', desired short form attributes - ' + JSON.stringify(_.values(that._shortFormAttrs)));
+        // cLogger.log('Images.transformRep', 'transforming collection to array of short forms...');
+        // cLogger.log('Images.transformRep', 'type of - ' + typeof(that._shortFormAttrs) + ', desired short form attributes - ' + JSON.stringify(_.values(that._shortFormAttrs)));
         rep.reverse();
         var newRep = [];
         _.each(rep, 
@@ -559,6 +559,7 @@ var Images = new Class({
   },
 
   _transformAttrs: function(newRep, rep, attrs) {
+    /*
     var logMsg = 'Transforming ';
     if (_.has(rep, 'oid')) {
       logMsg = logMsg + 'resource w/ id - ' + rep.oid;
@@ -572,6 +573,7 @@ var Images = new Class({
     cLogger.log('Images._transformAttrs', logMsg);
     cLogger.log('Images._transformAttrs', 'processing attributes - ' + JSON.stringify(_.keys(attrs)));
     cLogger.log('Images._transformAttrs', 'rep has attributes - ' + JSON.stringify(_.keys(rep)));
+    */
     var that = this;
     _.each(_.keys(attrs), 
            function(attr) {
@@ -627,6 +629,8 @@ var Importers = new Class({
     cLogger.log('Importers.create', 'Payload - ' + JSON.stringify(attr));
     var that = this;
     options.isInstRef = true;
+    // we need an Images instance to run the 'static' method 'transformRep' further below
+    var IMAGES = new Images('',{}); 
     var importDir = (attr && _.has(attr, 'import_dir')) ? attr.import_dir : undefined;
     if (importDir) {
       try {
@@ -650,6 +654,21 @@ var Importers = new Class({
             }
             else {
               cLogger.log('Importers.create', 'Saved images, batch - ' + JSON.stringify(importBatch));
+
+              importBatch.once(importBatch.event.STARTED, function(anEvent) {
+                console.log("event '%s' emitted at '%s', importBatch status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.status);
+                notifications.publish('/importers', importBatch.event.STARTED, that.transformRep(anEvent.data));
+              });
+              
+              importBatch.on(importBatch.event.IMG_SAVED, function(anEvent) {
+                console.log("event '%s' emitted at '%s', importBatch status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.status);
+                notifications.publish('/importers', importBatch.event.IMG_SAVED, IMAGES.transformRep(anEvent.data, {isInstRef: true}));
+              });
+
+              importBatch.once(importBatch.event.COMPLETED, function(anEvent) {
+                console.log("event '%s' emitted at '%s', importBatch status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.status);
+                notifications.publish('/importers', importBatch.event.COMPLETED, that.transformRep(anEvent.data));
+              });
             }
             that.doCallbacks(status, importBatch, options);
           },

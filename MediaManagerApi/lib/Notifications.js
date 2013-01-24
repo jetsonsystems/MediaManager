@@ -1,3 +1,5 @@
+'use strict';
+
 //
 // MediaManager/MediaManagerApi/lib/Notifications.js
 //
@@ -18,9 +20,9 @@ var createModule = function() {
       event: event,
       data: data
     };
-  };
+  }
 
-  ResourcePrototype = {
+  var ResourcePrototype = {
     resource: undefined,
     channels: [],
     format: defaultFormatter
@@ -32,10 +34,15 @@ var createModule = function() {
   //    They can be subscribed to, and published to.
   //
   var syncPath = '/storage/synchronizers';
+  var IMPORTER_PATH = '/importers';
+
   var resources = {
     "/storage/synchronizers": Object.create(ResourcePrototype,
                                             { resource: { value: syncPath },
                                               channels: { value: [ postal.channel(syncPath, 'sync.#') ] } })
+    ,"/importers" : Object.create(ResourcePrototype,
+                                            { resource: { value: IMPORTER_PATH },
+                                              channels: { value: [ postal.channel(IMPORTER_PATH, 'import.#') ] } })
   };
 
   //
@@ -64,7 +71,7 @@ var createModule = function() {
 
     function callbackWrapper(data, envelope) {
       callback(resources[resource].format(envelope.topic, data));
-    };
+    }
 
     var subId = uuid.v4();
 
@@ -78,7 +85,7 @@ var createModule = function() {
     console.log('MediaManagerApi/lib/Notifications.subscribe: Subscribed to resource - ' + resource + ' w/ id - ' + subId);
 
     return subId;
-  };
+  }
 
   //
   // unsubscribe: Unsubscribe given a subscription ID.
@@ -93,7 +100,7 @@ var createModule = function() {
              });
       delete subscriptions[subId];
     }
-  };
+  }
 
   //
   // publish: Resource publishes an event.
@@ -104,10 +111,10 @@ var createModule = function() {
         channel: resource,
         topic: event,
         data: eventData
-      }
+      };
       postal.publish(envelope);
     }
-  };
+  }
 
   return Object.create({},
                        { subscribe: { value: subscribe },

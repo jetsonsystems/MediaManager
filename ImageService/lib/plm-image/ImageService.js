@@ -219,7 +219,7 @@ function parseAndTransform(anImgPath, options, callback)
 
         async.forEachSeries( variants, iterator, function(err) {
           if (err) callback(err);
-          log.info("Done generating all the variants for '%s'", anImgPath);
+          log.info("Done generating %s variants for image '%s'", variants.length, anImgPath);
           callback(null, aryPersist);
         });
       }
@@ -267,7 +267,7 @@ function transform(anImgMeta, variant, callback)
       theVariantMeta.created_at = anImgMeta.created_at;
       theVariantMeta.updated_at = anImgMeta.updated_at;
 
-      log.info("Done processing variant '%s' of image '%s': %j", theVariantMeta.name, anImgMeta.name, theVariantMeta);
+      log.debug("Done processing variant '%s' of image '%s': %j", theVariantMeta.name, anImgMeta.name, theVariantMeta);
       callback(err, theVariantMeta, theVariantPath); 
     }
   );
