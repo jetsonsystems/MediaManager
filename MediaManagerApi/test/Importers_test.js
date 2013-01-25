@@ -107,7 +107,8 @@ describe('Importers Resource', function () {
             counter.started.should.be.equal(1);
             counter.img_saved.should.be.equal(4);
             counter.img_error.should.be.equal(0);
-            done();
+            // give the db a chance to save the importBatch record above before destroying the db
+            setTimeout(done, 500);
             break;
         }
       }

@@ -522,16 +522,16 @@ var Images = new Class({
   //          otherwise rep is a collection (array of result).
   //
   transformRep: function(rep, options) {
-    // cLogger.log('Images.transformRep', 'Doing transform, path - ' + this.path);
+    cLogger.log('Images.transformRep', 'Doing transform, path - ' + this.path);
     var that = this;
     if (options && _.has(options, 'isInstRef') && options.isInstRef) {
-      // cLogger.log('Images.transformRep', 'transforming instance to full form...');
+      cLogger.log('Images.transformRep', 'transforming instance to full form...');
       return that._transformToFullFormRep(rep);
     }
     else {
       if (_.isArray(rep)) {
-        // cLogger.log('Images.transformRep', 'transforming collection to array of short forms...');
-        // cLogger.log('Images.transformRep', 'type of - ' + typeof(that._shortFormAttrs) + ', desired short form attributes - ' + JSON.stringify(_.values(that._shortFormAttrs)));
+        cLogger.log('Images.transformRep', 'transforming collection to array of short forms...');
+        cLogger.log('Images.transformRep', 'type of - ' + typeof(that._shortFormAttrs) + ', desired short form attributes - ' + JSON.stringify(_.values(that._shortFormAttrs)));
         rep.reverse();
         var newRep = [];
         _.each(rep, 
@@ -559,7 +559,6 @@ var Images = new Class({
   },
 
   _transformAttrs: function(newRep, rep, attrs) {
-    /*
     var logMsg = 'Transforming ';
     if (_.has(rep, 'oid')) {
       logMsg = logMsg + 'resource w/ id - ' + rep.oid;
@@ -573,7 +572,6 @@ var Images = new Class({
     cLogger.log('Images._transformAttrs', logMsg);
     cLogger.log('Images._transformAttrs', 'processing attributes - ' + JSON.stringify(_.keys(attrs)));
     cLogger.log('Images._transformAttrs', 'rep has attributes - ' + JSON.stringify(_.keys(rep)));
-    */
     var that = this;
     _.each(_.keys(attrs), 
            function(attr) {

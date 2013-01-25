@@ -763,7 +763,7 @@ function importBatchFs(target_dir, callback, options)
 
     ],
     function(err) {
-      priv.markBatchComplete(importBatch);
+      // priv.markBatchComplete(importBatch);
       if (err) { 
         var errMsg = util.format("Error while processing importBatchFs '%s': %s", importBatch.oid,err);
       } 
