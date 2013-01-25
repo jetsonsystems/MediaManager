@@ -4,7 +4,7 @@
 //
 //    http://projects.jetsonsys.com/projects/plm-media-manager-web-api/wiki/NotificationsApi
 //
-//    The exported interface is intended to be compatable with the HTML WebSocket interface.
+//    The exported interface is intended to be compatible with the HTML WebSocket interface.
 //    See:
 //
 //    http://dev.w3.org/html5/websockets/#the-websocket-interface
@@ -13,7 +13,7 @@
 //    Specifically, the following API is exported:
 //
 //      Constructor: NotificationsWsLike(url, protocol)
-//        * Note, protocal is ignored.
+//        * Note, protocol is ignored.
 //
 //        attributes:
 //           URL: Url used to connect.
@@ -43,7 +43,7 @@
 //      var ws = new WebSocket('ws://appjs/notifications');
 //
 //      Notes:
-//        * the protocal must be 'ws' or 'wss'.
+//        * the protocol must be 'ws' or 'wss'.
 //        * the host MUST be 'appjs'.
 //
 
@@ -58,7 +58,7 @@ var notifications = require('./Notifications');
 //    * readyState changes to OPEN 0.1 sec latter via a timer to emulate a
 //      connection being establish. At that time onopen is invoked.
 //
-module.exports = function WsLikeConstructor(url, protocal) {
+module.exports = function WsLikeConstructor(url, protocol) {
 
   var that = this;
 

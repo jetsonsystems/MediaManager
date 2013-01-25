@@ -627,6 +627,8 @@ var Importers = new Class({
     cLogger.log('Importers.create', 'Payload - ' + JSON.stringify(attr));
     var that = this;
     options.isInstRef = true;
+    // we need an Images instance to run the 'static' method 'transformRep' further below
+    var IMAGES = new Images('',{}); 
     var importDir = (attr && _.has(attr, 'import_dir')) ? attr.import_dir : undefined;
     if (importDir) {
       try {
@@ -650,6 +652,21 @@ var Importers = new Class({
             }
             else {
               cLogger.log('Importers.create', 'Saved images, batch - ' + JSON.stringify(importBatch));
+
+              importBatch.once(importBatch.event.STARTED, function(anEvent) {
+                console.log("event '%s' emitted at '%s', importBatch status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.status);
+                notifications.publish('/importers', importBatch.event.STARTED, that.transformRep(anEvent.data));
+              });
+              
+              importBatch.on(importBatch.event.IMG_SAVED, function(anEvent) {
+                console.log("event '%s' emitted at '%s', importBatch status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.status);
+                notifications.publish('/importers', importBatch.event.IMG_SAVED, IMAGES.transformRep(anEvent.data, {isInstRef: true}));
+              });
+
+              importBatch.once(importBatch.event.COMPLETED, function(anEvent) {
+                console.log("event '%s' emitted at '%s', importBatch status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.status);
+                notifications.publish('/importers', importBatch.event.COMPLETED, that.transformRep(anEvent.data));
+              });
             }
             that.doCallbacks(status, importBatch, options);
           },

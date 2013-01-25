@@ -8,6 +8,7 @@ var EventEmitter = require('events').EventEmitter;
 var fs = require('fs');
 var path = require('path');
 var cp = require('child_process');
+var log4js = require('log4js');
 
 var runDir = './var/run';
 
@@ -18,6 +19,7 @@ var runDir = './var/run';
 //      config - Application configuration.
 //      options:
 //        replicate - boolean
+//        logger - logger instance
 //
 //    Returns:
 //      storage - An object which is an event emitter. 
@@ -31,7 +33,9 @@ var runDir = './var/run';
 //
 var init = function(config, options) {
 
-  console.log('MediaManagerAppSupport/lib/storage.init: initializing using config - ' + JSON.stringify(config));
+  var logger = log4js.getLogger('plm.MediaManagerAppSupport');
+
+  logger.info('MediaManagerAppSupport/lib/storage.init: initializing using config - ' + JSON.stringify(config));
 
   var database;
 
@@ -45,9 +49,9 @@ var init = function(config, options) {
   }
 
   if (!(fs.existsSync(runDir) && fs.statSync(runDir).isDirectory())) {
-    console.log('MediaManagerAppSupport/lib/storage.init: run directory does NOT exist, run dir - ' + runDir);
+    logger.info('MediaManagerAppSupport/lib/storage.init: run directory does NOT exist, run dir - ' + runDir);
     var fullPath = path.join(process.cwd(), runDir);
-    console.log('MediaManagerAppSupport/lib/storage.init: creating run dir - ' + fullPath);
+    logger.info('MediaManagerAppSupport/lib/storage.init: creating run dir - ' + fullPath);
 
     try {
       fs.mkdirSync(fullPath);
@@ -74,7 +78,7 @@ var init = function(config, options) {
   //  createChildProcess: Start a process, and record its PID in the run directory.
   //
   var createChildProcess = function() {
-    console.log('MediaManagerAppSupprt.init: Launching storage child process, execPath - ' + execPath + ', database - ' + database);
+    logger.info('MediaManagerAppSupprt.init: Launching storage child process, execPath - ' + execPath + ', database - ' + database);
     var childP = cp.spawn(execPath, ['--db', database], {});
     updatePIDFile(childP.pid);
     return childP;
@@ -88,7 +92,7 @@ var init = function(config, options) {
   //
   var killChildProcess = function() {
     if (childProcess !== undefined) {
-      console.log('MediaManagerAppSupprt.init.killChildProcess: Attempting to kill child process, pid - ' + childProcess.pid);
+      logger.info('MediaManagerAppSupprt.init.killChildProcess: Attempting to kill child process, pid - ' + childProcess.pid);
       var pidFilePath = pidFile();
       
       var data = undefined;
@@ -103,7 +107,7 @@ var init = function(config, options) {
           childProcess.kill();
           didChildProcessKill = true;
           fs.unlink(pidFilePath);
-          console.log('MediaManagerAppSupprt.init.killChildProcess: Killed child process, pid - ' + childProcess.pid);
+          logger.info('MediaManagerAppSupprt.init.killChildProcess: Killed child process, pid - ' + childProcess.pid);
           childProcess = undefined;
         }
       }
@@ -127,15 +131,15 @@ var init = function(config, options) {
     }
     if (data) {
       var pid = parseInt(data.toString());
-      console.log('MediaManagerAppSupprt.init.cleanRunDir: Attempting to kill process w/ pid - ' + pid);
+      logger.info('MediaManagerAppSupprt.init.cleanRunDir: Attempting to kill process w/ pid - ' + pid);
 
       if (pid !== undefined) {
         try {
           process.kill(pid);
-          console.log('MediaManagerAppSupprt.init.cleanRunDir: Killed process w/ pid - ' + pid);
+          logger.info('MediaManagerAppSupprt.init.cleanRunDir: Killed process w/ pid - ' + pid);
         }
         catch (err) {
-          console.log('MediaManagerAppSupprt.init.cleanRunDir: Could not kill process w/ pid - ' + pid);
+          logger.error('MediaManagerAppSupprt.init.cleanRunDir: Could not kill process w/ pid - ' + pid);
         }
       }
       fs.unlink(pidFilePath);
@@ -178,20 +182,20 @@ var init = function(config, options) {
   childProcess = createChildProcess();
   
   childProcess.on('exit', function(code, signal) {
-    console.log('MediaManagerAppSupport: Child process exit event detected!');
+    logger.error('MediaManagerAppSupport: Child process exit event detected!');
     if ((signal === 'SIGTERM') && (didChildProcessKill === true)) {
-      console.log('MediaManagerAppSupport: emitting shutdown event!');
+      logger.info('MediaManagerAppSupport: emitting shutdown event!');
       storage.emit('localStorageShutdown');
     }
     else {
-      console.log('MediaManagerAppSupport: emitting exit event!');
+      logger.info('MediaManagerAppSupport: emitting exit event!');
       storage.emit('localStorageExit');
     }
     didChildProcessKill = false;
   });
   
   process.on('exit', function() {
-    console.log('MediaManagerAppSupport.init: Process exit event detected...');
+    logger.info('MediaManagerAppSupport.init: Process exit event detected...');
     if (childProcess) {
       killChildProcess();
     }

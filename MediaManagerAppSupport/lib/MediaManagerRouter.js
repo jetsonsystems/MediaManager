@@ -5,6 +5,7 @@
 //
 
 var _ = require('underscore');
+var log4js = require('log4js');
 var url = require('url');
 var config = require('MediaManagerAppConfig');
 var mmApi = require('MediaManagerApi/lib/MediaManagerApiCore')(config);
@@ -42,12 +43,14 @@ var handleWithAppRouter = function(req) {
 //
 var MediaManagerRouter = function(appjs, routes) {
 
+  var logger = log4js.getLogger('plm.MediaManagerAppSupport');
+
   //
   //  initialize: sets up all the routes. Invoked at the end of object construction.
   //
   var initialize = function() {
     var that = this;
-    console.log('MediaManagerAppSupport/lib/MediaManagerRouter.initialize: initializing...');
+    logger.info('MediaManagerAppSupport/lib/MediaManagerRouter.initialize: initializing...');
 
     //
     //  The original AppJS routing handler.
@@ -59,7 +62,7 @@ var MediaManagerRouter = function(appjs, routes) {
     //
     appjs.router.handle = function(req, res) {
       if (handleWithAppJsRouter(req)) {
-        console.log('MediaManagerAppSupport/lib/MediaManagerRouter.js: Routing with appjs router for - ' + req.method + ' ' + req.url);
+        logger.info('MediaManagerAppSupport/lib/MediaManagerRouter.js: Routing with appjs router for - ' + req.method + ' ' + req.url);
         appjsHandler.apply(appjs.router, arguments);
       }
       else {
@@ -67,24 +70,24 @@ var MediaManagerRouter = function(appjs, routes) {
         req.originalUrl = req.url;
         req.url = req.pathname;
         if (req.method === 'POST')  {
-          console.log('index.js: Received request - ' + req.method + ' ' + req.url + ', original url - ' + req.originalUrl + ', headers - ' + JSON.stringify(req.headers) + ', post - ' + req.post + ', body - ' + JSON.stringify(req.body));
+          logger.info('index.js: Received request - ' + req.method + ' ' + req.url + ', original url - ' + req.originalUrl + ', headers - ' + JSON.stringify(req.headers) + ', post - ' + req.post + ', body - ' + JSON.stringify(req.body));
           //
           //  Currently, cannot add listeners to get data. Data must be sent as URL encoded query args, and is then available via req.data.
           //  So, at least for now, the post code, is the same as the get code, but this will probably change.
           //
-          console.log('index.js: Routing with browserver-router for - ' + req.method + ' ' + req.url + ', original url - ' + req.originalUrl);
+          logger.info('index.js: Routing with browserver-router for - ' + req.method + ' ' + req.url + ', original url - ' + req.originalUrl);
           that.router.apply(that.router, arguments);
         }
         else {
-          console.log('index.js: Routing with browserver-router for - ' + req.method + ' ' + req.url + ', original url - ' + req.originalUrl);
+          logger.info('index.js: Routing with browserver-router for - ' + req.method + ' ' + req.url + ', original url - ' + req.originalUrl);
           that.router.apply(that.router, arguments);
         }
       }
     };
 
-    console.log('MediaManagerAppSupport/lib/MediaManagerRouter.initialize: creating router...');
+    logger.info('MediaManagerAppSupport/lib/MediaManagerRouter.initialize: creating router...');
     this.router = new Router(routes);
-    console.log('MediaManagerAppSupport/lib/MediaManagerRouter.initialize: router created!');
+    logger.info('MediaManagerAppSupport/lib/MediaManagerRouter.initialize: router created!');
 
     _.each(_.values(this.resources), function(resource) {
 
@@ -181,7 +184,7 @@ var MediaManagerRouter = function(appjs, routes) {
 
   this.genOnSuccess = function(resource, req, res) {
     return function(responseBody) {
-      console.log('index.js: Handling - ' + req.method + ' ' + resource.path + ', response payload of length - ' + JSON.stringify(responseBody).length);
+      logger.info('index.js: Handling - ' + req.method + ' ' + resource.path + ', response payload of length - ' + JSON.stringify(responseBody).length);
       res.send(200,
                'application/json',
                JSON.stringify(responseBody));
@@ -190,7 +193,7 @@ var MediaManagerRouter = function(appjs, routes) {
 
   this.genOnError = function(resource, req, res) {
     return function(responseBody) {
-      console.log('index.js: Handling - ' + req.method + ' ' + resource.path + ', response payload - ' + JSON.stringify(responseBody));
+      logger.error('index.js: Handling - ' + req.method + ' ' + resource.path + ', response payload - ' + JSON.stringify(responseBody));
       res.send(responseBody.status,
                'application/json',
                JSON.stringify(responseBody));

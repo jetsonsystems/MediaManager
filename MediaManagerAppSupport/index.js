@@ -14,6 +14,8 @@
 //        localStorageShutdown: The local storage process was shutdown normally.
 //
 
+var _ = require('underscore');
+var log4js = require('log4js');
 var config = require('MediaManagerAppConfig');
 var storage = require('./lib/storage.js');
 var mmApi = require('MediaManagerApi/lib/MediaManagerApiCore')(config);
@@ -22,9 +24,18 @@ var MediaManagerRouter = require('./lib/MediaManagerRouter.js');
 var EventEmitter = require('events').EventEmitter;
 
 var init = function(appjs, routes) {
-  var app = Object.create(EventEmitter.prototype);
 
-  app.config = config;
+  var app = Object.create(EventEmitter.prototype,
+                          {appjs: { value: appjs },
+                           config: { value: config }});
+
+  if (_.has(config, 'logging')) {
+    log4js.configure(config.logging);
+    app.logger = log4js.getLogger('plm.MediaManagerApp');
+  }
+  else {
+    app.logger = log4js.getLogger();
+  }
 
   app.mediaManagerRouter = new MediaManagerRouter(appjs, routes);
 

@@ -1,0 +1,23 @@
+{
+  "appenders": [
+    {
+      "type": "file"
+      ,"filename": "test/service.log"
+      ,"layout" : {
+        "type" : "pattern"
+        ,"pattern" : "%d | %p | %c | %m"
+      }
+    }
+    ,{ 
+      "type": "console" 
+      ,"layout" : {
+        "type" : "pattern"
+        ,"pattern" : "%[%d | %p | %c |%] %m"
+      }
+    }
+  ]
+  ,"replaceConsole" : "false"
+  ,"levels": {
+    "plm.ImageService": "DEBUG"
+  }
+}

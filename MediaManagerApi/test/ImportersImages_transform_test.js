@@ -87,8 +87,8 @@ describe('Importers', function () {
 
   it("should transform a importBatch with images via ImportersImages.transformRep", function () 
   {
-    var rep = resource.transformRep(importBatch);
     // console.log("batch: %s", util.inspect(importBatch));
+    var rep = resource.transformRep(importBatch);
     // console.log("rep: %s", util.inspect(rep));
     rep.id.should.equal('$' + importBatch.oid);
     rep.created_at.should.equal(importBatch.created_at);
@@ -99,9 +99,9 @@ describe('Importers', function () {
     rep.num_success.should.equal(importBatch.getNumSuccess());
     rep.num_error.should.equal(importBatch.getNumError());
     rep.images.length.should.equal(2);
-
-    ImagesTest.assertShortForm(rep.images[0], img1);
-    ImagesTest.assertShortForm(rep.images[1], img2);
+    
+    ImagesTest.assertShortForm(rep.images[0], img2);
+    ImagesTest.assertShortForm(rep.images[1], img1);
   });
 
 });
