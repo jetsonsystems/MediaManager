@@ -12,8 +12,14 @@ describe('Image', function () {
     ,NAME = 'anImage.jpg'
     ,PATH = '/some/path/to/' + NAME
     ,OID  = 'aaa-bbb-ccc'
-    ,image = new Image({path: PATH, oid: OID})
+    ,image = null
   ;
+
+  //This will be called before each test
+  beforeEach(function (done) {
+    image = new Image({path: PATH, oid: OID});
+    done();
+  });//end before
 
   it("should have default values at initialization", function (done) 
   {
@@ -33,7 +39,7 @@ describe('Image', function () {
     done(); // this ensures that this test completes before the next one executes
   });
 
-  it("should have the data parsed by GraphicsMagic", function () 
+  it("should have the data parsed by GraphicsMagic", function (done)
   {
     console.log("testing parsed values");
     image.readFromGraphicsMagick(metadata);
@@ -47,6 +53,28 @@ describe('Image', function () {
     image.filesize.should.equal("389.6K");
     image.variants.should.have.length(0);
     image.metadata_raw.should.equal(metadata);
+    done();
+  });
+
+  it("should have the tags in alphabetical order and without duplicates", function (done)
+  {
+    console.log("testing tags in alphabetical order and without duplicates");
+    image.tags_add(["trips","family","friends"]);
+
+    expect(image.tags_get()).to.be.instanceof(Array);
+
+    expect(image.tags_get()).to.deep.equal(["family","friends","trips"]);
+
+    image.tags_add(["zoo","america","family"]);
+
+    //tags must be ordered and without duplicates
+    expect(image.tags_get()).to.deep.equal(["america","family","friends","trips","zoo"]);
+
+    image.tags_add("orient trips");
+
+    expect(image.tags_get()).to.deep.equal(["america","family","friends","orient trips","trips","zoo"]);
+
+    done();
   });
 
 });
