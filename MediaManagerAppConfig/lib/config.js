@@ -24,10 +24,22 @@ if (_config.app.appId === undefined) {
   _config.app.appId = uuid.v4();
 }
 
+//
+//  Set all our immutable sub-elements of the config.
+//
+if (_.has(_config, "app")) {
+  _config.makeImmutable(_config.app, 'appId');
+}
+if (_.has(_config, "logging")) {
+  _.each(_.keys(_config.logging), function(attr) {
+    _config.makeImmutable(_config.logging, attr);
+  });
+}
+
 var config = Object.create({}, { 
   //
   //  App:
-  //    Mutable attributes:
+  //    Immutable attributes:
   //      appId
   //
   app: {

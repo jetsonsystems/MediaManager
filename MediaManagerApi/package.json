@@ -20,8 +20,6 @@
     ,"restify"      : "~2.0.4"
     ,"underscore"   : "~1.4.2"
     ,"postal"       : "~0.7"
-    ,"ImageService" : "=0.0.2"
-    ,"MediaManagerStorage" : "~0.0.1"
   },
   "devDependencies": {
     "async"  : "~0.1.22"
