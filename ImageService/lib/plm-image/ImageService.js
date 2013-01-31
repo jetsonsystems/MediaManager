@@ -1,6 +1,7 @@
 'use strict';
 var  
    _     = require('underscore')
+  ,strUtils = require('underscore.string')
   ,async = require('async')
   ,cs    = require('./checksum')
   ,dive  = require('dive')
@@ -43,6 +44,7 @@ var
   ,VIEW_BY_OID_WITH_VARIANT  = 'by_oid_with_variant'
   ,VIEW_BATCH_BY_CTIME       = 'batch_by_ctime'
   ,VIEW_BATCH_BY_OID_W_IMAGE = 'batch_by_oid_w_image'
+  ,VIEW_BY_TAG               = 'by_tag'
 ;
 
 // a hashmap, keyed by oid, that caches importBatch objects while they are being processed
@@ -1078,6 +1080,72 @@ function collectImagesInDir(target_dir, callback)
 } // end collectImagesInDir
 exports.collectImagesInDir = collectImagesInDir;
 
+
+
+exports.saveOrUpdate = saveOrUpdate;
+
+/**
+ * Creates an image in database if the image does not exist, updates the image otherwise
+ *
+ * @param theDoc
+ * @param tried
+ * @param callback
+ */
+function saveOrUpdate(theDoc, tried, callback) {
+
+  var db = priv.db();
+
+  if(!strUtils.isBlank(theDoc.oid)){
+    theDoc.updated_at = new Date();
+  }
+
+  db.insert(toCouch(theDoc), theDoc.oid, function (err, http_body, http_header) {
+
+    if (err) {
+
+      if (err.error === 'conflict' && tried < 1) {
+
+        // get record _rev and retry
+        return db.get(theDoc.oid, function (err, doc) {
+
+          theDoc._rev = doc._rev;
+          saveOrUpdate(theDoc, tried + 1,callback);
+
+        });
+
+      }else{
+        callback(err);
+      }
+
+    }
+    else{
+      if (_.isFunction(callback)) {
+        callback(null, http_body);
+
+      }
+    }
+
+  });
+}
+
+exports.toCouch = toCouch;
+
+/**
+ *
+ * @param image
+ * @return image object with added Couch specific attributes like the:
+ *  _rev (revision)
+ *  _attachments
+ */
+function toCouch(image){
+  var out = image.toJSON();
+  out._rev = image._rev;
+
+  out._attachments = image._attachments;
+
+  delete (out.url);
+  return out;
+}
 
 /*
  *  getImageUrl: Helper to construct a URL to reference the image associated with a document.
