@@ -39,11 +39,22 @@ var init = function(appjs, routes) {
 
   app.mediaManagerRouter = new MediaManagerRouter(appjs, routes);
 
+  app.storage = {
+    changesFeed: new mmApi.StorageChangesFeed('/storage/changes-feed',
+                                              {instName: 'changes-feed',
+                                               pathPrefix: '/v0' })
+  };
+
+  //
+  //  Do a create request on the changes feed to start monitoring it.
+  //
+  app.storage.changesFeed.create({}, {});
+
+  var dataStore = storage.init(config);
+
   app.shutdown = function() {
     dataStore.shutdown();
   };
-
-  var dataStore = storage.init(config);
   
   dataStore.on('localStorageExit', function() {
     app.emit('localStorageExit');

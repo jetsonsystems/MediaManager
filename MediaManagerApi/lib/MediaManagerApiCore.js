@@ -99,7 +99,8 @@ module.exports = function mediaManagerApiModule(config, options) {
     Images: { value: Images },
     Importers: { value: Importers },
     ImportersImages: { value: ImportersImages },
-    StorageSynchronizers: { value: StorageSynchronizers }
+    StorageSynchronizers: { value: StorageSynchronizers },
+    StorageChangesFeed: { value: StorageChangesFeed }
   });
 
   cLogger.log('mediaManagerApiModule', 'Returning new module instance...');
@@ -655,17 +656,21 @@ var Importers = new Class({
 
               importBatch.once(importBatch.event.STARTED, function(anEvent) {
                 console.log("event '%s' emitted at '%s', importBatch status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.status);
-                notifications.publish('/importers', importBatch.event.STARTED, that.transformRep(anEvent.data));
+                notifications.publish('/importers', importBatch.event.STARTED, that.transformRep(anEvent.data, {isInstRef: true}));
               });
               
               importBatch.on(importBatch.event.IMG_SAVED, function(anEvent) {
                 console.log("event '%s' emitted at '%s', importBatch status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.status);
-                notifications.publish('/importers', importBatch.event.IMG_SAVED, IMAGES.transformRep(anEvent.data, {isInstRef: true}));
+                notifications.publish('/importers', 
+                                      importBatch.event.IMG_SAVED, 
+                                      { "id": "$" + importBatch.oid,
+                                        "doc_resource": "/images",
+                                        "doc": IMAGES.transformRep(anEvent.data, {isInstRef: true}) });
               });
 
               importBatch.once(importBatch.event.COMPLETED, function(anEvent) {
                 console.log("event '%s' emitted at '%s', importBatch status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.status);
-                notifications.publish('/importers', importBatch.event.COMPLETED, that.transformRep(anEvent.data));
+                notifications.publish('/importers', importBatch.event.COMPLETED, that.transformRep(anEvent.data, {isInstRef: true}));
               });
             }
             that.doCallbacks(status, importBatch, options);
@@ -953,6 +958,112 @@ var StorageSynchronizers = new Class({
                };
     }
     return newRep;
+  }
+
+});
+
+//
+//  StorageChangesFeed Resource: Access the changes feed.
+//
+//    Note, this is NOT currently exposed as a public API. But, the intent is to use this
+//    resource internally, such that access can be gained to document resource and
+//    publish to the notifications API when a document changes. Hence, ONLY the
+//    create method is implemented, which instantiates a storage.changesFeed instance,
+//    and listens for change events which inturn are passed to the notifications API.
+//
+var StorageChangesFeed = new Class({
+
+  Extends: Resource,
+
+  initialize: function(path, options) {
+    this.parent(path, options);
+    cLogger.log('StorageChangesFeed.initialize', 'Initialized, path - ' + this.path + ', name - ' + this.name + ', instance name - ' + this.instName);
+  },
+
+  create: function(attr, options) {
+    cLogger.log('StorageChangesFeed.create', 'Payload - ' + JSON.stringify(attr) + ', options - ' + options);
+    var that = this;
+
+    var since = (options && _.has(options, 'query') && _.has(options.query, 'since')) ? options.query.since : undefined;
+    var changesFeed = undefined;
+
+    try {
+      changesFeed = storage.changesFeed({since: since});
+      function publishImagesChangeEvent(event) {
+
+        cLogger.log('StorageChangesFeed.create', 'About to publish image change event, image doc - ' + JSON.stringify(event.doc));
+
+        var IMAGES = new Images('',{});
+
+        var eventType = event.type;
+        var id = event.doc.oid;
+
+        if ((event.type === 'doc.image.deleted') && (event.doc.orig_id)) {
+          eventType = 'doc.image.updated';
+          id = event.doc.orig_id;
+        }
+        else if (event.doc.orig_id) {
+          id = event.doc.orig_id;
+        }
+        if (eventType === 'doc.image.deleted') {
+          notifications.publish('/storage/changes-feed',
+                                eventType,
+                                {
+                                  "doc_resource": "/images",
+                                  "doc": {
+                                    "id": '$' + id
+                                  }
+                                });
+        }
+        else if (event.doc.orig_id) {
+          imageService.show(event.doc.orig_id, function(err, result) {
+            if (err) {
+              cLogger.log('StorageChangesFeed.create', 'Failed to fetch origin image in order to publish change event, error - ' + err);
+            }
+            else {
+              notifications.publish('/storage/changes-feed',
+                                    event.type,
+                                    {
+                                      "doc_resource": "/images",
+                                      "doc": IMAGES.transformRep(result, {isInstRef: true})
+                                    });
+            }});
+        }
+        else {
+          notifications.publish('/storage/changes-feed',
+                                event.type,
+                                {
+                                  "doc_resource": "/images",
+                                  "doc": IMAGES.transformRep(event.doc, {isInstRef: true})
+                                });
+        }
+      };
+      changesFeed.on('doc.image.created', 
+                      function(event) {
+                        publishImagesChangeEvent(event);
+                      });
+      changesFeed.on('doc.image.updated',
+                      function(event) {
+                        publishImagesChangeEvent(event);
+                      });
+      changesFeed.on('doc.image.deleted',
+                      function(event) {
+                        publishImagesChangeEvent(event);
+                      });
+      changesFeed.listen();
+      that.doCallbacks(200, changesFeed, options);
+    }
+    catch (err) {
+      cLogger.log('StorageChangesFeed.create', 'Caught error - ' + err);
+      options.errorCode = -1;
+      options.errorMessage = err.message;
+      try {
+        that.doCallbacks(500, changesFeed, options);
+      }
+      catch (err) {
+        that.doCallbacks(500, undefined, options);
+      }      
+    }
   }
 
 });
