@@ -14,7 +14,7 @@
 //
 //    Public Module Attributes:
 //
-//      config: The config used during instantiation.
+//      config: The DB config used during instantiation.
 //
 //    Module operations which are exposed:
 //
@@ -23,10 +23,12 @@
 //      syncState(id): Return the state of a synchronization. Returns a Synchronizer instance, but it
 //        is a passive instance (returns NO events). This is solely here to support polling of a synchronization 
 //        initiated via sync().
+//      changesFeed(options): Returns a changes feed.
 //
 var uuid  = require('node-uuid');
 var events = require('events');
 var _ = require('underscore');
+var http = require('http');
 var request = require('request').defaults({ jar: false });
 var async = require('async');
 
@@ -60,11 +62,11 @@ var touchdb = null;
 //      events:
 //
 //        sync.started
-//        replication.push.started
-//        push_completed
-//        pull_started
-//        pull_completed
-//        sync_completed
+//        sync.replication.push.started
+//        sync.replication.push.completed
+//        sync.replication.pull.started
+//        sync.replication.pull.completed
+//        sync.completed
 //
 var synchronizerFactory = function(config, options, callback) {
 
@@ -101,14 +103,14 @@ var synchronizerFactory = function(config, options, callback) {
     function setEvents() {
       if (type === 'push') {
         this.events = {
-          started: 'replication.push.started',
-          completed: 'replication.push.completed'
+          started: 'sync.replication.push.started',
+          completed: 'sync.replication.push.completed'
         };
       }
       else if (type === 'pull') {
         this.events = {
-          started: 'replication.pull.started',
-          completed: 'replication.pull.completed'
+          started: 'sync.replication.pull.started',
+          completed: 'sync.replication.pull.completed'
         };
       }
     };
@@ -197,10 +199,12 @@ var synchronizerFactory = function(config, options, callback) {
       });
     };
     var checkInterval = 1 * 1000;
+    // 15s max check interval.
+    var maxCheckInterval = 15 * 1000;
     var checked = function() {
       if (((maxChecks === undefined) || (numChecks < maxChecks)) && (replication.state === 'triggered')) {
-        // 5 minute max check interval.
-        checkInterval = checkInterval >= (900 * 1000) ? 900000 : checkInterval * 2;
+
+        checkInterval = checkInterval >= maxCheckInterval ? maxCheckInterval : checkInterval * 2;
         console.log('MediaManagerStorage/lib/touchdb.js.monitor: Scheduling next check, numChecks - ' + numChecks + ', maxChecks - ' + maxChecks + ', check interval - ' + checkInterval);
         setTimeout(check, checkInterval, url, checked);
       }
@@ -365,6 +369,244 @@ var synchronizerFactory = function(config, options, callback) {
   return synchronizer;
 };
 
+//
+//  changesFeedFactory: Returns an instance of a changes feed which is an event Emitter.
+//
+//    args:
+//      config: DB config
+//      options:
+//        appId: Used to filter changes by appId.
+//        includeFilter: Array of document 'class_name's to include. Others will be ignored. If not specified (or evalutes to false), all documents emit an event.
+//        since: DB sequence ID S.T. changes will only be return where the seq. ID is after this one. See TouchDB's _changes?since query paramter.
+//          If since is NOT provided, the current sequence ID of the DB will be used.
+//
+//    attributes:
+//
+//      config: DB config.
+//      state: undefined, 'connected', 'disconnected'
+//      since: the DB update seq used to start listening to the DB.
+//      currentUpdateSeq: the DB update seq is updated as the feed is listened to.
+//      listen: Connects the TouchDB's changes feed. state becomes 'connected' when listening is successful.
+//        If the connection is lost, the state becomes 'disconnected'.
+//
+//    events:
+//      doc.<doc. type>.<change type>
+//
+//      where:
+//
+//        <doc. type> ::= 'image'
+//        <change type> ::= 'created' | 'updated' | 'deleted'
+//
+//      IE: doc.image.created
+//
+//      Note, for documents other than images, <doc. type> is __unknown__.
+//
+//      Events are emitted with as follows:
+//
+//        <changes feed instance>.emit(doc.<doc. type>.<change type>, <change event>);
+//
+//      The listener will receive a <change event> as the first arg. See changeEVentPrototype below. It
+//      will include:
+//        <emittedAt>: date object when emitted.
+//        <type>: the event.
+//        <doc>: the document which is included in the chagnes feed.
+//
+var changesFeedFactory = function(config, options) {
+  console.log('MediaManagerStorage/lib/touchdb.js: Creating changes feed...');
+
+  var options = options || {};
+
+
+
+  var since =  _.has(options, 'since') ? options.since : undefined;
+  var includeFilter = _.has(options, 'includeFilter') ? options.includeFilter : undefined;
+  var currentUpdateSeq = undefined;
+
+  var changesFeed = Object.create(events.EventEmitter.prototype, {
+    config: { value: config },
+    state: { value: undefined, writable: false },
+    since: { value: since, writable: false },
+    includeFilter: { value: includeFilter, writable: false },
+    currentUpdateSeq: { value: currentUpdateSeq, writable: false },
+    listen: { value: function() { throw Object.create(new Error(),
+                                                      { name: { value: 'ChangesFeedVoidListenInvokation' },
+                                                        mesage: { value: 'ChangesFeed listen function NOT overriden.' } }); },
+              writable: true }
+  });
+
+  //
+  //  Prototype for <change event> argument (first arg. of emitted events).
+  //
+  var changeEventPrototype = {
+    emittedAt: undefined,
+    type: undefined,
+    doc: undefined
+  };
+
+  //
+  //  filterChange: Return a <change event> if the change should NOT be filtered, otherwise return false.
+  //
+  var filterChange = function(change) {
+    var that = this;
+    var retVal = false;
+    if (_.has(change, 'doc')) {
+      var doc = change.doc;
+
+      console.log('Processing change doc: id - ' + change.id + ', doc - ' + JSON.stringify(doc));
+
+      if (!that.appId || !_.has(doc.app) || !_.has(doc.app_id) || (that.appId !== doc.app_id)) {
+        if (_.has(doc, 'class_name') && (!that.includeFilter || _.indexOf(that.includeFilter, doc.class_name) > -1)) {
+          //
+          //  Have a non-filtered document.
+          //
+
+          var docClassesToTypes = {
+            'plm.Image': 'image',
+            'plm.ImportBatch': 'import-batch'
+          };
+            
+          var docType = _.has(docClassesToTypes, doc.class_name) ? docClassesToTypes[doc.class_name] : '__unknown__';
+            
+          var changeType = 'updated';
+            
+          if (_.has(change, 'deleted') && change.deleted) {
+            changeType = 'deleted';
+          }
+          else {
+            _.each(change.changes, function(chg) {
+              if (_.has(chg, 'rev') && (chg.rev.match(/^1-/))) {
+                changeType = 'created';
+              }
+            });
+          }
+
+          retVal = Object.create(changeEventPrototype, {
+            emittedAt: { value: new Date(), writable: false },
+            type: { value: 'doc.' + docType + '.' + changeType, writable: false },
+            doc: { value: doc, writable: false }
+          });
+        }
+      }
+    }
+    return retVal;
+  };
+
+  //
+  //  processChanges: Helper to process the data in buffer.
+  //    Emits events for each pertinent change, and returns
+  //    any extraneous data in buffer which is not yet complete
+  //
+  var processChanges = function(buffer) {
+    var that = this;
+    console.log('Processing changes w/ config - ' + JSON.stringify(that.config));
+    var parts = buffer.split('\n');
+
+    if (parts.length > 0) {
+      _.each(_.first(parts, parts.length - 1), function(part) {
+        if (part.length) {
+          try {
+            var change = JSON.parse(part);
+
+            if (_.has(change, 'seq') && _.has(change, 'id')) {
+              console.log('Processing change: seq - ' + change.seq + ', id - ' + change.id);
+
+              var changeEvent = filterChange.call(that, change);
+              if (changeEvent) {
+                that.currentUpdateSeq = change.seq;
+                that.emit(changeEvent.type, changeEvent);
+              }
+            }
+          }
+          catch (err) {
+            console.log('Error processing change, data - ' + part + ', error - ' + err);
+          }
+        }
+      });
+      return _.last(parts);
+    }
+    else {
+      return buffer;
+    }
+  };
+
+  //
+  //  listen: Listen to the changes feed by performing the following request:
+  //    http://localhost:59840/plm-media-manager/_changes?since=268&feed=continuous&include_docs=true&style=main_only&descending=false'
+  //
+  //    The following options are used in the request:
+  //      since: included if specified.
+  //      feed=continuous: We continuously monitor the feed.
+  //      include_docs=true: We request the changed documents to be included in the feed. That way we can include them in the emitted event.
+  //      style=main_only: Only the main / winning change for now.
+  //      descending=false: What the changes to come in oldest to newest.
+  //
+  //    Note, when style=all_docs is specified, for some reason changes always come in reverse order and descending is ignored. We
+  //    may need to revisit this as we may want ALL changes.
+  //
+  changesFeed.listen = function() {
+    var that = this;
+
+    var path = "/" + config.database + "/_changes?feed=continuous&include_docs=true&style=main_only&descending=false";
+    if (this.since) {
+      path = path + "&since=" + this.since;
+    }
+    var options = {
+      hostname: this.config.local.host ? this.config.local.host : 'localhost',
+      port: this.config.local.port,
+      path: path,
+      method: 'GET'
+    };
+
+    var buffer = "";
+
+    //
+    //  Fire off a request. It will essentially look like this:
+    //
+    // curl -v 'http://localhost:59840/plm-media-manager/_changes?since=268&feed=continuous&include_docs=true&style=main_only&descending=false'
+    // * About to connect() to localhost port 59840 (#0)
+    // *   Trying ::1... connected
+    // * Connected to localhost (::1) port 59840 (#0)
+    // > GET /plm-media-manager/_changes?since=268&feed=continuous&include_docs=true&style=main_only&descending=false HTTP/1.1
+    // > User-Agent: curl/7.21.4 (universal-apple-darwin11.0) libcurl/7.21.4 OpenSSL/0.9.8r zlib/1.2.5
+    // > Host: localhost:59840
+    // > Accept: */*
+    // > 
+    // < HTTP/1.1 200 OK
+    // < Transfer-Encoding: chunked
+    // < Date: Thu, 31 Jan 2013 20:35:29 GMT
+    // < Accept-Ranges: bytes
+    // < Server: TouchDB 1
+    // < Cache-Control: must-revalidate
+    // < 
+    // {"seq":269,"id":"c2a7b2de-e2cb-4ce4-9514-d0ebdb823ff6","changes":[{"rev":"2-e61993fd1c7d399f6407c98819a222c1"}],"doc":{"batch_id":"e24ede96-bd00-4ae5-bc31-e0a49256e45c","class_name":"plm.Image","filesize":"200.8K","created_at":"2013-01-30T03:54:15.461Z","_rev":"2-e61993fd1c7d399f6407c98819a222c1","tags":[],"_id":"c2a7b2de-e2cb-4ce4-9514-d0ebdb823ff6","checksum":"ab71373cc6a33cc97cb472af2cae3dd8","path":"","size":{"width":1202,"height":800},"oid":"c2a7b2de-e2cb-4ce4-9514-d0ebdb823ff6","geometry":"1202x800","format":"JPEG","orig_id":"0d79e6ef-962c-4934-8942-0537fc11e6a5","updated_at":"2013-01-30T03:54:15.461Z","_attachments":{"full-small.jpg":{"stub":true,"length":205650,"digest":"sha1-0UGnqWXHNA88F0qIStwYA9Ic7RA=","revpos":2,"content_type":"image\/JPEG"}},"name":"full-small.jpg"}}
+    // {"seq":270,"id":"e24ede96-bd00-4ae5-bc31-e0a49256e45c","changes":[{"rev":"2-32109ba995293746e71ca79a5ecbaefc"}],"doc":{"num_success":19,"class_name":"plm.ImportBatch","num_to_import":19,"created_at":"2013-01-30T03:53:14.878Z","_rev":"2-32109ba995293746e71ca79a5ecbaefc","_id":"e24ede96-bd00-4ae5-bc31-e0a49256e45c","path":"\/Users\/marekjulian\/PLM\/import","num_error":0,"num_attempted":19,"oid":"e24ede96-bd00-4ae5-bc31-e0a49256e45c","updated_at":"2013-01-30T03:54:22.864Z","started_at":"2013-01-30T03:53:14.888Z","completed_at":"2013-01-30T03:54:22.864Z","status":"COMPLETED"}}
+    //
+    var req = http.request(options, function(res) {
+      if (res.statusCode === 200) {
+        that.state = 'connected';
+        res.on('data', function(data) {
+          buffer = buffer + data;
+          if (buffer.indexOf('\n') > -1) {
+            //
+            //  Have data to process.....
+            //
+            buffer = processChanges.call(that, buffer);
+          }
+        });
+        res.on('end', function() {
+          that.state = 'disconnected';
+        });
+      }
+      else {
+        that.state = 'disconnected';
+      }
+    });
+    req.end();
+  };
+
+  return changesFeed;
+};
+
 module.exports = function touchdbModule(config, options) {
 
   options = options || {}
@@ -411,7 +653,21 @@ module.exports = function touchdbModule(config, options) {
     return synchronizer;
   };
 
-  console.log('MediaManagerStorage/lib/touchdb.js: Creating touchdb instance w/ ocnfig of - ' + JSON.stringify(config));
+  //
+  //  changesFeed: Returns a 'changesFeed'.
+  //
+  //    args:
+  //      options:
+  //        appId: Used to filter changes by appId. Only emit events where: !appId || appId !=== doc.app_id.
+  //        since: Monitor replication as of this DB update sequence.
+  //        includeFilter: Only pay attention to docs. whose class_name attribute is in this list. 
+  //          If the paramter evaluates to false, or is NOT included, all changes emit an event.
+  //
+  var changesFeed = function(options) {
+    return changesFeedFactory(config, options);
+  };
+
+  console.log('MediaManagerStorage/lib/touchdb.js: Creating touchdb instance w/ config of - ' + JSON.stringify(config));
 
   //
   //  touchdb: The return object as a result of module initialization.
@@ -419,7 +675,8 @@ module.exports = function touchdbModule(config, options) {
   var newInst = Object.create({}, { 
     config: { value: config },
     sync: { value: sync },
-    syncState: { value: syncState }
+    syncState: { value: syncState },
+    changesFeed: { value: changesFeed }
   });
 
   if (options.singleton) {

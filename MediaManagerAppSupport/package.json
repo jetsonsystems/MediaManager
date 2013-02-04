@@ -1,4 +1,7 @@
 {
   "name": "MediaManagerAppSupport",
-  "version": "0.0.0"
+  "version": "0.0.0",
+  "dependencies" : {
+    "log4js"        : "0.5.x"
+  }
 }

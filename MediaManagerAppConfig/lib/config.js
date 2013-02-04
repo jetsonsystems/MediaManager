@@ -13,30 +13,42 @@
 //
 //      IE:
 //
-//      config.app( { appName: "Marek Jetjson Laptop MediaManager" } )
+//      config.app( { name: "Marek Jetjson Laptop MediaManager" } )
 //
 var _ = require('underscore');
 var uuid = require('node-uuid');
 
 var _config = require('config');
 
-if (_config.app.appId === undefined) {
-  _config.app.appId = uuid.v4();
+if (_config.app.id === undefined) {
+  _config.app.id = uuid.v4();
+}
+
+//
+//  Set all our immutable sub-elements of the config.
+//
+if (_.has(_config, "app")) {
+  _config.makeImmutable(_config.app, 'id');
+}
+if (_.has(_config, "logging")) {
+  _.each(_.keys(_config.logging), function(attr) {
+    _config.makeImmutable(_config.logging, attr);
+  });
 }
 
 var config = Object.create({}, { 
   //
   //  App:
-  //    Mutable attributes:
-  //      appId
+  //    Immutable attributes:
+  //      id
   //
   app: {
     set: function(attr) {
-      if (_.has(attr, 'appName')) {
-        _config.app.appName = attr.appName;
+      if (_.has(attr, 'name')) {
+        _config.app.name = attr.name;
       }
-      if (_.has(attr, 'appId') && (_config.app.appId !== attr.appId)) {
-        throw "AppId cannot be modified!";
+      if (_.has(attr, 'id') && (_config.app.id !== attr.id)) {
+        throw "App id cannot be modified!";
       }
     },
     get: function() {

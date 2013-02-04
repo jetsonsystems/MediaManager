@@ -18,6 +18,9 @@ module.exports = new Class (
       // a unique object/instance id
       if (_.isString(args.oid)) { this.oid = args.oid;}
 
+      // app.id of application creating or modifying the document.
+      if (_.isString(args.app_id)) { this.app_id = args.app_id;}
+
       // a revision id for this instance
       // if (_.isString(args.rev)) { this.rev = args.rev;}
     }

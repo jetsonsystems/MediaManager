@@ -33,16 +33,20 @@ var createModule = function() {
   //    Resource (channels) emit events (send messages).
   //    They can be subscribed to, and published to.
   //
-  var syncPath = '/storage/synchronizers';
+  var SYNC_PATH = '/storage/synchronizers';
   var IMPORTER_PATH = '/importers';
+  var CHANGES_FEED_PATH = '/storage/changes-feed';
 
   var resources = {
     "/storage/synchronizers": Object.create(ResourcePrototype,
-                                            { resource: { value: syncPath },
-                                              channels: { value: [ postal.channel(syncPath, 'sync.#') ] } })
-    ,"/importers" : Object.create(ResourcePrototype,
-                                            { resource: { value: IMPORTER_PATH },
-                                              channels: { value: [ postal.channel(IMPORTER_PATH, 'import.#') ] } })
+                                            { resource: { value: SYNC_PATH },
+                                              channels: { value: [ postal.channel(SYNC_PATH, 'sync.#') ] } }),
+    "/importers" : Object.create(ResourcePrototype,
+                                 { resource: { value: IMPORTER_PATH },
+                                   channels: { value: [ postal.channel(IMPORTER_PATH, 'import.#') ] } }),
+    "/storage/changes-feed" : Object.create(ResourcePrototype,
+                                            { resource: { value: CHANGES_FEED_PATH },
+                                              channels: { value: [ postal.channel(CHANGES_FEED_PATH, 'doc.#') ] } })
   };
 
   //
