@@ -169,6 +169,9 @@ var init = function(config, options) {
   if (_.has(useConfig.db, 'database')) {
     imageService.config.db.name = useConfig.db.database;
   }
+  if (_.has(useConfig, 'app')) {
+    imageService.config.app = useConfig.app;
+  }
   storage = storageModule(useConfig.db, options);
 };
 
@@ -442,6 +445,7 @@ var Images = new Class({
     //
     this._shortFormAttrs = {
       oid: 'id',
+      app_id: 'app_id',
       name: 'name',
       url: 'url',
       geometry: 'geometry',
@@ -456,6 +460,7 @@ var Images = new Class({
     //
     this._fullFormAttrs = {
       oid: 'id',
+      app_id: 'app_id',
       name: 'name',
       path: 'path',
       import_root_dir: 'import_root_dir',
@@ -581,6 +586,12 @@ var Images = new Class({
                //  Object IDs begin with '$' followed by the object ID itself.
                //
                newRep['id'] = _.has(rep, attr) ? '$' + rep[attr] : undefined;
+             }
+             else if (attrs[attr] === 'app_id') {
+               //
+               //  Likewise, object IDs begin with '$' followed by the object ID itself.
+               //
+               newRep['app_id'] = _.has(rep, attr) ? '$' + rep[attr] : undefined;
              }
              else if (attr === 'variants') {
                if (_.has(rep, 'variants')) {
@@ -778,14 +789,15 @@ var Importers = new Class({
   _transformOne: function(rep) {
     var newRep = {};
     newRep.id = _.has(rep, 'oid') ? '$' + rep.oid : undefined;
+    newRep.app_id = _.has(rep, 'app_id') ? '$' + rep.app_id : undefined;
     newRep.import_dir = _.has(rep, 'path') ? rep.path : '';
     newRep.created_at = rep.created_at;
-    newRep.started_at = rep.getStartedAt();
-    newRep.completed_at  = rep.getCompletedAt();
-    newRep.num_to_import = rep.getNumToImport();
-    newRep.num_imported  = rep.getNumAttempted();
-    newRep.num_success   = rep.getNumSuccess();
-    newRep.num_error     = rep.getNumError();
+    newRep.started_at = rep.started_at;
+    newRep.completed_at  = rep.completed_at;
+    newRep.num_to_import = rep.num_to_import;
+    newRep.num_imported  = rep.num_imported;
+    newRep.num_success   = rep.num_success;
+    newRep.num_error     = rep.num_error;
     return newRep;
   }
 
@@ -971,6 +983,13 @@ var StorageSynchronizers = new Class({
 //    create method is implemented, which instantiates a storage.changesFeed instance,
 //    and listens for change events which inturn are passed to the notifications API.
 //
+//    The following events are published to the notifications API:
+//
+//    doc.<doc type>.<change type>
+//
+//      <doc type> ::= image | importer
+//      <change type> ::= created | updated | deleted
+//
 var StorageChangesFeed = new Class({
 
   Extends: Resource,
@@ -980,6 +999,14 @@ var StorageChangesFeed = new Class({
     cLogger.log('StorageChangesFeed.initialize', 'Initialized, path - ' + this.path + ', name - ' + this.name + ', instance name - ' + this.instName);
   },
 
+  //
+  //  create: Create a StorageChangesFeed resource. Essentially, triggers monitoring the MediaManagerStorage changesFeed.
+  //
+  //    Query parameters:
+  //
+  //      since: DB update sequence to begin monitoring changes from. Only changes where the corresponding update sequence
+  //        is greater than this one will be considered.
+  //
   create: function(attr, options) {
     cLogger.log('StorageChangesFeed.create', 'Payload - ' + JSON.stringify(attr) + ', options - ' + options);
     var that = this;
@@ -989,6 +1016,7 @@ var StorageChangesFeed = new Class({
 
     try {
       changesFeed = storage.changesFeed({since: since});
+
       function publishImagesChangeEvent(event) {
 
         cLogger.log('StorageChangesFeed.create', 'About to publish image change event, image doc - ' + JSON.stringify(event.doc));
@@ -1038,6 +1066,32 @@ var StorageChangesFeed = new Class({
                                 });
         }
       };
+
+      function publishImporterChangeEvent(event) {
+        cLogger.log('StorageChangesFeed.create', 'About to publish an importer change event, importer doc - ' + JSON.stringify(event.doc));
+
+        var IMPORTERS = new Importers('', {});
+
+        if (event.type === 'doc.importer.deleted') {
+          notifications.publish('/storage/changes-feed',
+                                event.type,
+                                {
+                                  "doc_resource": "/importers",
+                                  "doc": {
+                                    "id": '$' + event.doc.oid
+                                  }
+                                });
+        }
+        else {
+          notifications.publish('/storage/changes-feed',
+                                event.type,
+                                {
+                                  "doc_resource": "/importers",
+                                  "doc": IMPORTERS.transformRep(event.doc, {isInstRef: true})
+                                });
+        }
+      };
+
       changesFeed.on('doc.image.created', 
                       function(event) {
                         publishImagesChangeEvent(event);
@@ -1049,6 +1103,18 @@ var StorageChangesFeed = new Class({
       changesFeed.on('doc.image.deleted',
                       function(event) {
                         publishImagesChangeEvent(event);
+                      });
+      changesFeed.on('doc.importer.created', 
+                      function(event) {
+                        publishImporterChangeEvent(event);
+                      });
+      changesFeed.on('doc.importer.updated',
+                      function(event) {
+                        publishImporterChangeEvent(event);
+                      });
+      changesFeed.on('doc.importer.deleted',
+                      function(event) {
+                        publishImporterChangeEvent(event);
                       });
       changesFeed.listen();
       that.doCallbacks(200, changesFeed, options);
