@@ -1155,6 +1155,134 @@ function toCouch(image){
   return out;
 }
 
+
+
+/**
+ * Find images by tags. Expects a filter object of the form:
+ *
+  var filterByTag = {
+    "groupOp":"AND",    // OR is also allowed
+    "rules":[
+      {
+        "field":"tags",
+        "op":"eq",
+        "data":"friends"
+      },
+      {
+        "field":"tags",
+        "op":"eq",
+        "data":"family"
+      }
+    ]
+  };
+ *
+ * options:
+ *
+ *   showMetadata: false by default, set to true to enable display of Image.metadata_raw
+ */
+exports.findByTags = findByTags;
+
+
+function findByTags( filter, options, callback) {
+  log.debug("findByTags filter: %j ", filter);
+
+  var opts = options || {};
+
+  log.debug("findByTags opts: " + JSON.stringify(opts));
+
+  var db = priv.db();
+
+  log.debug("findByTags: connected to db...");
+
+  var aryImgOut = []; // images sorted by creation time
+  var imgMap    = {}; // temporary hashmap that stores original images by oid
+  var anImg     = {};
+
+  // couchdb specific view options
+  var view_opts={include_docs: true};
+
+  if (_.isObject(filter)) {
+    view_opts.keys = _.pluck(filter.rules, 'data')
+  }else {
+     throw "Invalid Argument Exception: findByTags does not understand filter argument:: '" + filter + "'";
+  }
+
+
+  log.trace("Finding images and their variants using view '%s' with view_opts %j", VIEW_BY_TAG, view_opts);
+
+  var tags = view_opts.keys;
+
+  db.view(IMG_DESIGN_DOC, VIEW_BY_TAG, view_opts,
+    function(err, body) {
+
+      if (!err) {
+
+        //remove duplicates
+        var possible_matches = _.uniq(body.rows,function (doc) {
+          return doc.id;
+        });
+
+        // Pick out the documents that include all of the given keywords.
+
+        var results = _.filter(possible_matches, function(m) {
+            if(filter.groupOp==="AND"){
+              var containsAll = _.every(tags,  function(tag){
+                return _.contains(m.value, tag);
+              });
+              return containsAll;
+
+            }else
+            if(filter.groupOp==="OR"){
+              var containsAny = _.some(tags,  function(tag){
+                return _.contains(m.value, tag);
+              });
+              return containsAny;
+            }
+          }
+        );
+
+        //extract only the "doc" part
+        var resultDocs = _.pluck(results, "doc");
+
+
+        _.forEach(resultDocs, function (docBody) {
+
+          anImg = new Image(docBody);
+          if (opts.showMetadata) { anImg.exposeRawMetadata = true; }
+
+          // Assign a URL to the image. Note, this is temporary as the images
+          // will eventually move out of Couch / Touch DB.
+          anImg.url = priv.getImageUrl(docBody);
+
+          if ( anImg.isOriginal()) {
+            imgMap[anImg.oid] = anImg;
+            aryImgOut.push(anImg);
+          } else {
+            // if the image is a variant, add it to the original's variants array
+            if (_.isObject(imgMap[anImg.orig_id]))
+            {
+              if (log.isTraceEnabled()) {
+                log.trace('Variant w/ name - %s', anImg.name);
+                log.trace('Variant w/ doc. body keys - (%j)', _.keys(docBody));
+                log.trace('Variant w/ image keys - (%j)', _.keys(anImg));
+              }
+              imgMap[anImg.orig_id].variants.push(anImg);
+            } else {
+              log.warn("Warning: found variant image without a parent %j", anImg);
+            }
+          }
+        });
+
+        callback(null, aryImgOut);
+
+      } else {
+        callback("error in findByTags with options '" + options + "': " + err + ", with body '" + JSON.stringify(body) + "'");
+      }
+    }
+  );
+}; // end findByTags
+
+
 /*
  *  getImageUrl: Helper to construct a URL to reference the image associated with a document.
  */

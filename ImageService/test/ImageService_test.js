@@ -1,13 +1,13 @@
 'use strict';
 
 var async = require("async")
-  ,dbMan = require('./databaseManager.js')
-  ,imageService = require('../lib/plm-image/ImageService')
-  ,log4js = require('log4js')
-  ,nano = require('nano')
-  ,util = require('util')
-  ,_    = require('underscore')
-;
+  , dbMan = require('./databaseManager.js')
+  , imageService = require('../lib/plm-image/ImageService')
+  , log4js = require('log4js')
+  , nano = require('nano')
+  , util = require('util')
+  , _ = require('underscore')
+  ;
 
 var chai = require('chai')
   , expect = chai.expect
@@ -62,14 +62,11 @@ describe('ImageService Testing', function () {
       // simple save
       imageService.save(
         path_to_images + '/clooney.png',
-        function(err, result) {
-          // if (err) { console.log(err); throw err; }
+        function (err, result) {
           if (err) {
             console.log(err);
             done(err);
           }
-          // console.log("result: " + JSON.stringify(result));
-          // console.log("inspect: " + util.inspect(result));
           theSavedImage = result;
           done();
         }
@@ -85,7 +82,7 @@ describe('ImageService Testing', function () {
      */
     it("The saved image should have some properties", function (done) {
 
-      util.inspect(theSavedImage,true,null,true);
+      util.inspect(theSavedImage, true, null, true);
 
       theSavedImage.name.should.equal('clooney.png');
       theSavedImage.class_name.should.equal('plm.Image');
@@ -105,7 +102,7 @@ describe('ImageService Testing', function () {
       expect(theSavedImage.tags).to.be.instanceof(Array);
       expect(theSavedImage.tags).to.be.empty;
 
-      var url = util.format("http://%s:%s/%s/%s/clooney.png", 
+      var url = util.format("http://%s:%s/%s/%s/clooney.png",
         imageService.config.db.host, imageService.config.db.port, imageService.config.db.name, theSavedImage.oid);
       theSavedImage.url.should.equal(url);
 
@@ -117,58 +114,117 @@ describe('ImageService Testing', function () {
   describe('testing ImageService tags operations', function () {
 
     /*
-    - pick 3 images path from 'test/resources/images'
-    - create an image record in couch using ImageService.save(imagePath)
-    - add and save tags for them
-    - test1: that the retrieved images have the tags in alphabetical order
-    - test the findByTags method
-    *
-    * */
+     - pick 3 images path from 'test/resources/images'
+     - create an image record in couch using ImageService.save(imagePath)
+     - add and save tags for them
+     - test1: that the retrieved images have the tags in alphabetical order
+     - test the findByTags method
+     *
+     * */
 
     var path_to_images = './test/resources/images';
     var theSavedImages = {};
     var theRetrievedImages = {};
 
     var theOriginalTagsMap = {};
-    theOriginalTagsMap["eastwood.png"]  = ["trips","family","friends"];
-    theOriginalTagsMap["hopper.png"]    = ["zoo","america","boring"];
-    theOriginalTagsMap["jayz.png"]      = ["f","l","h"];
+    theOriginalTagsMap["eastwood.png"] = ["trips", "family", "friends"];
+    theOriginalTagsMap["hopper.png"] = ["zoo", "america", "friends"];
+    theOriginalTagsMap["jayz.png"] = ["f", "l", "family", "friends"];
 
-    var theExpectedOrderedTagsMap ={};
-    theExpectedOrderedTagsMap["eastwood.png"]  = ["family","friends","trips"];
-    theExpectedOrderedTagsMap["hopper.png"]    = ["america","boring","zoo"];
-    theExpectedOrderedTagsMap["jayz.png"]      = ["f","h","l"];
+    var theExpectedOrderedTagsMap = {};
+    theExpectedOrderedTagsMap["eastwood.png"] = ["family", "friends", "trips"];
+    theExpectedOrderedTagsMap["hopper.png"] = ["america", "friends", "zoo"];
+    theExpectedOrderedTagsMap["jayz.png"] = ["f", "family", "friends", "l"];
 
 
     before(function (done) {
 
 
       var imagesPaths = [path_to_images + '/eastwood.png',
-                         path_to_images + '/hopper.png',
-                         path_to_images + '/jayz.png'];
+        path_to_images + '/hopper.png',
+        path_to_images + '/jayz.png'];
 
 
-      function ingest( anImagePath, next ) {
+      function ingest(anImagePath, next) {
         imageService.save(
           anImagePath,
-          function(err, result) {
+          function (err, result) {
             if (err) {
               console.log(err);
               done(err);
             }
-            theSavedImages[result.name]=result;
+            theSavedImages[result.name] = result;
             next();
           }
         );
 
       }
 
-      async.forEach( imagesPaths, ingest, function(err) {
-        if (err) {
-          console.log("failed with error %j", err);
-          done(err);
+
+      /*async.forEach( imagesPaths, ingest, function(err) {
+       if (err) {
+       console.log("failed with error %j", err);
+       done(err);
+       }
+       console.log("done!");
+       done();
+       });*/
+
+      async.waterfall([
+
+        function saveImagesWithAttachments(callback) {
+          async.forEach(imagesPaths, ingest, function (err) {
+            if (err) {
+              console.log("failed with error %j", err);
+              done(err);
+            }
+            console.log("done!");
+            callback();
+          });
+        },
+
+        function updateImagesWithTheTags(callback) {
+
+          _.forEach(_.keys(theSavedImages), function (key) {
+            theSavedImages[key].tags_add(theOriginalTagsMap[key]);
+          });
+
+
+          function updateImage(image, next) {
+            imageService.saveOrUpdate(
+              image, 0,
+              function (err, result) {
+                if (err) {
+                  console.log(err);
+                  done(err);
+                }
+
+                imageService.show(result.id, function (err, image) {
+                  if (err) {
+                    done(err);
+                  } else {
+                    theRetrievedImages[image.name] = image;
+                    next();
+                  }
+                });
+
+
+              }
+            );
+
+          }
+
+          async.forEach(_.values(theSavedImages), updateImage, function (err) {
+            if (err) {
+              console.log("failed with error %j", err);
+              done(err);
+            }
+            console.log("done!");
+            callback();
+          });
+
         }
-        console.log("done!");
+      ], function (err, results) {
         done();
       });
 
@@ -181,65 +237,162 @@ describe('ImageService Testing', function () {
      * Each "it" function is a test case
      * The done parameter indicates that the test is asynchronous
      */
-    it("The saved image should have the given tags in alphabetical order", function (done) {
+    it("The saved images should have the given tags in alphabetical order", function (done) {
 
+        _.forEach(_.keys(theRetrievedImages), function (key) {
+          expect(theRetrievedImages[key].tags_get()).to.deep.equal(theExpectedOrderedTagsMap[key]);
+        });
+        done();
+      }
+    );
+
+    it("searching by Tags with AND and OR", function (done) {
 
       async.waterfall([
 
-        function saveOrUpdate(callback) {
+        function searchWithAND(callback) {
 
-          _.forEach( _.keys(theSavedImages), function (key) {
-            theSavedImages[key].tags_add(theOriginalTagsMap[key]);
-          });
-
-
-          function saveImage( image, next ) {
-            imageService.saveOrUpdate(
-              image,0,
-              function(err, result) {
-                if (err) {
-                  console.log(err);
-                  done(err);
-                }
-
-                imageService.show(result.id, function(err, image){
-                  if(err){
-                    done(err);
-                  }else{
-                    theRetrievedImages[image.name]=image;
-                    next();
-                  }
-                });
-
-
+          var filterByTag = {
+            "groupOp":"AND",
+            "rules":[
+              {
+                "field":"tags",
+                "op":"eq",
+                "data":"friends"
+              },
+              {
+                "field":"tags",
+                "op":"eq",
+                "data":"family"
               }
-            );
+            ]
+          };
 
-          }
+          var filteredImages = null;
 
-          async.forEach( _.values(theSavedImages), saveImage, function(err) {
+          imageService.findByTags(filterByTag, options, function (err, images) {
             if (err) {
-              console.log("failed with error %j", err);
               done(err);
+            } else {
+              filteredImages = images;
+              expect(filteredImages).to.have.length(2);
+              var resultNames = _.pluck(filteredImages, "name");
+              expect(resultNames).to.contain("eastwood.png");
+              expect(resultNames).to.contain("jayz.png");
+
+              callback();
             }
-            console.log("done!");
-            callback();
           });
 
         },
+        function anotherSearchWithAND(callback) {
 
-        function testTheRetrievedTags(callback) {
+          var filterByTag = {
+            "groupOp":"AND",
+            "rules":[
+              {
+                "field":"tags",
+                "op":"eq",
+                "data":"america"
+              },
+              {
+                "field":"tags",
+                "op":"eq",
+                "data":"trips"
+              }
+            ]
+          };
 
-          _.forEach( _.keys(theRetrievedImages), function (key) {
-            expect(theRetrievedImages[key].tags_get()).to.deep.equal(theExpectedOrderedTagsMap[key]);
+          var filteredImages = null;
+
+          imageService.findByTags(filterByTag, options, function (err, images) {
+            if (err) {
+              done(err);
+            } else {
+              filteredImages = images;
+              expect(filteredImages).to.have.length(0);
+              callback();
+            }
           });
 
-          callback(null);
+        },
+        function searchWithOR(callback) {
+
+          var filterByTag = {
+            "groupOp":"OR",
+            "rules":[
+              {
+                "field":"tags",
+                "op":"eq",
+                "data":"friends"
+              },
+              {
+                "field":"tags",
+                "op":"eq",
+                "data":"family"
+              }
+            ]
+          };
+
+          var filteredImages = null;
+
+          imageService.findByTags(filterByTag, options, function (err, images) {
+            if (err) {
+              done(err);
+            } else {
+              filteredImages = images;
+              expect(filteredImages).to.have.length(3);
+              var resultNames = _.pluck(filteredImages, "name");
+              expect(resultNames).to.contain("eastwood.png");
+              expect(resultNames).to.contain("jayz.png");
+              expect(resultNames).to.contain("hopper.png");
+
+              callback();
+            }
+          });
+
+        },
+        function anotherSearchWithOR(callback) {
+
+          var filterByTag = {
+            "groupOp":"OR",
+            "rules":[
+              {
+                "field":"tags",
+                "op":"eq",
+                "data":"america"
+              },
+              {
+                "field":"tags",
+                "op":"eq",
+                "data":"trips"
+              }
+            ]
+          };
+
+          var filteredImages = null;
+
+          imageService.findByTags(filterByTag, options, function (err, images) {
+            if (err) {
+              done(err);
+            } else {
+              filteredImages = images;
+              expect(filteredImages).to.have.length(2);
+              var resultNames = _.pluck(filteredImages, "name");
+              expect(resultNames).to.contain("eastwood.png");
+              expect(resultNames).to.contain("hopper.png");
+
+              callback();
+            }
+          });
+
         }
+
 
       ], function (err, results) {
         done();
       });
+
 
     });//end it
 
@@ -249,7 +402,7 @@ describe('ImageService Testing', function () {
    * after would be called at the end of executing a describe block, when all tests finished
    */
   after(function (done) {
-    dbMan.destroyDatabase( function() {
+    dbMan.destroyDatabase(function () {
       done();
     });
   });//end after
