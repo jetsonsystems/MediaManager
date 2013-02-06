@@ -108,11 +108,11 @@ module.exports = new Class(
     }
   },
 
-  tags_get : function(){
+  tagsGet : function(){
     return this.tags;
   },
 
-  tags_add : function(tags,callback){
+  tagsAdd : function(tags,callback){
 
     // handle empty array_of_tags
     if (_.isArray(tags))// array_of_tags instanceof Array) || array_of_tags.length === 0)

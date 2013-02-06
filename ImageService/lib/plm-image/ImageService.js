@@ -1218,13 +1218,13 @@ function findByTags( filter, options, callback) {
       if (!err) {
 
         //remove duplicates
-        var possible_matches = _.uniq(body.rows,function (doc) {
+        var possibleMatches = _.uniq(body.rows,function (doc) {
           return doc.id;
         });
 
         // Pick out the documents that include all of the given keywords.
 
-        var results = _.filter(possible_matches, function(m) {
+        var results = _.filter(possibleMatches, function(m) {
             if(filter.groupOp==="AND"){
               var containsAll = _.every(tags,  function(tag){
                 return _.contains(m.value, tag);

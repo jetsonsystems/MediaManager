@@ -59,20 +59,20 @@ describe('Image', function () {
   it("should have the tags in alphabetical order and without duplicates", function (done)
   {
     console.log("testing tags in alphabetical order and without duplicates");
-    image.tags_add(["trips","family","friends"]);
+    image.tagsAdd(["trips","family","friends"]);
 
-    expect(image.tags_get()).to.be.instanceof(Array);
+    expect(image.tagsGet()).to.be.instanceof(Array);
 
-    expect(image.tags_get()).to.deep.equal(["family","friends","trips"]);
+    expect(image.tagsGet()).to.deep.equal(["family","friends","trips"]);
 
-    image.tags_add(["zoo","america","family"]);
+    image.tagsAdd(["zoo","america","family"]);
 
     //tags must be ordered and without duplicates
-    expect(image.tags_get()).to.deep.equal(["america","family","friends","trips","zoo"]);
+    expect(image.tagsGet()).to.deep.equal(["america","family","friends","trips","zoo"]);
 
-    image.tags_add("orient trips");
+    image.tagsAdd("orient trips");
 
-    expect(image.tags_get()).to.deep.equal(["america","family","friends","orient trips","trips","zoo"]);
+    expect(image.tagsGet()).to.deep.equal(["america","family","friends","orient trips","trips","zoo"]);
 
     done();
   });

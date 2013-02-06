@@ -186,7 +186,7 @@ describe('ImageService Testing', function () {
         function updateImagesWithTheTags(callback) {
 
           _.forEach(_.keys(theSavedImages), function (key) {
-            theSavedImages[key].tags_add(theOriginalTagsMap[key]);
+            theSavedImages[key].tagsAdd(theOriginalTagsMap[key]);
           });
 
 
@@ -240,7 +240,7 @@ describe('ImageService Testing', function () {
     it("The saved images should have the given tags in alphabetical order", function (done) {
 
         _.forEach(_.keys(theRetrievedImages), function (key) {
-          expect(theRetrievedImages[key].tags_get()).to.deep.equal(theExpectedOrderedTagsMap[key]);
+          expect(theRetrievedImages[key].tagsGet()).to.deep.equal(theExpectedOrderedTagsMap[key]);
         });
         done();
       }
