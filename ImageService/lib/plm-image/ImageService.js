@@ -26,9 +26,9 @@ var config = {
     port: 5984,
     name: ""
   },
+  app: undefined,
   workDir : '/var/tmp'
 };
-
 
 exports.config = config;
 
@@ -297,7 +297,11 @@ function parseImage(anImgPath, callback)
 {
   if (!_.isFunction(callback)) throw "parseImage is not very useful if you don't provide a valid callback";
 
-  var imageMeta = new Image({path:anImgPath, oid: priv.genOid()});
+  var attrs = {path:anImgPath, oid: priv.genOid()};
+  if (config.app && _.has(config.app, 'id')) {
+    attrs.app_id = config.app.id;
+  }
+  var imageMeta = new Image(attrs);
   var gmImg   = gm(fs.createReadStream(anImgPath));
 
   step(
@@ -734,9 +738,13 @@ function importBatchFs(target_dir, callback, options)
           return;
         }
 
-        importBatch = new ImportBatch(
-          { path: target_dir, oid: priv.genOid(), images_to_import: aryImage }
-        );
+        var attrs = { path: target_dir, oid: priv.genOid(), images_to_import: aryImage };
+
+        if (config.app && _.has(config.app, 'id')) {
+          attrs.app_id = config.app.id;
+        }
+
+        importBatch = new ImportBatch(attrs);
 
         if (log.isDebugEnabled()) { log.debug('New importBatch: %j', importBatch); }
 
