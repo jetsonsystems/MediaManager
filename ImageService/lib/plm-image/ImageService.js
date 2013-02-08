@@ -722,7 +722,7 @@ function convertImageViewToCollection(docs, options)
 function importBatchFs(target_dir, callback, options) 
 {
   var db = priv.db();
-  var importBatch;
+  var importBatch = undefined;
 
   async.waterfall(
     [
@@ -734,6 +734,7 @@ function importBatchFs(target_dir, callback, options)
       // create batchImport record if we have something to import
       function(aryImage, next) {
         if (aryImage.length === 0) {
+          log.debug('No images to import.');
           next("No images to import in '" + target_dir + "'");
           return;
         }
@@ -774,8 +775,10 @@ function importBatchFs(target_dir, callback, options)
     ],
     function(err) {
       // priv.markBatchComplete(importBatch);
-      if (err) { 
-        var errMsg = util.format("Error while processing importBatchFs '%s': %s", importBatch.oid,err);
+      if (err) {
+        if (importBatch) {
+          var errMsg = util.format("Error while processing importBatchFs '%s': %s", importBatch.oid,err);
+        }
       } 
     }
   );
