@@ -95,6 +95,7 @@ var MediaManagerRouter = function(appjs, routes) {
       //  Collection routes:
       //
       that.router.route(resource.requestPath('collection'), {
+
         //
         //  create route (POST resource.path)
         //
@@ -127,7 +128,11 @@ var MediaManagerRouter = function(appjs, routes) {
         //  index route (GET resource.path)
         //
         GET: function(req, res) {
+
+          logger.info('MediaManagerAppSupport/lib/MediaManagerRouter.js: Routing GET collection request path - ' + resource.requestPath('collection'));
+
           var options = {
+            req: req,
             onSuccess: that.genOnSuccess(resource, req, res),
             onError: that.genOnError(resource, req, res)
           };
@@ -135,18 +140,21 @@ var MediaManagerRouter = function(appjs, routes) {
           if (_.has(parsedUrl, 'query')) {
             options['query'] = parsedUrl.query;
           }
-          resource.doRequest('GET',
-                            options);
+          resource.doRequest('GET', options);
         }
       });
       //
       //  Singular instance routes:
       //
       that.router.route(resource.requestPath('instance'), {
+
         //
         //  read route (GET resource.path, where resource.path points to an instance)
         //
         GET: function(req, res) {
+
+          logger.info('MediaManagerAppSupport/lib/MediaManagerRouter.js: Routing GET instance request path - ' + resource.requestPath('instance'));
+
           resource.doRequest('GET',
                              {id: req.params[0],
                               onSuccess: that.genOnSuccess(resource, req, res),

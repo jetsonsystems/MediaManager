@@ -840,7 +840,12 @@ var ImportersImages = new Class({
   //      req: The request, S.T. req.params[0] contains the importers instance ID.
   //
   index: function(options) {
-    cLogger.log('ImportersImages.index', 'Indexing...');
+    if (options && _.has(options, 'req') && _.has(options.req, 'params')) {
+      cLogger.log('ImportersImages.index', 'Indexing w/ params - ' + options.req.params);
+    }
+    else {
+      cLogger.log('ImportersImages.index', 'Indexing...');
+    }
     options = options || {};
     var that = this;
     var batchId = options.req.params[0];
