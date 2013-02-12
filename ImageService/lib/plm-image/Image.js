@@ -114,8 +114,7 @@ module.exports = new Class(
 
   tagsAdd : function(tags,callback){
 
-    // handle empty array_of_tags
-    if (_.isArray(tags))// array_of_tags instanceof Array) || array_of_tags.length === 0)
+    if (_.isArray(tags))
     {
 
       //check that only strings are valid
@@ -145,9 +144,51 @@ module.exports = new Class(
     if(_.isFunction(callback)){
       callback();
     }
+  },
+
+  tagsDelete : function(tag,callback){
+
+    if(_.isArray(this.tags) && _.isString(tag)){
+      var index = this.tags.indexOf(tag);
+      if(index >= 0){
+        this.tags.splice(index, 1);
+      }
+    }
+
+    if(_.isFunction(callback)){
+      callback();
+    }
+  },
+
+  /**
+   * The tags in oldTags will be replaced by the tags in newTags
+   * oldTags[1] will be replaced by newTags[1]
+   * oldTags[2] will be replaced by newTags[2]
+   *          .
+   *          .
+   * oldTags[n] will be replaced by newTags[n]
+   *
+   * @param oldTags
+   * @param newTags
+   * @param callback
+   */
+  tagsReplace : function(oldTags, newTags, callback){
+
+    if(_.isArray(oldTags) && _.isArray(newTags) && (oldTags.length === newTags.length)){
+      var len=oldTags.length;
+      for(var i=0; i<len; i++) {
+        var oldTag = oldTags[i];
+        if(_.contains(this.tags,oldTag)){
+          this.tagsDelete(oldTag);
+          this.tagsAdd(newTags[i]);
+        }
+      }
+    }
+
+    if(_.isFunction(callback)){
+      callback();
+    }
   }
-
-
 
 }); 
 

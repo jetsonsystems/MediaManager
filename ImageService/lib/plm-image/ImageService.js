@@ -42,6 +42,7 @@ var
   IMG_DESIGN_DOC = 'plm-image'
   ,VIEW_BY_CTIME             = 'by_creation_time'
   ,VIEW_BY_OID_WITH_VARIANT  = 'by_oid_with_variant'
+  ,VIEW_BY_OID_WITHOUT_VARIANT  = 'by_oid_without_variant'
   ,VIEW_BATCH_BY_CTIME       = 'batch_by_ctime'
   ,VIEW_BATCH_BY_OID_W_IMAGE = 'batch_by_oid_w_image'
   ,VIEW_BY_TAG               = 'by_tag'
@@ -1099,9 +1100,12 @@ exports.saveOrUpdate = saveOrUpdate;
  * @param tried
  * @param callback
  */
-function saveOrUpdate(theDoc, tried, callback) {
+function saveOrUpdate(options, callback) {
 
   var db = priv.db();
+
+  var theDoc = options.doc,
+      tried = options.tried;
 
   if(!strUtils.isBlank(theDoc.oid)){
     theDoc.updated_at = new Date();
@@ -1117,7 +1121,7 @@ function saveOrUpdate(theDoc, tried, callback) {
         return db.get(theDoc.oid, function (err, doc) {
 
           theDoc._rev = doc._rev;
-          saveOrUpdate(theDoc, tried + 1,callback);
+          saveOrUpdate({doc:theDoc, "tried":tried + 1},callback);
 
         });
 
@@ -1183,7 +1187,7 @@ function toCouch(image){
 exports.findByTags = findByTags;
 
 
-function findByTags( filter, options, callback) {
+function findByTags(filter, options, callback) {
   log.debug("findByTags filter: %j ", filter);
 
   var opts = options || {};
@@ -1281,6 +1285,168 @@ function findByTags( filter, options, callback) {
     }
   );
 }; // end findByTags
+
+
+exports.findByOids = findByOids;
+
+
+function findByOids(oidsArray, options, callback) {
+  log.debug("findByOids array of oids: %j ", oidsArray);
+
+  var opts = options || {};
+
+  log.debug("findByOids opts: " + JSON.stringify(opts));
+
+  var db = priv.db();
+
+  log.debug("findByOids: connected to db...");
+
+  var aryImgOut = []; // images sorted by creation time
+  var imgMap    = {}; // temporary hashmap that stores original images by oid
+  var anImg     = {};
+
+  // couchdb specific view options
+  var view_opts={include_docs: true};
+
+  if (_.isArray(oidsArray)) {
+    view_opts.keys = oidsArray;
+  }else {
+    throw "Invalid Argument Exception: findByOids does not understand filter oidsArray:: '" + oidsArray + "'";
+  }
+
+
+  log.trace("Finding images and their variants using view '%s' with view_opts %j", VIEW_BY_OID_WITHOUT_VARIANT, view_opts);
+
+  var tags = view_opts.keys;
+
+  db.view(IMG_DESIGN_DOC, VIEW_BY_OID_WITHOUT_VARIANT, view_opts,
+    function(err, body) {
+
+      if (!err) {
+
+        //remove duplicates
+        var results = _.uniq(body.rows,function (doc) {
+          return doc.id;
+        });
+
+
+        //extract only the "doc" part
+        var resultDocs = _.pluck(results, "doc");
+
+
+        _.forEach(resultDocs, function (docBody) {
+
+          anImg = new Image(docBody);
+          if (opts.showMetadata) { anImg.exposeRawMetadata = true; }
+
+          // Assign a URL to the image. Note, this is temporary as the images
+          // will eventually move out of Couch / Touch DB.
+          anImg.url = priv.getImageUrl(docBody);
+
+          if ( anImg.isOriginal()) {
+            imgMap[anImg.oid] = anImg;
+            aryImgOut.push(anImg);
+          } else {
+            // if the image is a variant, add it to the original's variants array
+            if (_.isObject(imgMap[anImg.orig_id]))
+            {
+              if (log.isTraceEnabled()) {
+                log.trace('Variant w/ name - %s', anImg.name);
+                log.trace('Variant w/ doc. body keys - (%j)', _.keys(docBody));
+                log.trace('Variant w/ image keys - (%j)', _.keys(anImg));
+              }
+              imgMap[anImg.orig_id].variants.push(anImg);
+            } else {
+              log.warn("Warning: found variant image without a parent %j", anImg);
+            }
+          }
+        });
+
+        callback(null, aryImgOut);
+
+      } else {
+        callback("error in findByTags with options '" + options + "': " + err + ", with body '" + JSON.stringify(body) + "'");
+      }
+    }
+  );
+}; // end findByOids
+
+
+exports.tagsReplace = tagsReplace;
+/**
+ * Replace a list of tags in a list of images.
+ * @param oidArray
+ * @param oldTags
+ * @param newTags
+ * @param callback
+ */
+function tagsReplace(oidArray,oldTags, newTags,callback){
+
+  var imagesToModify = null;
+
+  async.waterfall(
+    [
+      //Retrieve the images to modify
+      function(next) {
+
+        log.trace("Finding by oids ...");
+
+        findByOids(oidArray, null, function (err, images) {
+          if (err) {
+            var errMsg = util.format("Error occurred while finding by oids ", err);
+            log.error(errMsg);
+            if (_.isFunction(callback)) { callback(errMsg); }
+          }
+          else{
+            imagesToModify = images;
+            next();
+          }
+        });
+
+      },
+
+      //replace the tags
+      function(next) {
+        _.forEach(imagesToModify, function (imageToModify) {
+          imageToModify.tagsReplace(oldTags,newTags);
+        });
+        next();
+      },
+
+      //save the modified images
+      function(next) {
+        var saveOrUpdateParameters = _.map(imagesToModify, function(image){ return {"doc":image,"tried":0}; });
+        async.forEachLimit(saveOrUpdateParameters, 3, saveOrUpdate, function(err) {
+
+          if (err) {
+            log.error("Error while updating images tags", err);
+            next(err);
+          } else {
+            log.info("Successfully updated images tags");
+          }
+          next();
+
+      });
+
+      }
+
+    ],
+
+    // called after waterfall completes
+    function(err) {
+      if (err) {
+        log.error("Error while replacing tags on images ", err);
+        callback(err);
+      } else {
+        log.info("Successfully replaced tags on images");
+        callback(null);
+      }
+    }
+  );
+
+
+
+};// end tagsReplace
 
 
 /*
