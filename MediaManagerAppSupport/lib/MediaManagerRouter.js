@@ -34,7 +34,7 @@ var handleWithAppRouter = function(req) {
 //
 //      Decided to use the browserver-router, see: 
 //        * http://github.com/jed/browserver-router or
-//        *https://npmjs.org/package/browserver-router. 
+//        * https://npmjs.org/package/browserver-router. 
 //      Reasons for using it:
 //        * With it we could instantiate a simple router, unlike Express, we would instantiate an
 //          'express server', which at a minimum feels odd even if it works.
