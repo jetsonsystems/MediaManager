@@ -11,7 +11,7 @@ var config = require('MediaManagerAppConfig');
 var mmApi = require('MediaManagerApi/lib/MediaManagerApiCore')(config);
 var Router = require('browserver-router');
 
-var staticRoutesPat = /^\/(css)|(js)|(fonts)|(html)\/*$/;
+var staticRoutesPat = /^\/(css)|(js)|(imgs)|(fonts)|(html)\/*$/;
 var handleWithAppJsRouter = function(req) {
   if (req.pathname.match(staticRoutesPat)) {
     return true;
