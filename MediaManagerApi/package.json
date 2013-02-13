@@ -1,6 +1,5 @@
 {
   "name": "MediaManagerApi",
-  "preferGlobal": "true",
   "description": "Media Manager API",
   "version": "0.0.1",
   "author": "Marek J. Ryniejski <marek@jetsonsys.com>",
@@ -19,6 +18,7 @@
     ,"postal"       : "~0.7.3"
     ,"restify"      : "~2.0.4"
     ,"underscore"   : "~1.4.2"
+    ,"MediaManagerStorage" : "~0.0.1"
     ,"postal"       : "~0.7"
   },
   "devDependencies": {
