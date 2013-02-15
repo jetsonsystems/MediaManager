@@ -69,6 +69,7 @@ var design_doc_couchdb = {
     }
     ,"by_tag" :  {
       "map" : "function(doc) { if (doc.class_name === 'plm.Image'){ if (doc.tags) { for (var tag in doc.tags) {  emit(doc.tags[tag],doc.tags); }  } } }"
+      ,"reduce": "_count"
     }
   }
 };

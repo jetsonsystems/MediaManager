@@ -39,7 +39,7 @@ describe('ImageService Testing Tags', function () {
 
   //This will be called before all tests
   before(function (done) {
-    dbMan.startDatabase(options);
+    //dbMan.startDatabase(options);
     done();
   });//end before
 
@@ -70,6 +70,9 @@ describe('ImageService Testing Tags', function () {
 
 
     before(function (done) {
+
+      //create test database
+      dbMan.startDatabase(options);
 
 
       var imagesPaths = [path_to_images + '/eastwood.png',
@@ -319,6 +322,13 @@ describe('ImageService Testing Tags', function () {
 
     });//end it
 
+    after(function (done) {
+      dbMan.destroyDatabase(function () {
+        done();
+      });
+    });//end after
+
+
   });//end describe
 
   describe('testing ImageService replace tags', function () {
@@ -328,7 +338,7 @@ describe('ImageService Testing Tags', function () {
      - create an image record in couch using ImageService.save(imagePath)
      - add and save tags for them
      - test1: that the retrieved images have the tags in alphabetical order
-     - test the findByTags method
+     - test the tagsReplace method
      *
      * */
 
@@ -349,6 +359,9 @@ describe('ImageService Testing Tags', function () {
 
     before(function (done) {
 
+
+      //create test database
+      dbMan.startDatabase(options);
 
       var imagesPaths = [path_to_images + '/eastwood.png',
         path_to_images + '/hopper.png',
@@ -517,8 +530,179 @@ describe('ImageService Testing Tags', function () {
         );
 
       }
+    );//end it
+
+    after(function (done) {
+      dbMan.destroyDatabase(function () {
+        done();
+      });
+    });//end after
+
+  });//end describe
+
+
+  describe('testing ImageService get list of distinct tags', function () {
+
+    /*
+     - pick 3 images path from 'test/resources/images'
+     - create an image record in couch using ImageService.save(imagePath)
+     - add and save tags for them
+     - test1: get the list of distinct tags
+     *
+     * */
+
+    var path_to_images = './test/resources/images';
+    var theSavedImages = {};
+    var theRetrievedImages = {};
+
+    var theOriginalTagsMap = {};
+    theOriginalTagsMap["eastwood.png"] = ["trips", "family", "friends"];
+    theOriginalTagsMap["hopper.png"] = ["zoo", "america", "friends"];
+    theOriginalTagsMap["jayz.png"] = ["family", "friends"];
+
+    var theExpectedListOfDistinctTags = ["america","family", "friends", "trips", "zoo"];
+
+
+    before(function (done) {
+
+
+      //create test database
+      dbMan.startDatabase(options);
+
+      var imagesPaths = [path_to_images + '/eastwood.png',
+        path_to_images + '/hopper.png',
+        path_to_images + '/jayz.png'];
+
+
+      function ingest(anImagePath, next) {
+        imageService.save(
+          anImagePath,
+          function (err, result) {
+            if (err) {
+              console.log(err);
+              done(err);
+            }
+            theSavedImages[result.name] = result;
+            next();
+          }
+        );
+
+      }
+
+
+      async.waterfall([
+
+        function saveImagesWithAttachments(callback) {
+          async.forEach(imagesPaths, ingest, function (err) {
+            if (err) {
+              console.log("failed with error %j", err);
+              done(err);
+            }
+            console.log("done!");
+            callback();
+          });
+        },
+
+        function updateImagesWithTheTags(callback) {
+
+          _.forEach(_.keys(theSavedImages), function (key) {
+            theSavedImages[key].tagsAdd(theOriginalTagsMap[key]);
+          });
+
+
+          function updateImage(image, next) {
+            imageService.saveOrUpdate(
+              {"doc":image, "tried":0},
+              function (err, result) {
+                if (err) {
+                  console.log(err);
+                  done(err);
+                }
+
+                imageService.show(result.id, function (err, image) {
+                  if (err) {
+                    done(err);
+                  } else {
+                    theRetrievedImages[image.name] = image;
+                    next();
+                  }
+                });
+
+
+              }
+            );
+
+          }
+
+          async.forEach(_.values(theSavedImages), updateImage, function (err) {
+            if (err) {
+              console.log("failed with error %j", err);
+              done(err);
+            }
+            console.log("done!");
+            callback();
+          });
+
+        }
+
+      ], function (err, results) {
+        done();
+      });
+
+
+    });//end before
+
+    //Define the tests
+
+    /**
+     * Each "it" function is a test case
+     * The done parameter indicates that the test is asynchronous
+     */
+    it("The list off all tags in database should not contain duplicates", function (done) {
+
+        var listOfAllTagsInDatabase = null;
+
+        async.waterfall(
+          [
+            //Retrieve the modified images
+            function (next) {
+
+              imageService.getAllTags(function (err, tags) {
+                if (err) {
+                  done(err);
+                }
+                else {
+                  listOfAllTagsInDatabase = tags;
+                  next();
+                }
+              });
+
+            },
+            function testGetAllTags(next) {
+              expect(listOfAllTagsInDatabase).to.deep.equal(theExpectedListOfDistinctTags);
+              next();
+            }
+
+          ],
+
+          // called after waterfall completes
+          function (err) {
+            if (err) {
+              callback(err);
+            } else {
+              done();
+            }
+          }
+        );
+
+      }
     );
 
+    after(function (done) {
+      dbMan.destroyDatabase(function () {
+        done();
+      });
+    });//end after
 
   });//end describe
 
@@ -526,9 +710,11 @@ describe('ImageService Testing Tags', function () {
    * after would be called at the end of executing a describe block, when all tests finished
    */
   after(function (done) {
-    dbMan.destroyDatabase(function () {
+    /*dbMan.destroyDatabase(function () {
       done();
-    });
+    });*/
+
+    done();
   });//end after
 
 });

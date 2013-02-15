@@ -1206,7 +1206,8 @@ function findByTags(filter, options, callback) {
   var anImg     = {};
 
   // couchdb specific view options
-  var view_opts={include_docs: true};
+  var view_opts={ include_docs: true
+    ,reduce:false};
 
   if (_.isObject(filter)) {
     view_opts.keys = _.pluck(filter.rules, 'data')
@@ -1450,6 +1451,50 @@ function tagsReplace(oidArray,oldTags, newTags,callback){
 
 
 };// end tagsReplace
+
+
+
+
+
+exports.getAllTags = getAllTags;
+/**
+ * Get the list of all the tags in the database
+ * @param callback
+ */
+function getAllTags(callback){
+
+  log.debug("Attempting to get all tags in database .........");
+
+  var db = priv.db();
+
+  log.debug("getAllTags: connected to db...");
+
+
+  // couchdb specific view options
+  var view_opts={ include_docs: false
+    ,reduce:true
+    ,group:true};
+
+
+  log.trace("Getting all tags using view '%s' with view_opts %j", VIEW_BY_TAG, view_opts);
+
+  db.view(IMG_DESIGN_DOC, VIEW_BY_TAG, view_opts,
+    function(err, body) {
+
+      if (!err) {
+
+        var tags = _.pluck(body.rows, "key");
+
+        callback(null, tags);
+
+      } else {
+        callback("error getting all tags: " + err + ", with body '" + JSON.stringify(body) + "'");
+      }
+    }
+  );
+
+
+};// end getAllTags
 
 
 /*

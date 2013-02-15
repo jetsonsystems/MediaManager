@@ -30,6 +30,7 @@ function updateDesignDoc(options, callback) {
         "map":"function(doc) { var key = []; if (doc.class_name === 'plm.ImportBatch') { key.push(doc.oid,'0',0,0); emit(key,doc.path); } if (doc.class_name === 'plm.Image') { if (doc.orig_id === '') { key.push(doc.batch_id, doc.oid, 1, doc.size.width);} else { key.push(doc.batch_id, doc.orig_id, 2, doc.size.width); } emit(key,doc.name) } function date_to_array(aDate) { var out = [], d = new Date(aDate); out.push(d.getFullYear()); out.push(d.getMonth()+1); out.push(d.getDate()); out.push(d.getHours()); out.push(d.getMinutes()); out.push(d.getSeconds()); out.push(d.getMilliseconds()); return out; }}"
       }, "by_tag" :  {
         "map" : "function(doc) { if (doc.class_name === 'plm.Image'){ if (doc.tags) { for (var tag in doc.tags) {  emit(doc.tags[tag],doc.tags); }  } } }"
+        ,"reduce": "_count"
       }
     }
   };
