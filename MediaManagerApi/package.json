@@ -1,6 +1,5 @@
 {
   "name": "MediaManagerApi",
-  "preferGlobal": "true",
   "description": "Media Manager API",
   "version": "0.0.1",
   "author": "Marek J. Ryniejski <marek@jetsonsys.com>",
@@ -27,6 +26,5 @@
     ,"mocha" : "~1.7.4"
     ,"nano"  : "https://github.com/jetsonsystems/nano/tarball/master"
     ,"should": "~1.2.1"
-    ,"MediaManagerAppSupport" : "*"
   }
 }

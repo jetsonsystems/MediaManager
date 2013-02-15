@@ -27,7 +27,7 @@ var MediaManagerRouter = require('./lib/MediaManagerRouter.js');
 
 var EventEmitter = require('events').EventEmitter;
 
-var logger = undefined;
+var log = log4js.getLogger('plm.MediaManagerAppSupport');
 
 var init = function(appjs, routes) {
 
@@ -35,6 +35,7 @@ var init = function(appjs, routes) {
                           {appjs: { value: appjs },
                            config: { value: config }});
 
+	/*
   if (_.has(config, 'logging')) {
     log4js.configure(config.logging);
     app.logger = log4js.getLogger('plm.MediaManagerApp');
@@ -42,10 +43,11 @@ var init = function(appjs, routes) {
   else {
     app.logger = log4js.getLogger();
   }
+	*/
 
-  logger = log4js.getLogger('plm.MediaManagerAppSupport');
+  app.logger = log4js.getLogger('plm.MediaManagerApp');
 
-  logger.info('MediaManagerAppSupport: initializing...');
+  log.info('MediaManagerAppSupport: initializing...');
 
   app.mediaManagerRouter = new MediaManagerRouter(appjs, routes);
 
@@ -87,7 +89,7 @@ var init = function(appjs, routes) {
     dataStore = storage.init(config);
     app.storage.dataStore = dataStore;
     app.storage.readyState = app.storage.DATA_STORE_READY;
-    logger.info('MediaManagerAppSupport: data store created...');
+    log.info('MediaManagerAppSupport: data store created...');
   }
   catch (err) {
     app.storage.readyState = app.storage.INIT_ERROR;
@@ -102,7 +104,7 @@ var init = function(appjs, routes) {
       app.storage.changesFeed = changesFeed;
       app.storage.readyState = app.storage.CHANGES_FEED_CREATED;
 
-      logger.info('MediaManagerAppSupport: Changes feed created...');
+      log.info('MediaManagerAppSupport: Changes feed created...');
 
       //
       //  We need to get DB info initialized,. and once that happens,
@@ -112,7 +114,7 @@ var init = function(appjs, routes) {
       mmStorage.info(function(err, infoObj) {
         if (err) {
           app.storage.readyState = app.storage.INIT_ERROR
-          logger.error('MediaManagerAppSupport: Error retrieving storage info - ' + err);
+          log.error('MediaManagerAppSupport: Error retrieving storage info - ' + err);
           app.emit('localStorageInitError');
         }
         else {
@@ -135,23 +137,23 @@ var init = function(appjs, routes) {
           var currentInfo = createInfo();
           app.storage.info.initial = currentInfo;
 
-          logger.info('MediaManagerAppSupport: Initial database info., dbName - ' + currentInfo.dbName + ', docCount - ' + currentInfo.docCount + ', updateSeq - ' + currentInfo.updateSeq + ', diskSize - ' + currentInfo.diskSize);
+          log.info('MediaManagerAppSupport: Initial database info., dbName - ' + currentInfo.dbName + ', docCount - ' + currentInfo.docCount + ', updateSeq - ' + currentInfo.updateSeq + ', diskSize - ' + currentInfo.diskSize);
 
           try {
             //
             //  Do a create request on the changes feed to start monitoring it.
             //
-            logger.info('MediaManagerAppSupport: Connecting to changes feed, w/ sequence ID - ' + app.storage.info.initial.updateSeq);
+            log.info('MediaManagerAppSupport: Connecting to changes feed, w/ sequence ID - ' + app.storage.info.initial.updateSeq);
 
             app.storage.changesFeed.create({}, 
                                            { query: { since: currentInfo.updateSeq } });
             app.storage.readyState = app.storage.READY;
-            logger.info('MediaManagerAppSupport: Storage now ready to be used...');
+            log.info('MediaManagerAppSupport: Storage now ready to be used...');
             app.emit('localStorageReady');
           }
           catch (createErr) {
             app.storage.readyState = app.storage.INIT_ERROR;
-            logger.error('MediaManagerAppSupport: Storage initialization error whiling connecting to changes feed - ' + createErr);
+            log.error('MediaManagerAppSupport: Storage initialization error whiling connecting to changes feed - ' + createErr);
             app.emit('localStorageInitError');
           }
         }
@@ -159,7 +161,7 @@ var init = function(appjs, routes) {
     }
     catch (err) {
       app.storage.readyState = app.storage.INIT_ERROR;
-      logger.error('MediaManagerAppSupport: Storage init error - ' + err);
+      log.error('MediaManagerAppSupport: Storage init error - ' + err);
       app.emit('localStorageInitError');
     }
   }

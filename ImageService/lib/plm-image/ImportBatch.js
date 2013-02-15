@@ -142,7 +142,6 @@ module.exports = new Class(
   /** Add an image to the map of successfully processed images */
   addSuccess: function (anImage) {
     this._proc.images[anImage.path] = anImage;
-    console.log("emmitting imageSave event");
     this.emit(this.event.IMG_SAVED, new Event(this.event.IMG_SAVED, anImage));
   },
 

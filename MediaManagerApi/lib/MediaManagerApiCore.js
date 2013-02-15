@@ -39,6 +39,9 @@ var _ = require('underscore');
 require('mootools');
 var imageService = require('ImageService');
 var imageServicePackage = require('ImageService/package.json');
+var log4js = require('log4js');
+
+var log = log4js.getLogger('plm.MediaManagerApi');
 
 //
 // Require the storage module. Don't instantiate the module by invoking
@@ -61,7 +64,7 @@ var mediaManagerApi = null;
 //    var mmApi = require('MediaManagerApiCore')(<some config>);
 //
 module.exports = function mediaManagerApiModule(config, options) {
-  options = options || {}
+  options = options || {};
   if (!_.has(options, 'singleton')) {
     options.singleton = true;
   }
@@ -75,7 +78,7 @@ module.exports = function mediaManagerApiModule(config, options) {
                           { name: { value: 'ReinstantiatingWithDifferentConfig' },
                             message: { value: msg } });
     }
-    cLogger.log('mediaManagerApiModule', 'Returning alreading created module instance!');
+    log.info('mediaManagerApiModule: Returning alreading created module instance!');
     return mediaManagerApi;
   }
 
@@ -103,7 +106,7 @@ module.exports = function mediaManagerApiModule(config, options) {
     StorageChangesFeed: { value: StorageChangesFeed }
   });
 
-  cLogger.log('mediaManagerApiModule', 'Returning new module instance...');
+  log.info('mediaManagerApiModule: Returning new module instance...');
 
   return mediaManagerApi;
 };
@@ -120,7 +123,7 @@ module.exports = function mediaManagerApiModule(config, options) {
 //
 var init = function(config, options) {
 
-  cLogger.log('init', 'Initializing...');
+  log.info('init: Initializing...');
 
   var useConfig;
 
@@ -175,6 +178,7 @@ var init = function(config, options) {
   storage = storageModule(useConfig.db, options);
 };
 
+/*
 var ConsoleLogger = function(debugLevel) {
 
   this.debugLevel = debugLevel;
@@ -187,8 +191,9 @@ var ConsoleLogger = function(debugLevel) {
 };
 
 var cLogger = new ConsoleLogger(1);
+*/
 
-cLogger.log('', 'Using ImageService version - ' + imageServicePackage.version);
+log.info('Using ImageService version - %s', imageServicePackage.version);
 
 //
 //  Resource: base for all RESTful resources.
@@ -302,7 +307,7 @@ var Resource = new Class({
           }
           _doRequestPath(requestType, resource.subResource);
         }
-      }
+      };
       _doRequestPath(requestType, this);
       if ((requestType === 'create') || (requestType === 'index') || (requestType === 'collection')) {
         _requestPath = _requestPath + '\\/?';
@@ -312,7 +317,7 @@ var Resource = new Class({
   },
 
   index: function(options) { 
-    cLogger.log('Resource.index', 'indexing nothing ...');
+    log.info('Resource.index: indexing nothing ...');
     return this; 
   },
   create: function(attr, options) { return this; },
@@ -329,7 +334,7 @@ var Resource = new Class({
   //        attr - attributes of instance to create, or update.
   //
   doRequest: function(method, options) {
-    cLogger.log('Resource.doRequest', 'method - ' + method);
+    log.debug("Resource.doRequest - method:'%s' - opts: '%j'", method, options);
     var id = options.id || undefined;
 
     if (id) {
@@ -345,7 +350,7 @@ var Resource = new Class({
     }
     else {
       if (method === 'GET') {
-        cLogger.log('Resource.doRequest', 'invoking index ...');
+        log.info('Resource.doRequest: invoking index ...');
         return this.index(options);
       }
       else if (method === 'POST') {
@@ -360,7 +365,7 @@ var Resource = new Class({
   //    createResponseBody.
   //
   doCallbacks: function(status, result, options) {
-    cLogger.log('Resource.doCallbacks', 'w/ status - ' + status + ', path - ' + this.path);
+    log.info('Resource.doCallbacks: w/ status - %s, path - %s', status, this.path);
     if (result) {
       options.rep = result;
     }
@@ -391,7 +396,7 @@ var Resource = new Class({
   //        * errorMessage: Error message.
   //
   createResponseBody: function(status, options) {
-    cLogger.log('Resource.createResponseBody', 'Creating response body w/ status - ' + status);
+    log.info('Resource.createResponseBody: Creating response body w/ status - %s', status);
     var body = {
       status: status
     };
@@ -424,7 +429,7 @@ var Resource = new Class({
   //      options: Feel free to pass options.
   //
   transformRep: function(rep, options) {
-    cLogger.log('Resource.transformRep', 'Doing default transformation...');
+    log.info('Resource.transformRep: Doing default transformation...');
     return rep;
   }
 
@@ -439,7 +444,7 @@ var Images = new Class({
 
   initialize: function(path, options) {
     this.parent(path, options);
-    cLogger.log('Images.initialize', 'Initialized, path - ' + this.path + ', name - ' + this.name + ', instance name - ' + this.instName);
+    log.info('Images.initialize: Initialized, path - %s, name - %, instance - %s', this.path, this.name, this.instName);
     //
     //  Image Service attrs -> short form attributes.
     //
@@ -475,41 +480,40 @@ var Images = new Class({
       created_at: 'created_at',
       variants: 'variants'
     };
-    cLogger.log('Images.initialize', 'Desired full form attributes - ' + JSON.stringify(_.values(this._fullFormAttrs)));
-    cLogger.log('Images.initialize', 'Desired short form attributes - ' + JSON.stringify(_.values(this._shortFormAttrs)));
+    log.debug('Images.initialize: Desired full form attributes - %s', JSON.stringify(_.values(this._fullFormAttrs)));
   },
 
   index: function(options) {
-    cLogger.log('Images.index', 'Indexing for path - ' + this.path);
+    log.info('Images.index: Indexing for path - %s',+ this.path);
     options = options || {};
     var that = this;
     imageService.index(function(err, result) {
       var status = 200;
       if (err) {
-        cLogger.log('Images.index', 'error from image service - ' + err);
+        log.info('Images.index', 'error from image service - ' + err);
         status = 500;
         options.errorCode = -1;
         options.errorMessage = err;
       }
-      cLogger.log('Images.index', 'invoking callback with status - ' + status + ', path - ' + that.path);
+      log.info('Images.index: invoking callback with status - %s, path - %s', status, that.path);
       that.doCallbacks(status, result, options);
     });
     return that;
   },
 
   read: function(id, options) { 
-    cLogger.log('Images.read', 'Reading for path - ' + this.path + ', id - ' + id);
+    log.info('Images.read: Reading for path - %s, id - %s', this.path, id);
     var that = this;
     imageService.show(id.replace('$', ''), function(err, result) {
       var status = 200;
       if (err) {
-        cLogger.log('Images.read', 'error from image service - ' + err);
+        log.info('Images.read: error from image service - %s', err);
         status = 500;
         options.errorCode = -1;
         options.errorMessage = err;
       }
-      // cLogger.log('Images.read', 'got result of - ' + JSON.stringify(result));
-      cLogger.log('Images.read', 'invoking callback with status - ' + status + ', path - ' + that.path + ', id - ' + id);
+      // log.info('Images.read', 'got result of - ' + JSON.stringify(result));
+      log.info('Images.read: invoking callback with status - %s, path - %s, id - %s', status, that.path, id);
       var callbackOptions = options ? _.clone(options) : {};
       callbackOptions['isInstRef'] = true;
       that.doCallbacks(status, result, callbackOptions);
@@ -528,16 +532,17 @@ var Images = new Class({
   //          otherwise rep is a collection (array of result).
   //
   transformRep: function(rep, options) {
-    cLogger.log('Images.transformRep', 'Doing transform, path - ' + this.path);
+    log.info('Images.transformRep: Doing transform, path - %s', this.path);
     var that = this;
     if (options && _.has(options, 'isInstRef') && options.isInstRef) {
-      cLogger.log('Images.transformRep', 'transforming instance to full form...');
+      log.info('Images.transformRep: transforming instance to full form...');
       return that._transformToFullFormRep(rep);
     }
     else {
       if (_.isArray(rep)) {
-        cLogger.log('Images.transformRep', 'transforming collection to array of short forms...');
-        cLogger.log('Images.transformRep', 'type of - ' + typeof(that._shortFormAttrs) + ', desired short form attributes - ' + JSON.stringify(_.values(that._shortFormAttrs)));
+        log.info('Images.transformRep: transforming collection to array of short forms...');
+        log.info('Images.transformRep: type of - %s, desired short form attributes - %', 
+						typeof(that._shortFormAttrs), JSON.stringify(_.values(that._shortFormAttrs)));
         rep.reverse();
         var newRep = [];
         _.each(rep, 
@@ -555,7 +560,7 @@ var Images = new Class({
 
   _transformToShortFormRep: function(rep) {
     var newRep = {};
-    cLogger.log('Images._transformToShortFormRep', 'will process short form attributes - ' + JSON.stringify(_.keys(this._shortFormAttrs)));
+    log.trace('Images._transformToShortFormRep', 'will process short form attributes - ' + JSON.stringify(_.keys(this._shortFormAttrs)));
     return this._transformAttrs(newRep, rep, this._shortFormAttrs);
   },
 
@@ -575,9 +580,9 @@ var Images = new Class({
     if (_.has(rep, 'name')) {
       logMsg = logMsg + ', name - ' + rep.name;
     }
-    cLogger.log('Images._transformAttrs', logMsg);
-    cLogger.log('Images._transformAttrs', 'processing attributes - ' + JSON.stringify(_.keys(attrs)));
-    cLogger.log('Images._transformAttrs', 'rep has attributes - ' + JSON.stringify(_.keys(rep)));
+    log.debug('Images._transformAttrs', logMsg);
+    log.trace('Images._transformAttrs', 'processing attributes - ' + JSON.stringify(_.keys(attrs)));
+    log.trace('Images._transformAttrs', 'rep has attributes - ' + JSON.stringify(_.keys(rep)));
     var that = this;
     _.each(_.keys(attrs), 
            function(attr) {
@@ -616,7 +621,7 @@ var Images = new Class({
     }
     if ((!_.has(newRep, 'name') || (newRep.name === undefined)) && _.has(rep, 'path')) {
       newRep['name'] = '$' + _.last(rep.path.split('/'));
-      cLogger.log('Images._transformAttrs', 'updated name attribute to - ' + newRep['name']);
+      log.info('Images._transformAttrs: updated name attribute to - %s', newRep['name']);
     }
     return newRep;
   }
@@ -632,11 +637,11 @@ var Importers = new Class({
 
   initialize: function(path, options) {
     this.parent(path, options);
-    cLogger.log('Importers.initialize', 'Initialized, path - ' + this.path + ', name - ' + this.name + ', instance name - ' + this.instName);
+    log.info('Importers.initialize: Initialized, path - %s, name - %s, instance - %s', this.path, this.name, this.instName);
   },
 
   create: function(attr, options) {
-    cLogger.log('Importers.create', 'Payload - ' + JSON.stringify(attr));
+    log.info('Importers.create: Payload - %s', JSON.stringify(attr));
     var that = this;
     options.isInstRef = true;
     // we need an Images instance to run the 'static' method 'transformRep' further below
@@ -657,21 +662,21 @@ var Importers = new Class({
           function(err, importBatch) {
             var status = 200;
             if (err) { 
-              cLogger.log('Importers.create', 'Error saving image (1) - ' + JSON.stringify(err));
+              log.info('Importers.create: Error saving image (1) - %j', err);
               status = 500;
               options.errorCode = -1;
               options.errorMessage = err;
             }
             else {
-              cLogger.log('Importers.create', 'Saved images, batch - ' + JSON.stringify(importBatch));
+              log.info('Importers.create: Saved images, batch - %j', importBatch);
 
               importBatch.once(importBatch.event.STARTED, function(anEvent) {
-                console.log("event '%s' emitted at '%s', importBatch status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.status);
+                log.debug("event '%s' emitted at '%s', importBatch status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.status);
                 notifications.publish('/importers', importBatch.event.STARTED, that.transformRep(anEvent.data, {isInstRef: true}));
               });
               
               importBatch.on(importBatch.event.IMG_SAVED, function(anEvent) {
-                console.log("event '%s' emitted at '%s', importBatch status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.status);
+                log.debug("event '%s' emitted at '%s', importBatch status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.status);
                 notifications.publish('/importers', 
                                       importBatch.event.IMG_SAVED, 
                                       { "id": "$" + importBatch.oid,
@@ -680,7 +685,7 @@ var Importers = new Class({
               });
 
               importBatch.once(importBatch.event.COMPLETED, function(anEvent) {
-                console.log("event '%s' emitted at '%s', importBatch status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.status);
+                log.debug("event '%s' emitted at '%s', importBatch status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.status);
                 notifications.publish('/importers', importBatch.event.COMPLETED, that.transformRep(anEvent.data, {isInstRef: true}));
               });
             }
@@ -690,7 +695,7 @@ var Importers = new Class({
         );
       }
       catch (err) {
-        cLogger.log('Importers.create', 'Error saving image (2) - ' + err);
+        log.info('Importers.create: Error saving image (2) - %s', err);
         status = 500;
         options.errorCode = -1;
         options.errorMessage = err;
@@ -711,7 +716,7 @@ var Importers = new Class({
   },
 
   index: function(options) {
-    cLogger.log('Importers.index', 'Indexing for path - ' + this.path);
+    log.info('Importers.index: Indexing for path - %s', this.path);
     options = options || {};
     var that = this;
     var numBatches = (_.has(options, 'query') && _.has(options.query, 'n')) ? options.query.n : 1;
@@ -721,31 +726,31 @@ var Importers = new Class({
                                        function(err, result) {
                                          var status = 200;
                                          if (err) {
-                                           cLogger.log('Importers.index', 'error from image service - ' + err);
+                                           log.info('Importers.index: error from image service - %s', err);
                                            status = 500;
                                            options.errorCode = -1;
                                            options.errorMessage = err;
                                          }
-                                         cLogger.log('Importers.index', 'invoking callback with status - ' + status + ', path - ' + that.path);
+                                         log.info('Importers.index: invoking callback with status - %s, path- %s', status, that.path);
                                          that.doCallbacks(status, result, options);
                                        });
     return that;
   },
 
   read: function(id, options) {
-    cLogger.log('Importers.read', 'Reading for path - ' + this.path + ', id - ' + id);
+    log.info('Importers.read, Reading for path - %s, id - %s', this.path, id);
     var that = this;
     imageService.importBatchShow(id.replace('$', ''),
                                  { includeImages: false },
                                  function(err, result) {
                                    var status = 200;
                                    if (err) {
-                                     cLogger.log('Importers.show', 'error from image service - ' + err);
+                                     log.info('Importers.show: error from image service - %s', err);
                                      status = 500;
                                      options.errorCode = -1;
                                      options.errorMessage = err;
                                    }
-                                   cLogger.log('Importers.show', 'invoking callback with status - ' + status + ', path - ' + that.path);
+                                   log.info('Importers.show: invoking callback with status - %s, path - %s', status, that.path);
                                    var callbackOptions = options ? _.clone(options) : {};
                                    callbackOptions['isInstRef'] = true;
                                    that.doCallbacks(status, result, callbackOptions);
@@ -763,15 +768,15 @@ var Importers = new Class({
   //        * isInstRef: If true, we are referencing an instance.
   //
   transformRep: function(rep, options) {
-    cLogger.log('Importers.transformRep', 'Doing transform, path - ' + this.path);
+    log.info('Importers.transformRep: Doing transform, path - %s', this.path);
     var that = this;
     if (options && _.has(options, 'isInstRef') && options.isInstRef) {
-      cLogger.log('Importers.transformRep', 'transforming instance to full form...');
+      log.info('Importers.transformRep: transforming instance to full form...');
       return this._transformOne(rep);
     }
     else {
       if (_.isArray(rep)) {
-        cLogger.log('Importers.transformRep', 'transforming collection...');
+        log.info('Importers.transformRep: transforming collection...');
         var newRep = [];
         _.each(rep, 
                function(aRep) {
@@ -819,7 +824,7 @@ var ImportersImages = new Class({
   //
   initialize: function(path, options) {
     this.parent(path, options);
-    cLogger.log('ImportersImages.initialize', 'Initialized, path - ' + this.path + ', name - ' + this.name + ', instance name - ' + this.instName);
+    log.info('ImportersImages.initialize: Initialized, path - %s, name - %s, instance - %s', this.path, this.name, this.instName);
     if (!_.has(options, 'subResource')) {
       throw Object.create(new Error(),
                           { name: { value: 'MissingSubResource' },
@@ -841,10 +846,10 @@ var ImportersImages = new Class({
   //
   index: function(options) {
     if (options && _.has(options, 'req') && _.has(options.req, 'params')) {
-      cLogger.log('ImportersImages.index', 'Indexing w/ params - ' + options.req.params);
+      log.info('ImportersImages.index: Indexing w/ params - %s', options.req.params);
     }
     else {
-      cLogger.log('ImportersImages.index', 'Indexing...');
+      log.info('ImportersImages.index: Indexing...');
     }
     options = options || {};
     var that = this;
@@ -854,12 +859,12 @@ var ImportersImages = new Class({
                                  function(err, result) {
                                    var status = 200;
                                    if (err) {
-                                     cLogger.log('ImportersImages.index', 'error from image service - ' + err);
+                                     log.info('ImportersImages.index: error from image service - %s', err);
                                      status = 500;
                                      options.errorCode = -1;
                                      options.errorMessage = err;
                                    }
-                                   cLogger.log('ImportersImages.index', 'invoking callback with status - ' + status + ', path - ' + that.path);
+                                   log.info('ImportersImages.index: invoking callback with status - %s, path - %s', status, that.path);
                                    var callbackOptions = options ? _.clone(options) : {};
                                    callbackOptions['isInstRef'] = true;
                                    callbackOptions['resourceName'] = 'importer';
@@ -876,12 +881,12 @@ var ImportersImages = new Class({
   //      * rep: The result from the image service.
   //
   transformRep: function(rep, options) {
-    cLogger.log('ImportersImages.transformRep', 'Doing transform...');
+    log.info('ImportersImages.transformRep: Doing transform...');
     var newRep = this.importersResource.transformRep(rep, { isInstRef: true,
                                                             resourceName: 'importer' });
     if (newRep) {
       if (rep.images) {
-        cLogger.log('ImportersImages.transformRep', 'Doing image transorm - ' + JSON.stringify(rep.images));
+        log.info('ImportersImages.transformRep: Doing image transform - %j ', rep.images);
         newRep.images = this.imagesResource.transformRep(rep.images,
                                                          { isInstRef: false,
                                                            resourceName: 'images' } );
@@ -904,11 +909,11 @@ var StorageSynchronizers = new Class({
 
   initialize: function(path, options) {
     this.parent(path, options);
-    cLogger.log('StorageSynchronizers.initialize', 'Initialized, path - ' + this.path + ', name - ' + this.name + ', instance name - ' + this.instName);
+    log.info('StorageSynchronizers.initialize: Initialized, path - %s, name - %s, instance %s', this.path, this.name, this.instName);
   },
 
   create: function(attr, options) {
-    cLogger.log('StorageSynchronizers.create', 'Payload - ' + JSON.stringify(attr));
+    log.info('StorageSynchronizers.create: Payload - %j', attr);
     var that = this;
     options.isInstRef = true;
     var synchronizer = undefined;
@@ -918,7 +923,7 @@ var StorageSynchronizers = new Class({
         notifications.publish('/storage/synchronizers',
                               event,
                               that.transformRep(synchronizer));
-      };
+      }
       synchronizer.on('sync.started', 
                       function(synchronizer) {
                         publishSyncEvent('sync.started', synchronizer);
@@ -931,7 +936,7 @@ var StorageSynchronizers = new Class({
       that.doCallbacks(200, synchronizer, options);
     }
     catch (err) {
-      cLogger.log('StorageSynchronizers.create', 'Caught error - ' + err);
+      log.info('StorageSynchronizers.create: Caught error - %s', err);
       options.errorCode = -1;
       options.errorMessage = err.message;
       try {
@@ -945,7 +950,7 @@ var StorageSynchronizers = new Class({
   },
 
   read: function(id, options) {
-    cLogger.log('StorageSynchronizers.read', 'Reading for path - ' + this.path + ', id - ' + id);
+    log.info('StorageSynchronizers.read: Reading for path - %s, id - %s', this.path, id);
     var that = this;
     options.isInstRef = true;
     var synchronizerId = id.replace('$', '');
@@ -963,7 +968,7 @@ var StorageSynchronizers = new Class({
   //      * options:
   //
   transformRep: function(rep, options) {
-    cLogger.log('StorageSynchronizers.transformRep', 'Doing transform, path - ' + this.path + ', id - ' + rep.id + ', state - ' + rep.state);
+    log.info('StorageSynchronizers.transformRep: Doing transform, path - %s, id - %s, state - %s', this.path, rep.id, rep.state);
     var newRep = {};
     if (rep) {
       newRep = { id: '$' + rep.id,
@@ -1001,7 +1006,7 @@ var StorageChangesFeed = new Class({
 
   initialize: function(path, options) {
     this.parent(path, options);
-    cLogger.log('StorageChangesFeed.initialize', 'Initialized, path - ' + this.path + ', name - ' + this.name + ', instance name - ' + this.instName);
+    log.info('StorageChangesFeed.initialize: Initialized, path - %s, name - %s, instance %s', this.path, this.name, this.instName);
   },
 
   //
@@ -1013,7 +1018,7 @@ var StorageChangesFeed = new Class({
   //        is greater than this one will be considered.
   //
   create: function(attr, options) {
-    cLogger.log('StorageChangesFeed.create', 'Payload - ' + JSON.stringify(attr) + ', options - ' + options);
+    log.info('StorageChangesFeed.create: Payload - %j, options - %s', attr, options);
     var that = this;
 
     var since = (options && _.has(options, 'query') && _.has(options.query, 'since')) ? options.query.since : undefined;
@@ -1024,7 +1029,7 @@ var StorageChangesFeed = new Class({
 
       function publishImagesChangeEvent(event) {
 
-        cLogger.log('StorageChangesFeed.create', 'About to publish image change event, image doc - ' + JSON.stringify(event.doc));
+        log.info('StorageChangesFeed.create: About to publish image change event, image doc - %j', event.doc);
 
         var IMAGES = new Images('',{});
 
@@ -1051,7 +1056,7 @@ var StorageChangesFeed = new Class({
         else if (event.doc.orig_id) {
           imageService.show(event.doc.orig_id, function(err, result) {
             if (err) {
-              cLogger.log('StorageChangesFeed.create', 'Failed to fetch origin image in order to publish change event, error - ' + err);
+              log.info('StorageChangesFeed.create: Failed to fetch origin image in order to publish change event, error - %s', err);
             }
             else {
               notifications.publish('/storage/changes-feed',
@@ -1070,10 +1075,10 @@ var StorageChangesFeed = new Class({
                                   "doc": IMAGES.transformRep(event.doc, {isInstRef: true})
                                 });
         }
-      };
+      }
 
       function publishImporterChangeEvent(event) {
-        cLogger.log('StorageChangesFeed.create', 'About to publish an importer change event, importer doc - ' + JSON.stringify(event.doc));
+        log.info('StorageChangesFeed.create: About to publish an importer change event, importer doc - %j', event.doc);
 
         var IMPORTERS = new Importers('', {});
 
@@ -1095,7 +1100,7 @@ var StorageChangesFeed = new Class({
                                   "doc": IMPORTERS.transformRep(event.doc, {isInstRef: true})
                                 });
         }
-      };
+      }
 
       changesFeed.on('doc.image.created', 
                       function(event) {
@@ -1125,7 +1130,7 @@ var StorageChangesFeed = new Class({
       that.doCallbacks(200, changesFeed, options);
     }
     catch (err) {
-      cLogger.log('StorageChangesFeed.create', 'Caught error - ' + err);
+      log.info('StorageChangesFeed.create: Caught error - %s', err);
       options.errorCode = -1;
       options.errorMessage = err.message;
       try {

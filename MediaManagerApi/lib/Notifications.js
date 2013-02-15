@@ -7,6 +7,9 @@
 var _ = require('underscore');
 var uuid  = require('node-uuid');
 var postal = require('postal');
+var log4js = require('log4js');
+
+var log = log4js.getLogger("plm.Notifications");
 
 var createModule = function() {
 
@@ -71,7 +74,7 @@ var createModule = function() {
                             message: { value: 'MediaManagerApi/lib/Notifications.subscribe: Invalid resource - ' + resource + '!' } });
     }
 
-    console.log('MediaManagerApi/lib/Notifications.subscribe: Doing subscription to resource - ' + resource);
+    log.info('MediaManagerApi/lib/Notifications.subscribe: Doing subscription to resource - %s', resource);
 
     function callbackWrapper(data, envelope) {
       callback(resources[resource].format(envelope.topic, data));
@@ -86,7 +89,7 @@ var createModule = function() {
              subscriptions[subId].append(sub);
            });
 
-    console.log('MediaManagerApi/lib/Notifications.subscribe: Subscribed to resource - ' + resource + ' w/ id - ' + subId);
+    log.info('MediaManagerApi/lib/Notifications.subscribe: Subscribed to resource - %s w/ id - %s', resource, subId);
 
     return subId;
   }
@@ -128,4 +131,4 @@ var createModule = function() {
 
 module.exports = createModule();
 
-console.log('MediaManagerApi/lib/Notifications: Testing uuid - ' + uuid.v4());
+// console.log('MediaManagerApi/lib/Notifications: Testing uuid - ' + uuid.v4());

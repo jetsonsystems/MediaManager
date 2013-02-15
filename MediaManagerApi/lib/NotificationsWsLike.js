@@ -49,6 +49,9 @@
 
 var _ = require('underscore');
 var notifications = require('./Notifications');
+var log4js = require('log4js');
+
+var log = log4js.getLogger("plm.NotifWsLike")
 
 //
 // WsLikeConstructor: Create a WebSocket like object.
@@ -197,7 +200,7 @@ module.exports = function WsLikeConstructor(url, protocol) {
   //
   function sendSubscribe(parsedEvent) {
     if (!_.has(subscriptions, parsedEvent.data.resource)) {
-      console.log('MediaManagerApi/lib/NotificationsWsLike.sendSubscribe: Sending subscripiton event...');
+      log.info('MediaManagerApi/lib/NotificationsWsLike.sendSubscribe: Sending subscription event...');
       function handleCallbacks(msg) {
         if (that.onmessage) {
           that.onmessage({ data: JSON.stringify(msg) });
