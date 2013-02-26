@@ -1,7 +1,8 @@
 'use strict';
 
-var async = require("async")
-  , dbMan = require('./databaseManager.js')
+var async  = require("async")
+	, config = require("config").db
+  , dbMan  = require('./databaseManager.js')
   , imageService = require('../lib/plm-image/ImageService')
   , log4js = require('log4js')
   , nano = require('nano')
@@ -22,24 +23,25 @@ log4js.configure('./test/log4js.json');
  */
 describe('ImageService Testing Tags', function () {
 
-  imageService.config.db.host = "localhost";
-  imageService.config.db.port = 5984;
+  imageService.config.db.host = config.local.host;
+  imageService.config.db.port = config.local.port;
   var server = nano('http://' + imageService.config.db.host + ':' + imageService.config.db.port);
 
-  var db_name = imageService.config.db.name = 'plm-media-manager-dev0';
+  var db_name = imageService.config.db.name = config.database;
 
   var options = {
     host:imageService.config.db.host,
     port:imageService.config.db.port,
     dbName:db_name,
-    design_doc:'couchdb'
+		dbType: config.local.type // couchdb | touchdb
+    // design_doc:'couchdb'
   };
 
   var db = null;
 
   //This will be called before all tests
   before(function (done) {
-    //dbMan.startDatabase(options);
+    // nothing to do at the moment
     done();
   });//end before
 
@@ -74,7 +76,7 @@ describe('ImageService Testing Tags', function () {
       //create test database
       dbMan.startDatabase(options);
 
-
+     
       var imagesPaths = [path_to_images + '/eastwood.png',
         path_to_images + '/hopper.png',
         path_to_images + '/jayz.png'];
@@ -323,9 +325,7 @@ describe('ImageService Testing Tags', function () {
     });//end it
 
     after(function (done) {
-      dbMan.destroyDatabase(function () {
-        done();
-      });
+      dbMan.destroyDatabase(options, done);
     });//end after
 
 
@@ -533,9 +533,7 @@ describe('ImageService Testing Tags', function () {
     );//end it
 
     after(function (done) {
-      dbMan.destroyDatabase(function () {
-        done();
-      });
+      dbMan.destroyDatabase(options, done);
     });//end after
 
   });//end describe
@@ -658,7 +656,7 @@ describe('ImageService Testing Tags', function () {
      * Each "it" function is a test case
      * The done parameter indicates that the test is asynchronous
      */
-    it("The list off all tags in database should not contain duplicates", function (done) {
+    it("The list of all tags in database should not contain duplicates", function (done) {
 
         var listOfAllTagsInDatabase = null;
 
@@ -699,9 +697,7 @@ describe('ImageService Testing Tags', function () {
     );
 
     after(function (done) {
-      dbMan.destroyDatabase(function () {
-        done();
-      });
+      dbMan.destroyDatabase(options, done);
     });//end after
 
   });//end describe

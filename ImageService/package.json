@@ -34,6 +34,7 @@
    },
    "devDependencies": {
      "chai"      : "~1.4.2"
+     ,"config"   : "~0.4.18"
      ,"mocha"    : "~1.7.4"
      ,"mockdata" : "~0.0.3"
      ,"should"   : "~1.2.1"
