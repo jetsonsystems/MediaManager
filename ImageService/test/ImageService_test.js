@@ -1,7 +1,8 @@
 'use strict';
 
-var async = require("async")
-  , dbMan = require('./databaseManager.js')
+var async  = require("async")
+	, config = require("config").db
+  , dbMan  = require('./databaseManager.js')
   , imageService = require('../lib/plm-image/ImageService')
   , log4js = require('log4js')
   , nano = require('nano')
@@ -21,26 +22,29 @@ log4js.configure('./test/log4js.json');
  * while beforeEach and afterEach are called before and after each test case of a describe block.
  */
 describe('ImageService Testing', function () {
+	this.timeout(30000); 
 
-  imageService.config.db.host = "localhost";
-  imageService.config.db.port = 5984;
+  imageService.config.db.host = config.local.host;
+  imageService.config.db.port = config.local.port;
   var server = nano('http://' + imageService.config.db.host + ':' + imageService.config.db.port);
 
-  var db_name = imageService.config.db.name = 'plm-media-manager-dev0';
+  var db_name = imageService.config.db.name = config.database;
 
   var options = {
     host:imageService.config.db.host,
     port:imageService.config.db.port,
     dbName:db_name,
-    design_doc:'couchdb'
+		dbType: config.local.type // couchdb | touchdb
   };
+
+	console.log("options: %j", options);
 
   var db = null;
 
   //This will be called before all tests
   before(function (done) {
-    dbMan.startDatabase(options);
-    done();
+    dbMan.startDatabase(options, done);
+    // done();
   });//end before
 
   describe('ImageService.save', function () {
@@ -393,9 +397,8 @@ describe('ImageService Testing', function () {
    * after would be called at the end of executing a describe block, when all tests finished
    */
   after(function (done) {
-    dbMan.destroyDatabase(function () {
-      done();
-    });
+    dbMan.destroyDatabase(options, done);
+		// done();
   });//end after
 
 });

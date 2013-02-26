@@ -1,6 +1,7 @@
 'use strict';
 
 var async = require("async")
+	,config = require("config").db
   ,dbMan = require('./databaseManager.js')
   ,imageService = require('../lib/plm-image/ImageService')
   ,log4js = require('log4js')
@@ -23,17 +24,17 @@ describe('ImageService.importBatchFs Setup/Teardown', function () {
   // set a high time-out because it may take a while to run the import
   this.timeout(180000);  // 3 minutes
 
-  imageService.config.db.host = "localhost";
-  imageService.config.db.port = 5984;
+  imageService.config.db.host = config.local.host;
+  imageService.config.db.port = config.local.port;
   var server = nano('http://' + imageService.config.db.host + ':' + imageService.config.db.port);
 
-  var db_name = imageService.config.db.name = 'plm-media-manager-dev0';
+  var db_name = imageService.config.db.name = config.database;
 
   var options = {
     host:imageService.config.db.host,
     port:imageService.config.db.port,
     dbName:db_name,
-    design_doc:'couchdb'
+    dbType: config.local.type // couchdb | touchdb
   };
 
   var 
@@ -153,13 +154,8 @@ describe('ImageService.importBatchFs Setup/Teardown', function () {
    * after would be called at the end of executing a describe block, when all tests finished
    */
   after(function (done) {
-
-    done();
-    /*
-    dbMan.destroyDatabase( function() {
-      done();
-    });
-    */
+    dbMan.destroyDatabase(options, done);
+    // done();
   });//end after
 
 });
