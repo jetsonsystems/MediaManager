@@ -1,9 +1,11 @@
 'use strict';
 
-var async = require("async")
+var 
+	 async = require("async")
   ,nano = require('nano')
   ,util = require('util')
-  ,updateDesignDoc = require('./update_design_doc');
+  ,updateDesignDoc = require('./update_design_doc')
+;
 
 var chai = require('chai')
   , expect = chai.expect
@@ -19,10 +21,17 @@ exports.destroyDatabase = destroyDatabase;
 
 function startDatabase(options, callback) {
 
+	if (options.dbType === 'touchdb') { 
+		// eventually this should start the MediaTouchServ executable, rather than doing nothing;
+		// for the time being we assume that the MediaTouchServ was started manually
+		if (callback) callback();
+		return; 
+	}
+
   var dbHost=options.host;
   var dbPort=options.port;
   dbName = options.dbName;
-  var design_doc=options.design_doc;
+  var design_doc=options.dbType;
 
   server = nano('http://' + dbHost + ':' + dbPort);
 
@@ -87,7 +96,14 @@ function startDatabase(options, callback) {
 }
 
 
-function destroyDatabase(callback) {
+function destroyDatabase(options, callback) {
+
+	if (options.dbType === 'touchdb') { 
+		// eventually this should remove the MediaTouchServ db, rather than doing nothing;
+		// for the time being we assume that the MediaTouchServ db is cleared manually
+		if (callback) callback();
+		return; 
+	}
 
   async.waterfall([
     function destroyDatabase(next) {

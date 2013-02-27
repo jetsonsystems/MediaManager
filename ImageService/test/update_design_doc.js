@@ -47,7 +47,7 @@ function updateDesignDoc(options, callback) {
 
   var design_doc;
 
-  if (options.design_doc === 'couchdb') {
+  if (options.dbType === 'couchdb') {
     console.log('DB type is couchdb');
     design_doc = design_doc_couchdb;
   }
