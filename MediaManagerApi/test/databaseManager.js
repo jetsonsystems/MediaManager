@@ -29,44 +29,44 @@ function startDatabase(options, callback) {
 
    async.waterfall([
 
-    function checkIfTestDatabaseExists(callback) {
+    function checkIfTestDatabaseExists(next) {
       var existsTestDatabase = false;
       //check if the testing database exists by getting information about database
       server.db.get(dbName, function (err, body) {
           if (!err) {
             existsTestDatabase = true;
           }
-          callback(null, existsTestDatabase);
+          next(null, existsTestDatabase);
         }
       );
     },
 
-    function deleteTestDatabase(existsTestDatabase, callback) {
+    function deleteTestDatabase(existsTestDatabase, next) {
       if (existsTestDatabase) {
         console.log('Attempting to destroy existing test database: ' + dbName);
         server.db.destroy(dbName, function (err, body) {
           if (!err) {
             console.log('Existing test database ' + dbName + '  was destroyed');
           }
-          callback();
+          next();
         });
 
       } else {
-        callback();
+        next();
       }
     },
 
-    function createTestDatabase(callback) {
+    function createTestDatabase(next) {
       server.db.create(dbName, function (err, body) {
         if (!err) {
           console.log('database ' + dbName + '  created!');
         }
-        callback(null);
+        next(null);
 
       });
 
     },
-    function insertDesignDocs(callback) {
+    function insertDesignDocs(next) {
 
       updateDesignDoc.updateDesignDoc(options,function(err,result){
           if(err){
@@ -75,7 +75,7 @@ function startDatabase(options, callback) {
           else{
             console.log("Updated Design Doc: " + util.inspect(result,true,null,true));
           }
-          callback(null);
+          next(null);
         }
 
       );
@@ -93,12 +93,12 @@ function destroyDatabase(callback) {
 
   async.waterfall([
 
-    function destroyDatabase(callback) {
+    function destroyDatabase(next) {
       server.db.destroy(dbName, function (err, body) {
         if (!err) {
           console.log('database ' + dbName + '  destroyed!');
         }
-        callback(null);
+        next(null);
 
       });
 

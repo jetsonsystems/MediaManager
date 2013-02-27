@@ -2,23 +2,35 @@
 
 var async = require('async')
   ,restify = require('restify')
-  ,should = require('should')
+  ,imageService = require('ImageService')
+  ,testDataManager = require('./TestDataManager')
   ,media_manager_api_server = require("./media_manager_api_server")
-  ,databaseManager = require("./databaseManager");
+  ,chai = require('chai')
+  ,expect = chai.expect
+  ,should = require("should")
+  , _ = require('underscore');
 
 
 var dbOptions = {
-   host : "localhost"
+  host : "localhost"
   ,port : 5984
   ,dbName : "plm-media-manager-dev0"
   ,design_doc:'couchdb'
 }
 
+
+imageService.config.db.host = dbOptions.host;
+imageService.config.db.port = dbOptions.port;
+imageService.config.db.name = dbOptions.dbName;
+
+
 var serverOptions = {
   host : "localhost"
   ,port : 9000
   ,dbOptions : dbOptions
-}
+};
+
+testDataManager.setImageService(imageService);
 
 
 // init the test client
@@ -35,21 +47,20 @@ describe('service: MediaManagerApi', function () {
   before(function (done) {
     async.waterfall([
 
-      //create test database
-      function startTestDatabase(callback) {
+      function populateTestData(callback) {
 
-        databaseManager.startDatabase(dbOptions, function (err, result) {
-            if (err) {
-              console.log(err);
-            }
-            else {
-              console.log("Test database created");
-            }
-            callback(null);
+        testDataManager.populateTestData(function (err, result) {
+          if (err) {
+            console.log(err);
           }
+          else {
+            console.log("Test data inserted");
+          }
+          callback(null);
+        });
 
-        );
       },
+
 
       //start server
       function startTestServer(callback) {
@@ -76,15 +87,69 @@ describe('service: MediaManagerApi', function () {
   //http://localhost:9000/v0/images
   // Test #1
   describe('200 response check', function () {
-    it('should get a 200 response', function (done) {
-      client.get('/v0/images', function (err, req, res, data) {
+
+    it('should get all the three images', function (done) {
+      client.get('/v0/images?', function (err, req, res, data) {
 
         should.not.exist(err);
         res.should.have.status(200);
 
+        var filteredImages = data.images;
+        expect(filteredImages).to.have.length(3);
+
         done();
       });
     });
+
+    it('should get 2 images containing tag family', function (done) {
+      client.get('/v0/images?tags=family', function (err, req, res, data) {
+
+        should.not.exist(err);
+        res.should.have.status(200);
+
+        var filteredImages = data.images;
+        expect(filteredImages).to.have.length(2);
+        var resultNames = _.pluck(filteredImages, "name");
+        expect(resultNames).to.contain("eastwood.png");
+        expect(resultNames).to.contain("jayz.png");
+
+        done();
+      });
+    });
+
+    it('should get 1 images containing tag "america"', function (done) {
+      client.get('/v0/images?tags=america', function (err, req, res, data) {
+
+        should.not.exist(err);
+        res.should.have.status(200);
+
+        var filteredImages = data.images;
+        expect(filteredImages).to.have.length(1);
+        var resultNames = _.pluck(filteredImages, "name");
+        expect(resultNames).to.contain("hopper.png");
+
+        done();
+      });
+    });
+
+
+    it('should get 2 images containing tag "family" AND tag "friend"', function (done) {
+      client.get('/v0/images?tags=family,friends&tag_query_op=AND', function (err, req, res, data) {
+
+        should.not.exist(err);
+        res.should.have.status(200);
+
+        var filteredImages = data.images;
+        expect(filteredImages).to.have.length(2);
+        var resultNames = _.pluck(filteredImages, "name");
+        expect(resultNames).to.contain("eastwood.png");
+        expect(resultNames).to.contain("jayz.png");
+
+        done();
+      });
+    });
+
+
   });
 
   /**
@@ -94,24 +159,26 @@ describe('service: MediaManagerApi', function () {
 
     async.waterfall([
 
-      function stopTestServer(callback) {
+      function stopTestServer(next) {
         media_manager_api_server.stopServer(function (err) {
           if (!err) {
             console.log('test server stopped!');
           }
-          callback(null);
+          next(null);
 
         });
 
       },
-      function destroyTestDatabase(callback) {
-        databaseManager.destroyDatabase(function (err) {
+      function destroyTestDatabase(next) {
+
+        testDataManager.destroyTestData(function (err) {
           if (!err) {
-            console.log('test database destroyed!');
+            console.log('test data destroyed!');
           }
-          callback(null);
+          next(null);
 
         });
+
 
       }
 

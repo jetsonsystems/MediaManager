@@ -555,17 +555,27 @@ exports.show = show;
  *
  *   showMetadata: false by default, set to true to enable display of Image.metadata_raw
  */
-exports.index = function index( callback, options ) 
+exports.index = function index(options,callback)
 {
-  log.debug("Calling 'index' with options: %j", options);
+  log.debug("Calling 'index' with options: %j", util.inspect(options));
 
   // TODO: 
   //  - The use cases below need to be expanded
   //  - Need to define paging options, and paging impl
 
-  if (options && options.created) {
-    exports.findByCreationTime( options.created, callback, options );
-  } else {
+  if(options){
+    if (options.created) {
+      exports.findByCreationTime( options.created, callback, options );
+    }else
+    if (options.filter) {
+
+      var filterByTag = options.filter;
+
+      exports.findByTags(filterByTag, options,callback);
+    }
+
+  }
+  else {
     // TODO: this is temporary, returns all images sorted by creation time
     exports.findByCreationTime( null, callback, options);
   }
@@ -651,7 +661,7 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
         callback(null, aryImgOut);
 
       } else {
-        callback("error in findByCreationTime with options '" + options + "': " + err + ", with body '" + JSON.stringify(body) + "'");
+        callback("error in findByCreationTime with options '" + JSON.stringify(opts) + "': " + err + ", with body '" + JSON.stringify(body) + "'");
       }
     }
   );
@@ -1195,7 +1205,7 @@ function findByTags(filter, options, callback) {
 
   var opts = options || {};
 
-  log.trace("findByTags opts: '%j'", opts);
+  log.debug("findByTags opts: " + util.inspect(opts));
 
   var db = priv.db();
 

@@ -39,7 +39,8 @@ var _ = require('underscore');
 require('mootools');
 var imageService = require('ImageService');
 var imageServicePackage = require('ImageService/package.json');
-var log4js = require('log4js');
+var log4js = require('log4js')
+,util  = require('util');
 
 var log = log4js.getLogger('plm.MediaManagerApi');
 
@@ -334,7 +335,7 @@ var Resource = new Class({
   //        attr - attributes of instance to create, or update.
   //
   doRequest: function(method, options) {
-    log.debug("Resource.doRequest - method:'%s' - opts: '%j'", method, options);
+    log.debug("Resource.doRequest - method:'%s' - opts: '%j'", util.inspect(method), util.inspect(options));
     var id = options.id || undefined;
 
     if (id) {
@@ -458,7 +459,8 @@ var Images = new Class({
       filesize: 'filesize',
       taken_at: 'taken_at',
       created_at: 'created_at',
-      variants: 'variants'
+      variants: 'variants',
+      tags: 'tags'
     };
     //
     //  Image Service attrs -> full form attributes.
@@ -478,7 +480,8 @@ var Images = new Class({
       checksum: 'checksum',
       taken_at: 'taken_at',
       created_at: 'created_at',
-      variants: 'variants'
+      variants: 'variants',
+      tags: 'tags'
     };
     log.debug('Images.initialize: Desired full form attributes - %s', JSON.stringify(_.values(this._fullFormAttrs)));
   },
@@ -487,7 +490,9 @@ var Images = new Class({
     log.info('Images.index: Indexing for path - %s',+ this.path);
     options = options || {};
     var that = this;
-    imageService.index(function(err, result) {
+
+    var indexOptions = buildIndexOptions(options);
+    imageService.index(indexOptions,function(err, result) {
       var status = 200;
       if (err) {
         log.info('Images.index', 'error from image service - ' + err);
@@ -1143,3 +1148,33 @@ var StorageChangesFeed = new Class({
   }
 
 });
+
+
+function buildIndexOptions(options){
+  var indexOptions = {};
+
+  var filter = {};
+  if(options.query){
+    filter.groupOp = _.has(options.query, 'tag_query_op') ? options.query.tag_query_op : 'OR';
+  }
+  filter.rules = [];
+
+  if(options.query.tags){
+    var tagsArray =   options.query.tags.split(",");
+    _.each(tagsArray,
+      function(tag) {
+        var rule = {
+          "field":"tags",
+          "op":"eq",
+          "data":tag
+        };
+        filter.rules.push(rule);
+      });
+  }
+  if(_.size(filter.rules) === 0){
+    return null;
+  }
+  indexOptions.filter=filter;
+  return indexOptions;
+}
+

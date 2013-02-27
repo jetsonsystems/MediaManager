@@ -198,7 +198,7 @@ describe('ImageService Testing Tags', function () {
 
           var filteredImages = null;
 
-          imageService.findByTags(filterByTag, options, function (err, images) {
+          imageService.findByTags(filterByTag, null, function (err, images) {
             if (err) {
               done(err);
             } else {
@@ -233,7 +233,7 @@ describe('ImageService Testing Tags', function () {
 
           var filteredImages = null;
 
-          imageService.findByTags(filterByTag, options, function (err, images) {
+          imageService.findByTags(filterByTag, null, function (err, images) {
             if (err) {
               done(err);
             } else {
@@ -264,7 +264,7 @@ describe('ImageService Testing Tags', function () {
 
           var filteredImages = null;
 
-          imageService.findByTags(filterByTag, options, function (err, images) {
+          imageService.findByTags(filterByTag, null, function (err, images) {
             if (err) {
               done(err);
             } else {
@@ -300,7 +300,7 @@ describe('ImageService Testing Tags', function () {
 
           var filteredImages = null;
 
-          imageService.findByTags(filterByTag, options, function (err, images) {
+          imageService.findByTags(filterByTag, null, function (err, images) {
             if (err) {
               done(err);
             } else {
