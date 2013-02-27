@@ -723,7 +723,7 @@ function convertImageViewToCollection(docs, options)
 function importBatchFs(target_dir, callback, options) 
 {
   var db = priv.db();
-  var importBatch = undefined;
+  var importBatch;
 
   async.waterfall(
     [
@@ -1195,22 +1195,21 @@ function findByTags(filter, options, callback) {
 
   var opts = options || {};
 
-  log.debug("findByTags opts: " + JSON.stringify(opts));
+  log.trace("findByTags opts: '%j'", opts);
 
   var db = priv.db();
 
-  log.debug("findByTags: connected to db...");
+  log.trace("findByTags: connected to db...");
 
   var aryImgOut = []; // images sorted by creation time
   var imgMap    = {}; // temporary hashmap that stores original images by oid
   var anImg     = {};
 
   // couchdb specific view options
-  var view_opts={ include_docs: true
-    ,reduce:false};
+  var view_opts={ include_docs: true, reduce:false};
 
   if (_.isObject(filter)) {
-    view_opts.keys = _.pluck(filter.rules, 'data')
+    view_opts.keys = _.pluck(filter.rules, 'data');
   }else {
      throw "Invalid Argument Exception: findByTags does not understand filter argument:: '" + filter + "'";
   }
@@ -1269,11 +1268,6 @@ function findByTags(filter, options, callback) {
             // if the image is a variant, add it to the original's variants array
             if (_.isObject(imgMap[anImg.orig_id]))
             {
-              if (log.isTraceEnabled()) {
-                log.trace('Variant w/ name - %s', anImg.name);
-                log.trace('Variant w/ doc. body keys - (%j)', _.keys(docBody));
-                log.trace('Variant w/ image keys - (%j)', _.keys(anImg));
-              }
               imgMap[anImg.orig_id].variants.push(anImg);
             } else {
               log.warn("Warning: found variant image without a parent %j", anImg);
@@ -1284,11 +1278,11 @@ function findByTags(filter, options, callback) {
         callback(null, aryImgOut);
 
       } else {
-        callback("error in findByTags with options '" + options + "': " + err + ", with body '" + JSON.stringify(body) + "'");
+        callback(util.format("error in findByTags with view options '%j' - err: %s - body: %j", view_opts, err, body));
       }
     }
   );
-}; // end findByTags
+} // end findByTags
 
 
 exports.findByOids = findByOids;
@@ -1373,7 +1367,7 @@ function findByOids(oidsArray, options, callback) {
       }
     }
   );
-}; // end findByOids
+} // end findByOids
 
 
 exports.tagsReplace = tagsReplace;
@@ -1450,7 +1444,7 @@ function tagsReplace(oidArray,oldTags, newTags,callback){
 
 
 
-};// end tagsReplace
+} // end tagsReplace
 
 
 
@@ -1467,7 +1461,7 @@ function getAllTags(callback){
 
   var db = priv.db();
 
-  log.debug("getAllTags: connected to db...");
+  log.trace("getAllTags: connected to db...");
 
 
   // couchdb specific view options
@@ -1484,17 +1478,18 @@ function getAllTags(callback){
       if (!err) {
 
         var tags = _.pluck(body.rows, "key");
+        log.debug("getAllTags query returned: '%j'", tags);
 
         callback(null, tags);
 
       } else {
-        callback("error getting all tags: " + err + ", with body '" + JSON.stringify(body) + "'");
+        callback(util.format("error getting all tags: '%s', with body: '%j'", err, body));
       }
     }
   );
 
 
-};// end getAllTags
+} // end getAllTags
 
 
 /*
