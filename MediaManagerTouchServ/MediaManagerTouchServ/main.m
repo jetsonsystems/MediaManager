@@ -109,6 +109,16 @@ int main(int argc, const char * argv[])
                  doc[@"path"]);
         }) version: @"0.0.1"];
         
+        
+        [design defineViewNamed: @"by_oid_without_variant" mapBlock: MAPBLOCK({
+            if ([doc[@"class_name"] isEqualToString:@"plm.Image"]) {
+                if ([[doc objectForKey: @"orig_id"] isEqualToString:@""]) {
+                    emit(doc[@"oid"], doc[@"name"]);
+                }
+            }
+        }) version: @"0.0.1"];
+        
+        
         [design defineViewNamed: @"by_creation_time" mapBlock: MAPBLOCK({
             if ([[doc objectForKey: @"class_name"]
                  isEqualToString:@"plm.Image"]) {
@@ -175,6 +185,23 @@ int main(int argc, const char * argv[])
                      docPath);
             }
         }) version: @"0.0.5"];
+        
+        
+        [design
+         defineViewNamed: @"by_tag"
+         mapBlock: MAPBLOCK({
+            if ([[doc objectForKey: @"class_name"] isEqualToString:@"plm.Image"]) {
+                if ([doc objectForKey: @"tags"]) {
+                    for (id tag in [doc objectForKey: @"tags"]) {
+                        emit(tag, doc[@"tags"]);
+                    }
+                }
+            }
+        })
+         reduceBlock: REDUCEBLOCK(return [NSNumber numberWithInteger:1];)
+         version: @"0.0.1"
+         ];
+
         
         [design defineViewNamed: @"batch_by_ctime" mapBlock: MAPBLOCK({
             if ([[doc objectForKey: @"class_name"]
@@ -272,6 +299,7 @@ int main(int argc, const char * argv[])
                      docPath);
             }
         }) version: @"0.0.1"];
+        
         
         [design saveChanges];
                 
