@@ -23,7 +23,7 @@ function startDatabase(options, callback) {
   var dbHost=options.host;
   var dbPort=options.port;
   dbName = options.dbName;
-  var design_doc=options.design_doc;
+  //var design_doc=options.design_doc;
 
   server = nano('http://' + dbHost + ':' + dbPort);
 
