@@ -175,7 +175,10 @@ function startServer(options, callback) {
                 '/images',
                 {instName:'image'})
             })
-        })
+        }),
+      Tags:new mmApi.Tags('/tags',
+        {instName:'tag',
+          pathPrefix:'/' + urlVersion})
     };
 
     this.genOnSuccess = function (resource, req, res) {

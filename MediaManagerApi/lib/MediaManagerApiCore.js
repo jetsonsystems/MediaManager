@@ -101,6 +101,7 @@ module.exports = function mediaManagerApiModule(config, options) {
   mediaManagerApi = Object.create({}, { 
     config: { value: config },
     Images: { value: Images },
+    Tags: { value: Tags },
     Importers: { value: Importers },
     ImportersImages: { value: ImportersImages },
     StorageSynchronizers: { value: StorageSynchronizers },
@@ -629,6 +630,39 @@ var Images = new Class({
       log.info('Images._transformAttrs: updated name attribute to - %s', newRep['name']);
     }
     return newRep;
+  }
+
+});
+
+//
+//  Tags Resource:
+//
+var Tags = new Class({
+
+  Extends: Resource,
+
+  initialize: function(path, options) {
+    this.parent(path, options);
+    log.info('Tags.initialize: Initialized, path - %s, name - %, instance - %s', this.path, this.name, this.instName);
+
+  },
+  index: function(options) {
+    log.info('Tags.index: Indexing for path - %s',+ this.path);
+    options = options || {};
+    var that = this;
+
+    imageService.getAllTags(function(err, result) {
+      var status = 200;
+      if (err) {
+        log.info('Tags.index', 'error from image service - ' + err);
+        status = 500;
+        options.errorCode = -1;
+        options.errorMessage = err;
+      }
+      log.info('Tags.index: invoking callback with status - %s, path - %s', status, that.path);
+      that.doCallbacks(status, result, options);
+    });
+    return that;
   }
 
 });

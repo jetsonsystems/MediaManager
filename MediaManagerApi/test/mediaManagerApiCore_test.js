@@ -87,7 +87,7 @@ describe('service: MediaManagerApi', function () {
 
   //http://localhost:9000/v0/images
   // Test #1
-  describe('200 response check', function () {
+  describe('Retrieving Images', function () {
 
     it('should get all the three images', function (done) {
       client.get('/v0/images?', function (err, req, res, data) {
@@ -153,6 +153,24 @@ describe('service: MediaManagerApi', function () {
 
   });
 
+  describe('Retrieving Tags', function () {
+
+    var theExpectedListOfDistinctTags = ["america","family", "friends", "trips", "zoo"];
+
+    it('should get all the distinct tags in database', function (done) {
+      client.get('/v0/tags?', function (err, req, res, data) {
+
+        should.not.exist(err);
+        res.should.have.status(200);
+
+        var listOfAllTagsInDatabase = data.tags;
+        expect(listOfAllTagsInDatabase).to.deep.equal(theExpectedListOfDistinctTags);
+
+        done();
+      });
+    });
+
+  });
   /**
    * after would be called at the end of executing a describe block, when all tests finished
    */
