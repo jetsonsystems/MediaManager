@@ -9,10 +9,6 @@
     "path": "ImageService"
   },
   "main": "./lib/plm-image/ImageService",
-  "bin": {
-    "update_design_doc": "./update_design_doc.js",
-    "store-images": "./store-images.js"
-  },
   "scripts": {
     "test": "make test"
   },
