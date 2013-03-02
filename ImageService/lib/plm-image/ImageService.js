@@ -1244,14 +1244,14 @@ function findByTags(filter, options, callback) {
         var results = _.filter(possibleMatches, function(m) {
             if(filter.groupOp==="AND"){
               var containsAll = _.every(tags,  function(tag){
-                return _.contains(m.value, tag);
+                return _.contains(m.doc.tags, tag);
               });
               return containsAll;
 
             }else
             if(filter.groupOp==="OR"){
               var containsAny = _.some(tags,  function(tag){
-                return _.contains(m.value, tag);
+                return _.contains(m.doc.tags, tag);
               });
               return containsAny;
             }

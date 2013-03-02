@@ -15,7 +15,7 @@ var dbOptions = {
   host : "localhost"
   ,port : 5984
   ,dbName : "plm-media-manager-dev0"
-  ,design_doc:'couchdb'
+  ,dbType:'couchdb'
 }
 
 
@@ -30,6 +30,7 @@ var serverOptions = {
   ,dbOptions : dbOptions
 };
 
+testDataManager.setDBOptions(dbOptions) ;
 testDataManager.setImageService(imageService);
 
 
