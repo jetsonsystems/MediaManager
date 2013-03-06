@@ -758,7 +758,7 @@ var Importers = new Class({
     log.info('Importers.index: Indexing for path - %s', this.path);
     options = options || {};
     var that = this;
-    var numBatches = (_.has(options, 'query') && _.has(options.query, 'n')) ? options.query.n : 1;
+    var numBatches = (_.has(options, 'query') && _.has(options.query, 'n')) ? options.query.n : undefined;
     
     imageService.importBatchFindRecent(numBatches,
                                        {},

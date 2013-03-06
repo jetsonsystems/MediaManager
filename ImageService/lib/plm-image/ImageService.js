@@ -943,6 +943,7 @@ exports.importBatchShow = importBatchShow;
 /**
  * Lists the 'N' most recent import batches
  *
+ * N: Number of batches to return. If undefined, all batches are returned.
  * options:
  *   includeImages: false by default, if true returns all images with variants that are part of the batch
  */
@@ -953,10 +954,13 @@ function importBatchFindRecent(N, options, callback) {
   var view = VIEW_BATCH_BY_CTIME;
   
   var view_opts = {
-    limit: N
-    ,descending: true
+    descending: true
     ,include_docs: true
   };
+
+  if (N !== undefined) {
+    view_opts.limit = N;
+  }
 
   log.debug("Finding %s most recent importBatches with options %j", N, options);
   log.trace("Finding %s most recent importBatches using view '%s' with view_opts %j", N, view, view_opts);
