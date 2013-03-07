@@ -27,7 +27,10 @@ var config = {
     name: ""
   },
   app: undefined,
-  workDir : '/var/tmp'
+  workDir : '/var/tmp',
+  processingOptions : {
+    genCheckSums: false
+  }
 };
 
 exports.config = config;
@@ -324,7 +327,12 @@ function parseImage(anImgPath, callback)
 
     function (err, anImgStream, anErrStream) {
       log.trace("calculating checksum for file '%s'", anImgPath);
-      cs.gen(anImgStream, this);
+      if (config.processingOptions.genCheckSums) {
+        cs.gen(anImgStream, this);
+      }
+      else {
+        this();
+      }
     },
 
     function (aString) { 
