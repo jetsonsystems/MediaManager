@@ -102,6 +102,7 @@ module.exports = function mediaManagerApiModule(config, options) {
     config: { value: config },
     Images: { value: Images },
     Tags: { value: Tags },
+    Tagger: { value: Tagger },
     Importers: { value: Importers },
     ImportersImages: { value: ImportersImages },
     StorageSynchronizers: { value: StorageSynchronizers },
@@ -651,7 +652,7 @@ var Tags = new Class({
     options = options || {};
     var that = this;
 
-    imageService.getAllTags(function(err, result) {
+    imageService.tagsGetAll(function(err, result) {
       var status = 200;
       if (err) {
         log.info('Tags.index', 'error from image service - ' + err);
@@ -666,6 +667,105 @@ var Tags = new Class({
   }
 
 });
+
+//
+//  Tagger Resource:
+//
+var Tagger = new Class({
+
+  Extends:Resource,
+
+  initialize:function (path, options) {
+    this.parent(path, options);
+    log.info('Tagger.initialize: Initialized, path - %s, name - %, instance - %s', this.path, this.name, this.instName);
+
+  },
+  index:function (options) {
+    log.info('Tagger.index: Indexing for path - %s', +this.path);
+    options = options || {};
+    var that = this;
+
+    imageService.tagsGetAll(function (err, result) {
+      var status = 200;
+      if (err) {
+        log.info('Tagger.index', 'error from image service - ' + err);
+        status = 500;
+        options.errorCode = -1;
+        options.errorMessage = err;
+      }
+      log.info('Tagger.index: invoking callback with status - %s, path - %s', status, that.path);
+      that.doCallbacks(status, result, options);
+    });
+    return that;
+  },
+  create:function (attr, options) {
+    var that = this;
+    var isValid = false;
+    if (attr && (_.has(attr, 'add') || _.has(attr, 'replace') )){
+      isValid =true;
+    }
+
+    if (isValid) {
+
+      if (_.has(attr, 'add')) {
+        log.info('Tagger.add: Payload - %s', JSON.stringify(attr));
+        var listOfImages = attr.add.images;
+        var listOfTags = attr.add.tags;
+        imageService.tagsAdd(listOfImages, listOfTags,
+          function (err, result) {
+            var status = 200;
+            if (err) {
+              log.info('Tagger.add: Error in imageService.tagsAdd - %j', err);
+              status = 500;
+              options.errorCode = -1;
+              options.errorMessage = err;
+            }
+            else {
+              log.info('Tagger.add: Added tags on images- %j', result);
+            }
+            that.doCallbacks(status, listOfImages, options);
+          }
+        );
+      }
+      else
+      if(_.has(attr, 'replace')){
+        log.info('Tagger.replace: Payload - %s', JSON.stringify(attr));
+        var listOfImages = attr.replace.images;
+        var oldTags = attr.replace.oldTags;
+        var newTags = attr.replace.newTags;
+        imageService.tagsReplace(listOfImages, oldTags,newTags,
+          function (err, result) {
+            var status = 200;
+            if (err) {
+              log.info('Tagger.replace: Error in imageService.tagsReplace - %j', err);
+              status = 500;
+              options.errorCode = -1;
+              options.errorMessage = err;
+            }
+            else {
+              log.info('Tagger.replace: Replaced tags on images- %j', result);
+            }
+            that.doCallbacks(status, listOfImages, options);
+          }
+        );
+      }
+
+
+    }
+    else {
+      status = 400; //Bad Request
+      options.errorCode = -1;
+      options.errorMessage = 'add or replace MUST be specified in the payload.';
+      that.doCallbacks(status,
+        options.attr,
+        options);
+    }
+    return this;
+
+  }
+
+});
+
 
 //
 //  Importers Resource:

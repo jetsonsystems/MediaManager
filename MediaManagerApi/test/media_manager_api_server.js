@@ -178,6 +178,9 @@ function startServer(options, callback) {
         }),
       Tags:new mmApi.Tags('/tags',
         {instName:'tag',
+          pathPrefix:'/' + urlVersion}),
+      Tagger:new mmApi.Tagger('/tagger',
+        {instName:'tagger',
           pathPrefix:'/' + urlVersion})
     };
 
