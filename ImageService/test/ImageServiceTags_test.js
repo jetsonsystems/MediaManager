@@ -665,7 +665,7 @@ describe('ImageService Testing Tags', function () {
             //Retrieve the modified images
             function (next) {
 
-              imageService.getAllTags(function (err, tags) {
+              imageService.tagsGetAll(function (err, tags) {
                 if (err) {
                   done(err);
                 }
@@ -676,7 +676,7 @@ describe('ImageService Testing Tags', function () {
               });
 
             },
-            function testGetAllTags(next) {
+            function testTagsGetAll(next) {
               expect(listOfAllTagsInDatabase).to.deep.equal(theExpectedListOfDistinctTags);
               next();
             }

@@ -1393,8 +1393,15 @@ function findByOids(oidsArray, options, callback) {
 
 
 exports.tagsReplace = tagsReplace;
+
 /**
- * Replace a list of tags in a list of images.
+ * The tags in oldTags will be replaced by the tags in newTags
+ * oldTags[1] will be replaced by newTags[1]
+ * oldTags[2] will be replaced by newTags[2]
+ *          .
+ *          .
+ * oldTags[n] will be replaced by newTags[n]
+ *
  * @param oidArray
  * @param oldTags
  * @param newTags
@@ -1469,21 +1476,97 @@ function tagsReplace(oidArray,oldTags, newTags,callback){
 } // end tagsReplace
 
 
+exports.tagsAdd = tagsAdd;
+/**
+ * Add a list of tags to a each image in a list of images.
+ * @param oidArray
+ * @param tagsArray
+ * @param callback
+ */
+function tagsAdd(oidArray, tagsArray,callback){
+
+  var imagesToModify = null;
+
+  async.waterfall(
+    [
+      //Retrieve the images to modify
+      function(next) {
+
+        log.trace("Finding by oids ...");
+
+        findByOids(oidArray, null, function (err, images) {
+          if (err) {
+            var errMsg = util.format("Error occurred while finding by oids ", err);
+            log.error(errMsg);
+            if (_.isFunction(callback)) { callback(errMsg); }
+          }
+          else{
+            imagesToModify = images;
+            next();
+          }
+        });
+
+      },
+
+      //add the tags
+      function(next) {
+        _.forEach(imagesToModify, function (imageToModify) {
+          imageToModify.tagsAdd(tagsArray);
+        });
+        next();
+      },
+
+      //save the modified images
+      function(next) {
+        var saveOrUpdateParameters = _.map(imagesToModify, function(image){ return {"doc":image,"tried":0}; });
+        async.forEachLimit(saveOrUpdateParameters, 3, saveOrUpdate, function(err) {
+
+          if (err) {
+            log.error("Error while adding images tags", err);
+            next(err);
+          } else {
+            log.info("Successfully added images tags");
+          }
+          next();
+
+        });
+
+      }
+
+    ],
+
+    // called after waterfall completes
+    function(err) {
+      if (err) {
+        log.error("Error while adding tags on images ", err);
+        callback(err);
+      } else {
+        log.info("Successfully added tags on images");
+        callback(null,oidArray);
+      }
+    }
+  );
 
 
 
-exports.getAllTags = getAllTags;
+} // end tagsAdd
+
+
+
+
+
+exports.tagsGetAll = tagsGetAll;
 /**
  * Get the list of all the tags in the database
  * @param callback
  */
-function getAllTags(callback){
+function tagsGetAll(callback){
 
   log.debug("Attempting to get all tags in database .........");
 
   var db = priv.db();
 
-  log.trace("getAllTags: connected to db...");
+  log.trace("tagsGetAll: connected to db...");
 
 
   // couchdb specific view options

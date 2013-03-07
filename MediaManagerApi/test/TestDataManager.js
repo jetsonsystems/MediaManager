@@ -41,11 +41,10 @@ TestDataManager.prototype = (function () {
 
   var _spawnInstance = function () {
     var m = TestDataManager();
-    //this.emit('spawn', m);
     return m;
   };
 
-  var _populateTestData = function (callback) {
+  var _populateTestData = function (options, callback) {
 
 
     var imagesPaths = [path_to_images + '/eastwood.png',
@@ -104,11 +103,6 @@ TestDataManager.prototype = (function () {
 
       function updateImagesWithTheTags(next) {
 
-        _.forEach(_.keys(theSavedImages), function (key) {
-          theSavedImages[key].tagsAdd(theOriginalTagsMap[key]);
-        });
-
-
         function updateImage(image, next) {
           imageService.saveOrUpdate(
             {"doc":image, "tried":0},
@@ -123,13 +117,23 @@ TestDataManager.prototype = (function () {
 
         }
 
-        async.forEach(_.values(theSavedImages), updateImage, function (err) {
-          if (err) {
-            console.log("failed with error %j", err);
-          }
-          console.log("done!");
+        if(options.populateTags){
+          _.forEach(_.keys(theSavedImages), function (key) {
+            theSavedImages[key].tagsAdd(theOriginalTagsMap[key]);
+          });
+
+          async.forEach(_.values(theSavedImages), updateImage, function (err) {
+            if (err) {
+              console.log("failed with error %j", err);
+            }
+            console.log("done!");
+            next();
+          });
+
+
+        }else{
           next();
-        });
+        }
 
       }
     ], function (err, results) {
@@ -137,6 +141,11 @@ TestDataManager.prototype = (function () {
     });
 
 
+  }
+
+  var _getAllImages = function(callback){
+    var options = null;
+    imageService.index(options,callback);
   }
 
   var _destroyTestData = function (callback) {
@@ -149,6 +158,7 @@ TestDataManager.prototype = (function () {
     setDBOptions:_setDBOptions,
     setImageService:_setImageService,
     populateTestData:_populateTestData,
+    getAllImages:_getAllImages,
     destroyTestData:_destroyTestData,
     spawnInstance:_spawnInstance
   };

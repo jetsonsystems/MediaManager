@@ -43,7 +43,7 @@ describe('Importers Resource', function () {
     host:imageService.config.db.host,
     port:imageService.config.db.port,
     dbName:db_name,
-    design_doc:'couchdb'
+    dbType:'couchdb'
   };
 
   function isConnectionEstablished(parsedMsg) {
