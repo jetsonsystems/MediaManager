@@ -67,19 +67,11 @@ describe('ImageService.importBatchFs Setup/Teardown', function () {
   function assertImageSaved(image) {
     image.class_name.should.equal('plm.Image');
     image.oid.should.not.be.empty;
-    image.checksum.should.not.be.empty;
     image.variants.length.should.equal(3);
-    /*
-    importBatch.getNumToImport().should.equal(NUM_TO_IMPORT);
-    importBatch.getNumAttempted().should.equal(NUM_TO_IMPORT);
-    importBatch.getNumSuccess().should.equal(NUM_TO_IMPORT);
-    importBatch.getNumError().should.equal(0);
-    should.exist(importBatch.getCreatedAt());
-    should.exist(importBatch.getStartedAt());
-    should.exist(importBatch.getCompletedAt());
-    importBatch.getUpdatedAt().should.be.equal(importBatch.getCompletedAt());
-    importBatch.getStatus().should.equal(importBatch.BATCH_COMPLETED);
-    */
+
+    if (imageService.config.genCheckSums) {
+      image.checksum.should.not.be.empty;
+    }
   }
 
   function assertCompleted(importBatch, anEventCount) {
