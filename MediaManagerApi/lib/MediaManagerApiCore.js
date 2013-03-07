@@ -939,8 +939,8 @@ var Importers = new Class({
     newRep.created_at = rep.created_at;
     newRep.started_at = rep.started_at;
     newRep.completed_at  = rep.completed_at;
-    newRep.num_to_import = rep.num_to_import;
-    newRep.num_imported  = rep.num_imported;
+    newRep.num_to_import = rep.getNumToImport();
+    newRep.num_imported  = rep.getNumAttempted();
     newRep.num_success   = rep.num_success;
     newRep.num_error     = rep.num_error;
     return newRep;

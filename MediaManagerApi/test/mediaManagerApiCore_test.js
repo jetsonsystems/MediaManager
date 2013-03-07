@@ -112,7 +112,7 @@ describe('service: MediaManagerApi', function () {
 
   //http://localhost:9000/v0/images
   // Test #1
-  describe.skip('Retrieving Images', function () {
+  describe('Retrieving Images', function () {
 
     //This will be called before each test
     beforeEach(function (done) {
@@ -189,7 +189,7 @@ describe('service: MediaManagerApi', function () {
     });//end afterEach
   });
 
-  describe.skip('Retrieving Tags', function () {
+  describe('Retrieving Tags', function () {
     //This will be called before each test
     beforeEach(function (done) {
 
