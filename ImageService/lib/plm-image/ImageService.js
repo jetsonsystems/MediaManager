@@ -29,7 +29,8 @@ var config = {
   app: undefined,
   workDir : '/var/tmp',
   processingOptions : {
-    genCheckSums: false
+    genCheckSums: false,
+    numJobs: 1  // number of image processing jobs to trigger in parallel during imports
   }
 };
 
@@ -45,7 +46,7 @@ var
   IMG_DESIGN_DOC = 'plm-image'
   ,VIEW_BY_CTIME             = 'by_creation_time'
   ,VIEW_BY_OID_WITH_VARIANT  = 'by_oid_with_variant'
-  ,VIEW_BY_OID_WITHOUT_VARIANT  = 'by_oid_without_variant'
+  ,VIEW_BY_OID_WITHOUT_VARIANT = 'by_oid_without_variant'
   ,VIEW_BATCH_BY_CTIME       = 'batch_by_ctime'
   ,VIEW_BATCH_BY_OID_W_IMAGE = 'batch_by_oid_w_image'
   ,VIEW_BY_TAG               = 'by_tag'
@@ -830,7 +831,13 @@ function saveBatch(importBatch, options, callback)
   // throughput when increasing this number from 1 to 3.  Beyond that, the load of the system
   // increases substantially without a further increase in throughput. Mileage may vary on your
   // system.
-  async.forEachLimit(importBatch.images_to_import, 3, saveBatchImage, function(err) {
+  var numJobs = 1;
+
+  if (config.processingOptions && config.processingOptions.numJobs) {
+    numJobs = config.processingOptions.numJobs;
+  }
+
+  async.forEachLimit(importBatch.images_to_import, numJobs, saveBatchImage, function(err) {
     // we are done processing each image in the batch
     priv.markBatchComplete(importBatch);
 
