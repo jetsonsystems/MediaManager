@@ -96,7 +96,11 @@ describe('ImageService Testing', function () {
       theSavedImage.size.height.should.equal(599);
       theSavedImage.geometry.should.equal("480x599");
       expect(theSavedImage.oid).to.be.not.empty;
-      expect(theSavedImage.checksum).to.equal("7f69b43f4ef1ff0933b93e14f702bdac");
+
+      if (imageService.config.genCheckSums) {
+        expect(theSavedImage.checksum).to.equal("7f69b43f4ef1ff0933b93e14f702bdac");
+      }
+
       theSavedImage._attachments["clooney.png"].content_type.should.equal('image/PNG');
       theSavedImage._attachments["clooney.png"].stub.should.equal(true);
       expect(theSavedImage.variants).to.be.instanceof(Array);
