@@ -25,7 +25,7 @@ var images = fs.readdirSync(path_to_import);
 function ingest( anImage, next ) {
   if ( anImage.indexOf(".png") > 0) {
     console.log("importing %j", anImage);
-    is.save(path_to_import + "/" + anImage, next, options);
+    is.save(path_to_import + "/" + anImage, options, next);
   } else next();
 }
 

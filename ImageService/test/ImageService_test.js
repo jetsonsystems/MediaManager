@@ -63,9 +63,12 @@ describe('ImageService Testing', function () {
 
     before(function (done) {
 
+      var saveOptions={retrieveSavedImage:true};
+
       // simple save
       imageService.save(
         path_to_images + '/clooney.png',
+        saveOptions,
         function (err, result) {
           if (err) {
             console.log(err);
@@ -154,8 +157,10 @@ describe('ImageService Testing', function () {
 
 
       function ingest(anImagePath, next) {
+        var saveOptions={retrieveSavedImage:true};
         imageService.save(
           anImagePath,
+          saveOptions,
           function (err, result) {
             if (err) {
               console.log(err);
@@ -198,7 +203,7 @@ describe('ImageService Testing', function () {
                   done(err);
                 }
 
-                imageService.show(result.id, function (err, image) {
+                imageService.show(result.id, null, function (err, image) {
                   if (err) {
                     done(err);
                   } else {

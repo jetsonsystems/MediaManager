@@ -132,7 +132,7 @@ exports.findVersion = function findVersion(oid, callback) {
 /** 
  * The main method for saving and processing an image
  */
-function save(anImgPath, callback, options) 
+function save(anImgPath, options, callback)
 {
   async.waterfall(
     [
@@ -144,8 +144,13 @@ function save(anImgPath, callback, options)
         persistMultiple(aryPersist, null, next);
       },
       function(aryResult, next) {
-        log.debug("After save, retrieving image '%s' by oid '%s'", anImgPath, aryResult[0].oid);
-        show(aryResult[0].oid, next);
+        if(options && options.retrieveSavedImage){
+          log.debug("After save, retrieving image '%s' by oid '%s'", anImgPath, aryResult[0].oid);
+          show(aryResult[0].oid, null,next);
+        }else
+        {
+          next(null,aryResult[0]);
+        }
       }
     ],
     function(err, theSavedImage) {
@@ -155,7 +160,15 @@ function save(anImgPath, callback, options)
         if (_.isFunction(callback)) { callback(errMsg); }
       }
       log.info("Saved image '%s': '%j'", theSavedImage.name, theSavedImage);
-      callback(null, theSavedImage);
+
+      if(options && options.retrieveSavedImage){
+        callback(null, theSavedImage);
+      }else
+      {
+        callback(null, {oid:theSavedImage.oid});
+      }
+
+
     }
   );
 }
@@ -486,7 +499,7 @@ function persist(persistCommand, callback)
  *   showMetadata: false by default, set to true to enable display of Image.metadata_raw
  *
  */
-function show(oid, callback, options) 
+function show(oid,options, callback)
 {
   var opts = options || {};
   var db = priv.db();
@@ -739,7 +752,7 @@ function convertImageViewToCollection(docs, options)
  * triggered asynchronously. importBatchShow(oid) can be called to monitor the progress of the
  * importPatch's processing.
  */
-function importBatchFs(target_dir, callback, options) 
+function importBatchFs(target_dir, callback, options)
 {
   var db = priv.db();
   var importBatch;
@@ -817,7 +830,7 @@ exports.importBatchFs = importBatchFs;
 function saveBatch(importBatch, options, callback)
 {
   var db = priv.db();
-  var opts = options || opts;
+  var opts = options || {};
 
   if (!_.has(opts, "retrieveBatchOnSave")) {
     opts.retrieveBatchOnSave = false;
@@ -862,6 +875,7 @@ function saveBatch(importBatch, options, callback)
     var imgPath = pathSpec.path;
     save(
       imgPath
+      ,options
       ,function(err, image) {
         if (err) {
           log.error("error while saving image at '%s': %s", imgPath, err);
@@ -871,7 +885,6 @@ function saveBatch(importBatch, options, callback)
         }
         next();
       }
-      ,options
     );
   }
 }

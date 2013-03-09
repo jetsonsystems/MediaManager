@@ -511,7 +511,7 @@ var Images = new Class({
   read: function(id, options) { 
     log.info('Images.read: Reading for path - %s, id - %s', this.path, id);
     var that = this;
-    imageService.show(id.replace('$', ''), function(err, result) {
+    imageService.show(id.replace('$', ''), null, function(err, result) {
       var status = 200;
       if (err) {
         log.info('Images.read: error from image service - %s', err);
@@ -789,9 +789,10 @@ var Importers = new Class({
     if (importDir) {
       try {
         var importOptions = {
-          recursionDepth: (_.has(options, 'query') && _.has(options.query, 'dive') && (options.query.dive === 'false')) ? 1 : 0,
-          saveOriginal: false,
-          desiredVariants: [{ name: 'thumbnail.jpg', format: 'jpg', width: 132, height: 132}, 
+           recursionDepth: (_.has(options, 'query') && _.has(options.query, 'dive') && (options.query.dive === 'false')) ? 1 : 0
+          ,saveOriginal: false
+          ,retrieveSavedImage:true
+          ,desiredVariants: [{ name: 'thumbnail.jpg', format: 'jpg', width: 132, height: 132},
                             { name: 'web.jpg', format: 'jpg', width: 640, height: 400}, 
                             { name: 'full-small.jpg', format: 'jpg', width: 1280, height: 800}]
         };
@@ -1194,7 +1195,7 @@ var StorageChangesFeed = new Class({
                                 });
         }
         else if (event.doc.orig_id) {
-          imageService.show(event.doc.orig_id, function(err, result) {
+          imageService.show(event.doc.orig_id, null, function(err, result) {
             if (err) {
               log.info('StorageChangesFeed.create: Failed to fetch origin image in order to publish change event, error - %s', err);
             }

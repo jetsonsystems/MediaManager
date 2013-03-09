@@ -68,6 +68,7 @@ var saveImages = function(toSave) {
       try {
         imageService.save(
           fData.path,
+          null,
           function(err, result) {
             if (err) { 
               console.log('store-images: error saving image (1) - ' + JSON.stringify(err));

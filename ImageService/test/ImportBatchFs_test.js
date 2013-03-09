@@ -123,6 +123,7 @@ describe('ImageService.importBatchFs Setup/Teardown', function () {
       }
       //options
       ,{ saveOriginal: true
+        ,retrieveSavedImage:true
         ,desiredVariants: [
            { name: 'thumbnail.jpg',  format: "JPG", width: 80,   height: 80}
           ,{ name: 'web.jpg',        format: "JPG", width: 640,  height: 400}

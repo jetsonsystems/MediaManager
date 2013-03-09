@@ -101,6 +101,7 @@ if (err) {
 /*
 imageService.save(
   root_dir + "/eastwood.png",
+  null,
   function(err, result) {
     // if (err) { console.log(err); throw err; }
     if (err) { console.log(err); }
@@ -115,6 +116,7 @@ imageService.save(
 /*
 imageService.save(
   root_dir + "/eastwood.png",
+  null,
   function(err, result) {
     // if (err) { console.log(err); throw err; }
     if (err) { console.log(err); }
@@ -140,6 +142,7 @@ _.each(asset,
     
     imageService.save(
       img_path,
+      null,
       function(err, result) {
         if (err) { console.log(err); }
         console.log("result: " + JSON.stringify(result));
@@ -161,6 +164,7 @@ imageService.findVersion(root_dir + '/eastwood.png', function (version) {
 /*
 imageService.save(
   root_dir + "/eastwood.png",
+  null,
   function(err, result) {
     // if (err) { console.log(err); throw err; }
     if (err) { console.log(err); }
@@ -181,7 +185,7 @@ imageService.save(
 /*
 var oid = '0830a27b-fa78-4f7d-8f92-f865822e9e95';
 // var oid ='somebogus-oid'
-imageService.show(oid, function(err, image) {
+imageService.show(oid, null, function(err, image) {
   if (err) { console.log("error: " + err); return; };
   //console.log('retrieved image with oid %j: ' +  JSON.stringify(image,null,'  '), oid);
   console.log("retrieved image with oid '%s': %s", oid, util.inspect(image, true, null));
@@ -248,7 +252,8 @@ imageService.importBatchFs(
       }, 500);
     }
   }, 
-  { saveOriginal: true 
+  { saveOriginal: true
+    ,retrieveSavedImage:true
     ,desiredVariants: [ 
        { name: 'thumb.jpg',  format: "JPG", width: 120, height: 150} 
       ,{ name: 'screen.jpg', format: "JPG", width: 360, height: 450} 

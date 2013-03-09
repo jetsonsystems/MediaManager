@@ -83,8 +83,10 @@ describe('ImageService Testing Tags', function () {
 
 
       function ingest(anImagePath, next) {
+        var saveOptions={retrieveSavedImage:true};
         imageService.save(
           anImagePath,
+          saveOptions,
           function (err, result) {
             if (err) {
               console.log(err);
@@ -127,7 +129,7 @@ describe('ImageService Testing Tags', function () {
                   done(err);
                 }
 
-                imageService.show(result.id, function (err, image) {
+                imageService.show(result.id, null, function (err, image) {
                   if (err) {
                     done(err);
                   } else {
@@ -369,8 +371,10 @@ describe('ImageService Testing Tags', function () {
 
 
       function ingest(anImagePath, next) {
+        var saveOptions={retrieveSavedImage:true};
         imageService.save(
           anImagePath,
+          saveOptions,
           function (err, result) {
             if (err) {
               console.log(err);
@@ -413,7 +417,7 @@ describe('ImageService Testing Tags', function () {
                   done(err);
                 }
 
-                imageService.show(result.id, function (err, image) {
+                imageService.show(result.id, null, function (err, image) {
                   if (err) {
                     done(err);
                   } else {
@@ -573,8 +577,10 @@ describe('ImageService Testing Tags', function () {
 
 
       function ingest(anImagePath, next) {
+        var saveOptions={retrieveSavedImage:true};
         imageService.save(
           anImagePath,
+          saveOptions,
           function (err, result) {
             if (err) {
               console.log(err);
@@ -617,7 +623,7 @@ describe('ImageService Testing Tags', function () {
                   done(err);
                 }
 
-                imageService.show(result.id, function (err, image) {
+                imageService.show(result.id, null, function (err, image) {
                   if (err) {
                     done(err);
                   } else {

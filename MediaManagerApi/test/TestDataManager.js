@@ -58,8 +58,10 @@ TestDataManager.prototype = (function () {
 
 
     function ingest(anImagePath, next) {
+      var saveOptions={retrieveSavedImage:true};
       imageService.save(
         anImagePath,
+        saveOptions,
         function (err, result) {
           if (err) {
             console.log(err);
