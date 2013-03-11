@@ -1,0 +1,25 @@
+The file ImportBatchLoadTester.js can be used to run one-of load tests of the ImageService.
+The tester uses node-config for configuration, and sample configuration files can be found under
+config: couch_load_test.js and touch_load_test.js
+
+- When using CouchDB, the test will automatically create/destroy a db before/after each run.  When
+- When using TouchDB the setup/teardown of the db  has to be done manually.
+
+To run:
+
+- in ImageService/config:
+
+  $ ln -s touch_load_test.js [your-host-name].js
+  (or couch_load_test.js as the case may be).
+
+  edit touch_load_test.js to suit your needs.  You can set the 
+  importPath/genCheckSums/numJobs parameters there.
+
+- If using TouchDb, Start MediaManagerTouchServer with the name of whatever db you want to test with
+
+- Run the test
+
+  $ mocha test/ImportBatchLoadTester.js
+
+- If using TouchDb, Manually remove the db files from the filesystem if you want to create a new
+  test from scratch on the next run.
