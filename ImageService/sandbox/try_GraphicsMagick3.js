@@ -2,7 +2,7 @@ var fs = require('fs')
    ,gm = require('gm')
 ;
 
-var img_name = 'clooawood';
+var img_name = 'clooawood'
     ,readStream = fs.createReadStream(img_name+'.png')
 ;
 

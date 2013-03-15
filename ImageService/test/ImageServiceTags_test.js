@@ -543,6 +543,211 @@ describe('ImageService Testing Tags', function () {
   });//end describe
 
 
+  describe('testing ImageService remove tags', function () {
+
+
+    var path_to_images = './test/resources/images';
+    var theSavedImages = {};
+    var theRetrievedImages = {};
+
+    var theOriginalTagsMap = {};
+    theOriginalTagsMap["eastwood.png"] = ["trips", "family", "friends"];
+    theOriginalTagsMap["hopper.png"] = ["zoo", "america", "friends"];
+    theOriginalTagsMap["jayz.png"] = ["f", "l", "family", "friends"];
+
+    var tagsToRemove = ["family", "friends"];
+
+    var theExpectedOrderedTagsMap = {};
+    theExpectedOrderedTagsMap["eastwood.png"] = ["trips"];
+    theExpectedOrderedTagsMap["hopper.png"] = ["america", "zoo"];
+    theExpectedOrderedTagsMap["jayz.png"] = ["f", "l"];
+
+
+
+
+    before(function (done) {
+
+
+      //create test database
+      dbMan.startDatabase(options);
+
+      var imagesPaths = [path_to_images + '/eastwood.png',
+        path_to_images + '/hopper.png',
+        path_to_images + '/jayz.png'];
+
+
+      function ingest(anImagePath, next) {
+        var saveOptions={retrieveSavedImage:true};
+        imageService.save(
+          anImagePath,
+          saveOptions,
+          function (err, result) {
+            if (err) {
+              console.log(err);
+              done(err);
+            }
+            theSavedImages[result.name] = result;
+            next();
+          }
+        );
+
+      }
+
+
+      async.waterfall([
+
+        function saveImagesWithAttachments(callback) {
+          async.forEach(imagesPaths, ingest, function (err) {
+            if (err) {
+              console.log("failed with error %j", err);
+              done(err);
+            }
+            console.log("done!");
+            callback();
+          });
+        },
+
+        function updateImagesWithTheTags(callback) {
+
+          _.forEach(_.keys(theSavedImages), function (key) {
+            theSavedImages[key].tagsAdd(theOriginalTagsMap[key]);
+          });
+
+
+          function updateImage(image, next) {
+            imageService.saveOrUpdate(
+              {"doc":image, "tried":0},
+              function (err, result) {
+                if (err) {
+                  console.log(err);
+                  done(err);
+                }
+
+                imageService.show(result.id, null, function (err, image) {
+                  if (err) {
+                    done(err);
+                  } else {
+                    theRetrievedImages[image.name] = image;
+                    next();
+                  }
+                });
+
+
+              }
+            );
+
+          }
+
+          async.forEach(_.values(theSavedImages), updateImage, function (err) {
+            if (err) {
+              console.log("failed with error %j", err);
+              done(err);
+            }
+            console.log("done!");
+            callback();
+          });
+
+        },
+
+        function removeSomeTags(callback) {
+
+          //var eastwoodImage = theSavedImages["eastwood.png"];
+          var oidsOfRetrievedImages = _.pluck(theRetrievedImages, "oid");
+
+          var tagsToRemove = ["family","friends"];
+
+          imageService.tagsRemove(oidsOfRetrievedImages, tagsToRemove,
+            function (err) {
+              if (err) {
+                console.log(err);
+                done(err);
+              }
+              callback(null);
+            }
+          );
+
+
+        }
+      ], function (err, results) {
+        done();
+      });
+
+
+    });//end before
+
+    //Define the tests
+
+    /**
+     * Each "it" function is a test case
+     * The done parameter indicates that the test is asynchronous
+     */
+    it("The images should have the given tags removed", function (done) {
+
+
+        //Find Images with removed tags
+        var imagesWithRemovedTags = null;
+        var oidsOfRetrievedImages = _.pluck(theRetrievedImages, "oid");
+
+        async.waterfall(
+          [
+            //Retrieve the modified images
+            function (next) {
+
+              imageService.findByOids(oidsOfRetrievedImages, null, function (err, images) {
+                if (err) {
+                  done(err);
+                }
+                else {
+                  imagesWithRemovedTags = images;
+                  next();
+                }
+              });
+
+            },
+            function testRemovedTags(next) {
+
+
+              _.forEach(imagesWithRemovedTags, function (imageWithRemovedTags) {
+                switch (imageWithRemovedTags.name) {
+                  case "eastwood.png":
+                    expect(imageWithRemovedTags.tagsGet()).to.deep.equal(theExpectedOrderedTagsMap["eastwood.png"]);
+                    break;
+                  case "hopper.png":
+                    expect(imageWithRemovedTags.tagsGet()).to.deep.equal(theExpectedOrderedTagsMap["hopper.png"]);
+                    break;
+                  case "jayz.png":
+                    expect(imageWithRemovedTags.tagsGet()).to.deep.equal(theExpectedOrderedTagsMap["jayz.png"]);
+                    break;
+                  default :
+                }
+
+              });
+              next();
+
+
+            }
+
+          ],
+
+          // called after waterfall completes
+          function (err) {
+            if (err) {
+              callback(err);
+            } else {
+              done();
+            }
+          }
+        );
+
+      }
+    );//end it
+
+    after(function (done) {
+      dbMan.destroyDatabase(options, done);
+    });//end after
+
+  });//end describe
+
   describe('testing ImageService get list of distinct tags', function () {
 
     /*

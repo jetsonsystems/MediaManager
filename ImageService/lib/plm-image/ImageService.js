@@ -1495,6 +1495,80 @@ function tagsReplace(oidArray,oldTags, newTags,callback){
 
 } // end tagsReplace
 
+exports.tagsRemove = tagsRemove;
+
+/**
+ * @param oidArray
+ * @param tagsToRemove
+ * @param callback
+ */
+function tagsRemove(oidArray,tagsToRemove,callback){
+
+  var imagesToModify = null;
+
+  async.waterfall(
+    [
+      //Retrieve the images to modify
+      function(next) {
+
+        log.trace("Finding by oids ...");
+
+        findByOids(oidArray, null, function (err, images) {
+          if (err) {
+            var errMsg = util.format("Error occurred while finding by oids ", err);
+            log.error(errMsg);
+            if (_.isFunction(callback)) { callback(errMsg); }
+          }
+          else{
+            imagesToModify = images;
+            next();
+          }
+        });
+
+      },
+
+      //remove the tags
+      function(next) {
+        _.forEach(imagesToModify, function (imageToModify) {
+          imageToModify.tagsDelete(tagsToRemove);
+        });
+        next();
+      },
+
+      //save the modified images
+      function(next) {
+        var saveOrUpdateParameters = _.map(imagesToModify, function(image){ return {"doc":image,"tried":0}; });
+        async.forEachLimit(saveOrUpdateParameters, 3, saveOrUpdate, function(err) {
+
+          if (err) {
+            log.error("Error while updating images tags", err);
+            next(err);
+          } else {
+            log.info("Successfully updated images tags");
+          }
+          next();
+
+        });
+
+      }
+
+    ],
+
+    // called after waterfall completes
+    function(err) {
+      if (err) {
+        log.error("Error while removing tags on images ", err);
+        callback(err);
+      } else {
+        log.info("Successfully removing tags on images");
+        callback(null);
+      }
+    }
+  );
+
+
+
+} // end tagsRemove
 
 exports.tagsAdd = tagsAdd;
 /**
@@ -1570,8 +1644,6 @@ function tagsAdd(oidArray, tagsArray,callback){
 
 
 } // end tagsAdd
-
-
 
 
 

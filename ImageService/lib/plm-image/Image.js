@@ -146,18 +146,35 @@ module.exports = new Class(
     }
   },
 
-  tagsDelete : function(tag,callback){
+  /**
+   *
+   * @param tags can be a string or an array of strings
+   * @param callback
+   */
+  tagsDelete : function(tags,callback){
 
-    if(_.isArray(this.tags) && _.isString(tag)){
-      var index = this.tags.indexOf(tag);
-      if(index >= 0){
-        this.tags.splice(index, 1);
+    if (_.isArray(tags) || _.isString(tags)) {
+      var tagsToDelete = [];
+      tagsToDelete.push(tags);
+      tagsToDelete = _.flatten(tagsToDelete);
+
+      if (_.isArray(this.tags)) {
+        var self = this;
+        _.forEach(tagsToDelete, function (tagToDelete) {
+          if (_.isString(tagToDelete)) {
+            var index = self.tags.indexOf(tagToDelete);
+            if (index >= 0) {
+              self.tags.splice(index, 1);
+            }
+          }
+        });
       }
     }
 
     if(_.isFunction(callback)){
       callback();
     }
+
   },
 
   /**

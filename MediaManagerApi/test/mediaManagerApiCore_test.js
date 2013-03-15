@@ -305,7 +305,7 @@ describe('service: MediaManagerApi', function () {
 
     });
 
-    //Test 2
+    //Test
     it('Replace a list of tags in a list of Images', function (done) {
 
       var imagesOids = [];
@@ -368,6 +368,73 @@ describe('service: MediaManagerApi', function () {
           expect(modifiedImages).to.have.length(3);
 
           //TODO: the response must contain the images updated with the replaced tags
+
+          done();
+        });
+
+      });
+
+    });
+
+
+    /*
+    * remove: removes a list of tags from the tags of a list of Images.
+    * This action removes the tags passed from the list of tags that an Image may already have. For example,
+    * removing the tags ["red","white","blue"] from an image that has the tags ["blue","green","yellow"]
+    * would result in the image having the tags: ["green", "yellow"].
+    * */
+    it('Remove a list of tags in a list of Images', function (done) {
+
+      var imagesOids = [];
+
+      async.waterfall([
+
+        //initialize test images with tags
+        function (next) {
+          var options = {
+            populateTags:true
+          };
+
+          initializeTestServer(options, next);
+        },
+
+        function (next) {
+
+          // Get the oids of the saved images
+          testDataManager.getAllImages(
+            function (err, result) {
+              if (err) {
+                console.log(err);
+              }
+              else {
+                imagesOids = _.pluck(result, "oid");
+
+              }
+              next(null);
+            }
+
+          );
+        }
+      ], function (err, results) {
+
+        var removeTagsCommand = {
+          "remove":{
+            "images":imagesOids
+            ,"tagsToRemove":["family", "friends"]
+          }
+        };
+
+        client.post('/v0/tagger?', removeTagsCommand, function (err, req, res, data) {
+
+          //assert that the tags were removed in the images
+
+          should.not.exist(err);
+          res.should.have.status(200);
+
+          var modifiedImages = data.tagger;
+          expect(modifiedImages).to.have.length(3);
+
+          //TODO: the response must contain the images updated with the removed tags
 
           done();
         });

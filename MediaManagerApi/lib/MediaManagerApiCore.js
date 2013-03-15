@@ -701,9 +701,12 @@ var Tagger = new Class({
   create:function (attr, options) {
     var that = this;
     var isValid = false;
-    if (attr && (_.has(attr, 'add') || _.has(attr, 'replace') )){
-      isValid =true;
-    }
+
+    var actions = ['add','replace','remove'];
+    var containsAnyAction = _.some(actions,  function(action){
+      return _.has(attr, action);
+    });
+    isValid = containsAnyAction;
 
     if (isValid) {
 
@@ -744,6 +747,29 @@ var Tagger = new Class({
             }
             else {
               log.info('Tagger.replace: Replaced tags on images- %j', result);
+            }
+            that.doCallbacks(status, listOfImages, options);
+          }
+        );
+      }
+
+      else
+      if(_.has(attr, 'remove')){
+        log.info('Tagger.remove: Payload - %s', JSON.stringify(attr));
+        var listOfImages = attr.remove.images;
+        var tagsToRemove = attr.remove.tagsToRemove;
+        //var newTags = attr.replace.newTags;
+        imageService.tagsRemove(listOfImages, tagsToRemove,
+          function (err, result) {
+            var status = 200;
+            if (err) {
+              log.info('Tagger.remove: Error in imageService.tagsRemove - %j', err);
+              status = 500;
+              options.errorCode = -1;
+              options.errorMessage = err;
+            }
+            else {
+              log.info('Tagger.remove: Removed tags on images- %j', result);
             }
             that.doCallbacks(status, listOfImages, options);
           }
