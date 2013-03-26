@@ -37,6 +37,25 @@ var config = {
 exports.config = config;
 
 var log = log4js.getLogger('plm.ImageService');
+var nanoLog = log4js.getLogger('plm.ImageService.nano');
+
+var nanoLogFunc = function(eventId, args) {
+  var logStr = '';
+  if (eventId) {
+    logStr = 'event - ' + eventId;
+  }
+  if (args && args.length) {
+    for (var i = 0; i < args.length; ++i) {
+      try {
+        logStr = logStr + ', ' + JSON.stringify(args[i]);
+      }
+      catch (e) {
+        logStr = logStr + ', ' + args[i].toString();
+      }
+    }
+  }
+  nanoLog.debug(logStr);
+};
 
 // map used to store all private functions
 var priv = {};
@@ -87,7 +106,11 @@ exports.checkConfig = function checkConfig(callback) {
     throw "plm-image/ImageService: ImageService.config.db.name must contain a valid database name!";
   }
 
-  var server = nano('http://' + config.db.host + ':' + config.db.port);
+  var server = nano(
+    {
+      url: 'http://' + config.db.host + ':' + config.db.port,
+      log: nanoLogFunc
+    });
   server.db.get(config.db.name, callback);
 };
 
@@ -96,7 +119,12 @@ var dbServer = null;
 // returns a db connection
 priv.db = function db() {
   log.trace("priv.db: Connecting to data base, host - '%s' - port '%s' - db '%s'", config.db.host, config.db.port, config.db.name);
-  dbServer = dbServer || nano('http://' + config.db.host + ":" + config.db.port);
+  dbServer = dbServer || nano(
+    {
+      url: 'http://' + config.db.host + ":" + config.db.port,
+      log: nanoLogFunc
+    }
+  );
   return dbServer.use(config.db.name);
 };
 
@@ -419,8 +447,13 @@ function persistMultiple(aryPersist, aryResult, callback)
 function persist(persistCommand, callback) 
 {
   var 
-    db = nano('http://' + config.db.host + ':' + config.db.port + '/' + config.db.name)
-    ,imgData   = persistCommand.data
+  db = nano(
+    {
+      url: 'http://' + config.db.host + ':' + config.db.port + '/' + config.db.name,
+      log: nanoLogFunc
+    }
+  )
+  ,imgData   = persistCommand.data
   ;
 
   step(

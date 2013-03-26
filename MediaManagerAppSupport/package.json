@@ -2,6 +2,7 @@
   "name": "MediaManagerAppSupport",
   "version": "0.0.0",
   "dependencies" : {
+    "retry" : "*",
     "log4js"        : "0.5.x"
   }
 }

@@ -966,8 +966,8 @@ var Importers = new Class({
     newRep.created_at = rep.created_at;
     newRep.started_at = rep.started_at;
     newRep.completed_at  = rep.completed_at;
-    newRep.num_to_import = rep.getNumToImport();
-    newRep.num_imported  = rep.getNumAttempted();
+    newRep.num_to_import = rep.num_to_import;
+    newRep.num_imported  = rep.num_attempted;
     newRep.num_success   = rep.num_success;
     newRep.num_error     = rep.num_error;
     return newRep;
@@ -1154,11 +1154,15 @@ var StorageSynchronizers = new Class({
 //
 //  StorageChangesFeed Resource: Access the changes feed.
 //
-//    Note, this is NOT currently exposed as a public API. But, the intent is to use this
-//    resource internally, such that access can be gained to document resource and
-//    publish to the notifications API when a document changes. Hence, ONLY the
-//    create method is implemented, which instantiates a storage.changesFeed instance,
-//    and listens for change events which inturn are passed to the notifications API.
+//    Note, this is NOT currently exposed as a public API. But, the intent is
+//    to use this resource internally, in order to monitor the storage engine's
+//    changes feed. Once, the changes feed resource is created, monitoring
+//    of the feed commences. Document changes are subsequently published 
+//    to the notifications API.
+//
+//    ONLY the create method is implemented. The create method instantiates a 
+//    storage.changesFeed instance, and listens for change events which are
+//    inturn passed to the notifications API.
 //
 //    The following events are published to the notifications API:
 //
@@ -1183,16 +1187,23 @@ var StorageChangesFeed = new Class({
   //
   //      since: DB update sequence to begin monitoring changes from. Only changes where the corresponding update sequence
   //        is greater than this one will be considered.
+  //      exclude_app_id: Ignore document changes where the app_id of the doc. 
+  //        equals exclude_app_id. For example, it may be desireable to only
+  //        get change notifications for documents created/updated/deleted
+  //        by another instance of the APP, which have been stored in the
+  //        local store via a synchronization of the DBs.
   //
   create: function(attr, options) {
     log.info('StorageChangesFeed.create: Payload - %j, options - %s', attr, options);
     var that = this;
 
     var since = (options && _.has(options, 'query') && _.has(options.query, 'since')) ? options.query.since : undefined;
+    var excludeAppId = (options && _.has(options, 'query') && _.has(options.query, 'exclude_app_id')) ? options.query.exclude_app_id : undefined;
     var changesFeed = undefined;
 
     try {
-      changesFeed = storage.changesFeed({since: since});
+      changesFeed = storage.changesFeed({since: since,
+                                         excludeAppId: excludeAppId});
 
       function publishImagesChangeEvent(event) {
 

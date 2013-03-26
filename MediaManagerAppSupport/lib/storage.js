@@ -80,6 +80,12 @@ var init = function(config, options) {
   var createChildProcess = function() {
     logger.info('MediaManagerAppSupprt.init: Launching storage child process, execPath - ' + execPath + ', database - ' + database);
     var childP = cp.spawn(execPath, ['--db', database], {});
+    childP.stdout.on('data', function(data) {
+      console.log('touchdb: stdout - ' + data);
+    });
+    childP.stderr.on('data', function(data) {
+      console.log('touchdb: stderr - ' + data);
+    });
     updatePIDFile(childP.pid);
     return childP;
   };
@@ -182,7 +188,7 @@ var init = function(config, options) {
   childProcess = createChildProcess();
   
   childProcess.on('exit', function(code, signal) {
-    logger.error('MediaManagerAppSupport: Child process exit event detected!');
+    logger.error('MediaManagerAppSupport: Child process exit event detected, code - ' + code + ', signal - ' + signal);
     if ((signal === 'SIGTERM') && (didChildProcessKill === true)) {
       logger.info('MediaManagerAppSupport: emitting shutdown event!');
       storage.emit('localStorageShutdown');

@@ -18,6 +18,7 @@
 
 var _ = require('underscore');
 var log4js = require('log4js');
+var retry = require('retry');
 var config = require('MediaManagerAppConfig');
 var storage = require('./lib/storage.js');
 var mmApi = require('MediaManagerApi/lib/MediaManagerApiCore')(config);
@@ -31,23 +32,15 @@ var log = log4js.getLogger('plm.MediaManagerAppSupport');
 
 var init = function(appjs, routes) {
 
+  var logPrefix = 'init: ';
+
   var app = Object.create(EventEmitter.prototype,
                           {appjs: { value: appjs },
                            config: { value: config }});
 
-	/*
-  if (_.has(config, 'logging')) {
-    log4js.configure(config.logging);
-    app.logger = log4js.getLogger('plm.MediaManagerApp');
-  }
-  else {
-    app.logger = log4js.getLogger();
-  }
-	*/
-
   app.logger = log4js.getLogger('plm.MediaManagerApp');
 
-  log.info('MediaManagerAppSupport: initializing...');
+  log.info(logPrefix + 'initializing...');
 
   app.mediaManagerRouter = new MediaManagerRouter(appjs, routes);
 
@@ -111,7 +104,7 @@ var init = function(appjs, routes) {
       //  the changes feed can be 'created' with the DB sequence ID
       //  set to the since parameter.
       //
-      mmStorage.info(function(err, infoObj) {
+      onDbInfo = function(err, infoObj) {
         if (err) {
           app.storage.readyState = app.storage.INIT_ERROR
           log.error('MediaManagerAppSupport: Error retrieving storage info - ' + err);
@@ -143,10 +136,11 @@ var init = function(appjs, routes) {
             //
             //  Do a create request on the changes feed to start monitoring it.
             //
-            log.info('MediaManagerAppSupport: Connecting to changes feed, w/ sequence ID - ' + app.storage.info.initial.updateSeq);
+            log.info('MediaManagerAppSupport: Connecting to changes feed, w/ sequence ID - ' + app.storage.info.initial.updateSeq + ', app id - ' + app.config.app.id);
 
             app.storage.changesFeed.create({}, 
-                                           { query: { since: currentInfo.updateSeq } });
+                                           { query: { since: currentInfo.updateSeq,
+                                                      exclude_app_id: app.config.app.id } });
             app.storage.readyState = app.storage.READY;
             log.info('MediaManagerAppSupport: Storage now ready to be used...');
             app.emit('localStorageReady');
@@ -157,7 +151,23 @@ var init = function(appjs, routes) {
             app.emit('localStorageInitError');
           }
         }
+      };
+
+      var op = retry.operation({
+        retries: 10
       });
+
+      var getDbInfo = function(currentAttempt) {
+        mmStorage.info(function(err, infoObj) {
+          if (op.retry(err)) {
+            return;
+          }
+
+          onDbInfo(err ? op.mainError() : null, infoObj);
+        });
+      };
+
+      op.attempt(getDbInfo);
     }
     catch (err) {
       app.storage.readyState = app.storage.INIT_ERROR;
