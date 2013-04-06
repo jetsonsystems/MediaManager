@@ -39,5 +39,17 @@ module.exports = new Class (
 
     // a field intended to be private that stores storage-specific metadata
     this._storage  = {};
+
+
+    if (_.isObject(args) && (args.deleted)) {
+      this.deleted = true;
+    }
+
+  },
+
+  // move this method to a makePersistent method
+  sendToTrash : function(){
+    this.deleted = true;
   }
+
 });

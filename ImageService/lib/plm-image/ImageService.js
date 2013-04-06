@@ -69,6 +69,8 @@ var
   ,VIEW_BATCH_BY_CTIME       = 'batch_by_ctime'
   ,VIEW_BATCH_BY_OID_W_IMAGE = 'batch_by_oid_w_image'
   ,VIEW_BY_TAG               = 'by_tag'
+  ,VIEW_TRASH                = 'by_trash'
+
 ;
 
 // a hashmap, keyed by oid, that caches importBatch objects while they are being processed
@@ -1796,6 +1798,172 @@ priv.setCouchRev = function setCouchRev(entity, couch_result) {
   entity._storage.id  = couch_result.id;
   entity._storage.rev = couch_result.rev;
 };
+
+exports.sendToTrash = sendToTrash;
+
+/**
+ * TODO: Move this method to a StorageService
+ *
+ * @param oidArray
+ * @param callback
+ */
+function sendToTrash(oidArray,callback){
+
+  var imagesToModify = [];
+
+  async.waterfall(
+    [
+      //Retrieve the images to modify
+      function(next) {
+
+        log.trace("Finding images to send to Trash ...");
+
+        function iterator(imageOid, next2) {
+          show(imageOid, null, function(err, image) {
+            if (err) { next2(err); }
+            else {
+              imagesToModify.push(image);
+              //add also the variants
+              if(_.isArray(image.variants) ){
+              _.forEach(image.variants, function (variantImage) {
+                  imagesToModify.push(variantImage);
+                });
+              }
+              next2();
+            }
+          });
+        }
+
+        async.forEachLimit( oidArray, 3, iterator,function(err) {
+          if (err) {
+            var msgErr = util.format("Error finding images to send to trash: %j", err);
+            log.error(msgErr);
+            next(err);
+          } else {
+            log.debug("Done finding images to send to trash");
+            next();
+          }
+        });
+
+      },
+
+      //set deleted attribute to true
+      function(next) {
+        _.forEach(imagesToModify, function (imageToModify) {
+          imageToModify.sendToTrash();
+        });
+        next();
+      },
+
+      //save the modified images
+      function(next) {
+        var saveOrUpdateParameters = _.map(imagesToModify, function(image){ return {"doc":image,"tried":0}; });
+        async.forEachLimit(saveOrUpdateParameters, 3, saveOrUpdate, function(err) {
+
+          if (err) {
+            log.error("Error while sending images to trash", err);
+            next(err);
+          } else {
+            log.info("Successfully sent images to trash");
+          }
+          next();
+
+        });
+
+      }
+
+    ],
+
+    // called after waterfall completes
+    function(err) {
+      if (err) {
+        log.error("Error while sending images to trash ", err);
+        callback(err);
+      } else {
+        log.info("Successfully sent images to trash");
+        callback(null);
+      }
+    }
+  );
+
+} // end sendToTrash
+
+
+exports.viewTrash = viewTrash;
+
+/**
+ * TODO: Move this method to a StorageService
+ *
+ * Find documents in Trash
+ *
+ * options:
+ *
+ *   showMetadata: false by default, set to true to enable display of Image.metadata_raw
+ */
+
+
+function viewTrash(options, callback) {
+
+  var opts = options || {};
+
+  var db = priv.db();
+
+  log.trace("viewTrash: connected to db...");
+
+  var aryImgOut = []; 
+  var imgMap    = {}; // temporary hashmap that stores original images by oid
+  var anImg     = {};
+
+  // couchdb specific view options
+  var view_opts={ include_docs: true};
+
+
+  db.view(IMG_DESIGN_DOC, VIEW_TRASH, view_opts,
+    function(err, body) {
+
+      if (!err) {
+
+        //remove duplicates
+        var results = _.uniq(body.rows,function (doc) {
+          return doc.id;
+        });
+
+        //extract only the "doc" part
+        var resultDocs = _.pluck(results, "doc");
+
+        _.forEach(resultDocs, function (docBody) {
+
+          anImg = new Image(docBody);
+          if (opts.showMetadata) { anImg.exposeRawMetadata = true; }
+
+          // Assign a URL to the image. Note, this is temporary as the images
+          // will eventually move out of Couch / Touch DB.
+          anImg.url = priv.getImageUrl(docBody);
+
+          if ( anImg.isOriginal()) {
+            imgMap[anImg.oid] = anImg;
+            aryImgOut.push(anImg);
+          } else {
+            // if the image is a variant, add it to the original's variants array
+            if (_.isObject(imgMap[anImg.orig_id]))
+            {
+              imgMap[anImg.orig_id].variants.push(anImg);
+            } else {
+              log.warn("Warning: found variant image without a parent %j", anImg);
+            }
+            //also add to the result array to viewTrash
+            aryImgOut.push(anImg);
+          }
+        });
+
+        callback(null, aryImgOut);
+
+      } else {
+        callback(util.format("error in viewTrash with view options '%j' - err: %s - body: %j", view_opts, err, body));
+      }
+    }
+  );
+} // end viewTrash
 
 
 // export all functions in pub map
