@@ -59,7 +59,7 @@ describe('ImageService Testing Trash', function () {
       var imagesToSendToTrashNames = ["eastwood.png", "hopper.png"];
 
 
-      before(function (done) {
+      beforeEach(function (done) {
 
         //create test database
         dbMan.startDatabase(options);
@@ -159,14 +159,43 @@ describe('ImageService Testing Trash', function () {
 
       });
 
+
+      /**
+       * Each "it" function is a test case
+       * The done parameter indicates that the test is asynchronous
+       */
+      it("After emptying the trash, the VIEW trash should not return any document", function (done) {
+
+        imageService.emptyTrash(function(err){
+          if (err) {
+            log.error("Error while emptying trash", err);
+            done(err);
+          } else {
+
+            imageService.viewTrash(null, function (err, docs) {
+                if (err) {
+                  done(err);
+                }
+                expect(docs).to.have.length(0);
+                done();
+
+              });
+          }
+        });
+
+      });
+
+      afterEach(function (done) {
+        dbMan.destroyDatabase(options, done);
+      });//end after
     }
   );
 
 
-  after(function (done) {
+  /*after(function (done) {
     dbMan.destroyDatabase(options, done);
   });//end after
-
+*/
 
 });//end describe
 

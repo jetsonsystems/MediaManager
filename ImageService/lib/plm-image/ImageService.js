@@ -1966,6 +1966,68 @@ function viewTrash(options, callback) {
 } // end viewTrash
 
 
+exports.emptyTrash = emptyTrash;
+
+/**
+ * TODO: Move this method to a StorageService
+ *
+ * @param callback
+ */
+function emptyTrash(callback){
+
+  var db = priv.db();
+
+  var imagesToDelete = {docs:[]};
+
+  async.waterfall(
+    [
+      //Retrieve the images to modify
+      function(next) {
+
+        log.trace("Attempting to empty trash ...");
+
+        viewTrash(null, function (err, docs) {
+          if (err) {
+            callback(err);
+          } else {
+            _.forEach(docs, function (doc) {
+              //To delete a document set the _deleted member to true
+              var docToDestroy = {};
+              docToDestroy._id = doc._id;
+              docToDestroy._rev = doc._rev;
+              docToDestroy._deleted = true;
+
+              imagesToDelete.docs.push(docToDestroy);
+            });
+            next();
+          }
+        });
+
+      },
+
+
+      function(next) {
+
+        db.bulk(imagesToDelete, next);
+
+      }
+
+    ],
+
+    // called after waterfall completes
+    function(err) {
+      if (err) {
+        log.error("Error while emptying trash", err);
+        callback(err);
+      } else {
+        log.info("Successfully emptied trash");
+        callback(null);
+      }
+    }
+  );
+
+} // end emptyTrash
+
 // export all functions in pub map
 /*
 for (var func in pub) {
