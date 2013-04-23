@@ -271,6 +271,23 @@ var Resource = new Class({
     this.name = path ? _.last(path.split('/')) : options.resourceName ? options.resourceName : "";
     this.instName = options && _.has(options, 'instName') ? options.instName : this.name;
     this.subResource = options && _.has(options, 'subResource') ? options.subResource : null;
+
+    //
+    //  fullPath: Return a full path -
+    //    this.path [... + '/' + this.subResource.path]
+    //
+    this.fullPath = function() {
+      var fp = this.path ? this.path : "";
+      var sr = this.subResource;
+      while (sr) {
+        if (sr.path) {
+          fp = fp + sr.path;
+        }
+        sr = sr.subResource;
+      }
+      return fp;
+    };
+
     //
     //  requestPath: Returns the path to use for a particular request.
     //    Maybe a string or regex. When a resource instance is referenced
