@@ -10,6 +10,8 @@ var url = require('url');
 var config = require('MediaManagerAppConfig');
 var mmApi = require('MediaManagerApi/lib/MediaManagerApiCore')(config);
 var Router = require('browserver-router');
+var resources = require('./ApiResources');
+var apiWorkers = require('./ApiWorkers');
 
 var staticRoutesPat = /^\/(css)|(js)|(imgs)|(fonts)|(html)\/*$/;
 var handleWithAppJsRouter = function(req) {
@@ -89,11 +91,12 @@ var MediaManagerRouter = function(appjs, routes) {
     this.router = new Router(routes);
     logger.info('MediaManagerAppSupport/lib/MediaManagerRouter.initialize: router created!');
 
-    _.each(_.values(this.resources), function(resource) {
+    _.each(_.values(resources), function(resource) {
 
       //
       //  Collection routes:
       //
+      logger.info('MediaManagerAppSupport/lib/MediaManagerRouter.initialize: setting up collection routing for request path - ' + resource.requestPath('collection'));
       that.router.route(resource.requestPath('collection'), {
 
         //
@@ -121,8 +124,10 @@ var MediaManagerRouter = function(appjs, routes) {
             options.attr = undefined;
             delete options.attr;
           }
-          resource.doRequest('POST',
-                             options);
+          //
+          // Pass off the request to apiWorkers.doRequest:
+          //
+          apiWorkers.doRequest(resource, 'POST', options);
         },
         //
         //  index route (GET resource.path)
@@ -140,12 +145,13 @@ var MediaManagerRouter = function(appjs, routes) {
           if (_.has(parsedUrl, 'query')) {
             options['query'] = parsedUrl.query;
           }
-          resource.doRequest('GET', options);
+          apiWorkers.doRequest(resource, 'GET', options);
         }
       });
       //
       //  Singular instance routes:
       //
+      logger.info('MediaManagerAppSupport/lib/MediaManagerRouter.initialize: setting up singular instance routing for request path - ' + resource.requestPath('instance'));
       that.router.route(resource.requestPath('instance'), {
 
         //
@@ -155,39 +161,14 @@ var MediaManagerRouter = function(appjs, routes) {
 
           logger.info('MediaManagerAppSupport/lib/MediaManagerRouter.js: Routing GET instance request path - ' + resource.requestPath('instance'));
 
-          resource.doRequest('GET',
-                             {id: req.params[0],
-                              onSuccess: that.genOnSuccess(resource, req, res),
-                              onError: that.genOnError(resource, req, res)});
+          apiWorkers.doRequest(resource,
+                               'GET',
+                               {id: req.params[0],
+                                onSuccess: that.genOnSuccess(resource, req, res),
+                                onError: that.genOnError(resource, req, res)});
         }
       });
     });
-  };
-
-  var pathPrefix = '/api/media-manager/v0';
-
-  this.resources = {
-
-    Images: new mmApi.Images('/images', 
-                             {instName: 'image',
-                              pathPrefix: pathPrefix}),
-    Importers: new mmApi.Importers('/importers', 
-                                   {instName: 'importer',
-                                    pathPrefix: pathPrefix}),
-    ImportersImages: new mmApi.ImportersImages(null,
-                                               {pathPrefix: pathPrefix,
-                                                subResource: new mmApi.Importers(
-                                                  '/importers', 
-                                                  {instName: 'importer',
-                                                   subResource: new mmApi.Images(
-                                                     '/images', 
-                                                     {instName: 'image'})
-                                                  })
-                                               }),
-    StorageSynchronizers: new mmApi.StorageSynchronizers('/storage/synchronizers',
-                                                         {instName: 'synchronizer',
-                                                          pathPrefix: pathPrefix})
-
   };
 
   this.genOnSuccess = function(resource, req, res) {

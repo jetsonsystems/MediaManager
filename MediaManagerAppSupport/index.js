@@ -16,15 +16,18 @@
 //        localStorageReady: Local storage is ready to use.
 //
 
+var path = require('path');
 var _ = require('underscore');
 var log4js = require('log4js');
 var retry = require('retry');
+var Worker = require('webworker');
 var config = require('MediaManagerAppConfig');
 var storage = require('./lib/storage.js');
 var mmApi = require('MediaManagerApi/lib/MediaManagerApiCore')(config);
 var mmStorageModule = require('MediaManagerStorage');
 var mmStorage = mmStorageModule(config.db, {singleton: true});
 var MediaManagerRouter = require('./lib/MediaManagerRouter.js');
+var AppServWorkerMessages = require('./lib/AppServWorkerMessages.js');
 
 var EventEmitter = require('events').EventEmitter;
 
@@ -44,15 +47,16 @@ var init = function(appjs, routes) {
 
   app.mediaManagerRouter = new MediaManagerRouter(appjs, routes);
 
+  app.servWorker = undefined;
+
   app.storage = {
     //
     //  readyState constants:
     //
     UNINITIALIZED: 0,
     DATA_STORE_READY: 1,
-    CHANGES_FEED_CREATED: 2,
-    INIT_ERROR: 3,
-    READY: 4,
+    INIT_ERROR: 2,
+    READY: 3,
 
     readyState: undefined,
     //
@@ -69,14 +73,12 @@ var init = function(appjs, routes) {
       initial: null,
       current: null
     },
-    dataStore: null,
-    changesFeed: null
+    dataStore: null
   };
 
   app.storage.readyState = app.storage.UNINITIALIZED;
 
   var dataStore = null;
-  var changesFeed = null;
 
   try {
     dataStore = storage.init(config);
@@ -91,14 +93,6 @@ var init = function(appjs, routes) {
 
   if (app.storage.readyState != app.storage.INIT_ERROR) {
     try {
-      changesFeed = new mmApi.StorageChangesFeed('/storage/changes-feed',
-                                                 {instName: 'changes-feed',
-                                                  pathPrefix: '/v0' })
-      app.storage.changesFeed = changesFeed;
-      app.storage.readyState = app.storage.CHANGES_FEED_CREATED;
-
-      log.info('MediaManagerAppSupport: Changes feed created...');
-
       //
       //  We need to get DB info initialized,. and once that happens,
       //  the changes feed can be 'created' with the DB sequence ID
@@ -134,13 +128,25 @@ var init = function(appjs, routes) {
 
           try {
             //
-            //  Do a create request on the changes feed to start monitoring it.
+            //  Get the appServWorker going.
             //
-            log.info('MediaManagerAppSupport: Connecting to changes feed, w/ sequence ID - ' + app.storage.info.initial.updateSeq + ', app id - ' + app.config.app.id);
-
-            app.storage.changesFeed.create({}, 
-                                           { query: { since: currentInfo.updateSeq,
-                                                      exclude_app_id: app.config.app.id } });
+            var workerPath = path.join(__dirname, 'lib/AppServWorker.js');
+            log.info('MediaManagerAppSupport: Starting AppServWorker with path - ' + workerPath);
+            app.servWorker = new Worker(workerPath);
+            app.servWorker.postMessage({
+              "type": AppServWorkerMessages.LOCAL_STORAGE_READY,
+              "appId": config.app.id,
+              "dbInfo": {
+                "dbName": currentInfo.dbName,
+                "docCount": currentInfo.docCount,
+                "updateSeq": currentInfo.updateSeq,
+                "diskSize": currentInfo.diskSkize
+              }
+            });
+            app.servWorker.onexit = function(c, s) {
+              log.error('MediaManagerAppSupport: AppServWorker exited, code - ' + c + ', signal - ' + s);
+              app.emit('appServWorkerExit');
+            };
             app.storage.readyState = app.storage.READY;
             log.info('MediaManagerAppSupport: Storage now ready to be used...');
             app.emit('localStorageReady');
@@ -177,6 +183,9 @@ var init = function(appjs, routes) {
   }
       
   app.shutdown = function() {
+    if (this.servWorker) {
+      this.servWorker.terminate();
+    }
     if (dataStore) {
       dataStore.shutdown();
     }

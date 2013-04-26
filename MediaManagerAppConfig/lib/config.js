@@ -62,6 +62,13 @@ var config = Object.create({}, {
     value : _config.db,
     writable: true
   },
+  services: {
+    //
+    // DO NOT mess with this.
+    //
+    value: _config.services,
+    writable: false
+  },
   logging: {
     //
     // DO NOT mess with this.
