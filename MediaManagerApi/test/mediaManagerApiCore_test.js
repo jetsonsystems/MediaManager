@@ -4,26 +4,36 @@ var async = require('async')
   , restify = require('restify')
   , imageService = require('ImageService')
   , testDataManager = require('./TestDataManager')
-  , media_manager_api_server = require("./media_manager_api_server")
+  , media_manager_api_server = require("../media_manager_api_server")
   , chai = require('chai')
   , expect = chai.expect
   , should = require("should")
   , _ = require('underscore');
 
+var config = {
+  db: {
+    database: "plm-media-manager-dev0",
+    local: {
+      host: "localhost",
+      port: 5984
+    }
+  }
+};
+
+var serverPort = 9000;
 
 var dbOptions = {
-  host:"localhost", port:5984, dbName:"plm-media-manager-dev0", dbType:'couchdb'
-}
+  host:config.db.local.host,
+  port:config.db.local.port,
+  dbName:config.db.database,
+  dbType:'couchdb'
+};
 
 
 imageService.config.db.host = dbOptions.host;
 imageService.config.db.port = dbOptions.port;
 imageService.config.db.name = dbOptions.dbName;
 
-
-var serverOptions = {
-  host:"localhost", port:9000, dbOptions:dbOptions
-};
 
 testDataManager.setDBOptions(dbOptions);
 testDataManager.setImageService(imageService);
@@ -32,7 +42,7 @@ testDataManager.setImageService(imageService);
 // init the test client
 var client = restify.createJsonClient({
   version:'*',
-  url:'http://' + serverOptions.host + ':' + serverOptions.port
+  url:'http://localhost:' + serverPort
 });
 
 function initializeTestServer(options, done) {
@@ -56,7 +66,7 @@ function initializeTestServer(options, done) {
     //start server
     function startTestServer(callback) {
 
-      media_manager_api_server.startServer(serverOptions, function (err, result) {
+      media_manager_api_server.startServer(serverPort,config, function (err, result) {
           if (err) {
             console.log(err);
           }

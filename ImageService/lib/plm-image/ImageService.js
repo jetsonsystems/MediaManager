@@ -1881,7 +1881,8 @@ function sendToTrash(oidArray,callback){
         callback(err);
       } else {
         log.info("Successfully sent images to trash");
-        callback(null);
+        var theSentToTrashImages = imagesToModify;
+        callback(null,theSentToTrashImages);
       }
     }
   );
