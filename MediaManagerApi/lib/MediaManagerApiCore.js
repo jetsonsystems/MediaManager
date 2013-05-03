@@ -41,6 +41,7 @@ var imageService = require('ImageService');
 var imageServicePackage = require('ImageService/package.json');
 var log4js = require('log4js')
 ,util  = require('util');
+var async = require('async');
 
 var log = log4js.getLogger('plm.MediaManagerApi');
 
@@ -271,6 +272,23 @@ var Resource = new Class({
     this.name = path ? _.last(path.split('/')) : options.resourceName ? options.resourceName : "";
     this.instName = options && _.has(options, 'instName') ? options.instName : this.name;
     this.subResource = options && _.has(options, 'subResource') ? options.subResource : null;
+
+    //
+    //  fullPath: Return a full path -
+    //    this.path [... + '/' + this.subResource.path]
+    //
+    this.fullPath = function() {
+      var fp = this.path ? this.path : "";
+      var sr = this.subResource;
+      while (sr) {
+        if (sr.path) {
+          fp = fp + sr.path;
+        }
+        sr = sr.subResource;
+      }
+      return fp;
+    };
+
     //
     //  requestPath: Returns the path to use for a particular request.
     //    Maybe a string or regex. When a resource instance is referenced
@@ -312,7 +330,7 @@ var Resource = new Class({
         }
       };
       _doRequestPath(requestType, this);
-      if ((requestType === 'create') || (requestType === 'index') || (requestType === 'collection')) {
+      if ((requestType === 'create') || (requestType === 'index') || (requestType === 'update') || (requestType === 'collection')) {
         _requestPath = _requestPath + '\\/?';
       }
       return new RegExp('^' + _requestPath + '$');
@@ -527,6 +545,101 @@ var Images = new Class({
     });
     return this; 
   },
+
+  update: function(id, attr, options) {
+    log.info('Images.read: Updating for path - %s, id - %s', this.path, id);
+    var that = this;
+    var status = 200;
+    var theImage = null;
+    var wasDeleted = false;
+    async.waterfall([
+
+
+      // check if the image is sent to trash
+      function(next){
+        if(options && options.query){
+          if(options.query.inTrash==="true"){
+            wasDeleted = true;
+            imageService.sendToTrash([id.replace('$', '')],function(err, theSentToTrashImages){
+              if (err) {
+                log.error('Images.update.imageService.sendToTrash: error from image service - %s', err);
+                status = 500;
+                options.errorCode = -1;
+                options.errorMessage = err;
+              }else{
+                theImage = theSentToTrashImages[0];
+              }
+              next();
+            });
+          }else{
+            next();
+          }
+        } else{
+          next();
+        }
+
+      },
+      //1) retrieve the image
+      function(next){
+        if(!wasDeleted){
+          imageService.show(id.replace('$', ''),null,function(err,imgOut){
+
+            if (err) {
+              log.error('Images.update.show: error from image service - %s', err);
+              status = 500;
+              options.errorCode = -1;
+              options.errorMessage = err;
+            }else{
+             theImage=imgOut;
+            }
+            next();
+          });
+        }else{
+          next();
+        }
+      },
+      //2) update the fields
+      function(next){
+        if(!wasDeleted){
+        //TODO set fields
+        }else{
+          next();
+        }
+
+
+      },
+
+      //3) call saveOrUpdate
+      function(next){
+        if(!wasDeleted){
+          imageService.saveOrUpdate(
+          {"doc":theImage, "tried":0},  function (err, result) {
+            if (err) {
+              log.error('Images.update.saveOrUpdate: error from image service - %s', err);
+              status = 500;
+              options.errorCode = -1;
+              options.errorMessage = err;
+            }
+              next();
+            });
+        }
+        else{
+          next();
+        }
+      }
+
+    ], function () {
+
+      log.info('Images.update: invoking callback with status - %s, path - %s, id - %s', status, that.path, id);
+      var callbackOptions = options ? _.clone(options) : {};
+      callbackOptions['isInstRef'] = true;
+      that.doCallbacks(status, theImage, callbackOptions);
+      return that;
+    });
+
+  },
+
+
 
   //
   //  transformRep: ImageService returns data which is transformed according
