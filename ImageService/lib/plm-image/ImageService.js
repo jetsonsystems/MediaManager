@@ -1,6 +1,6 @@
 'use strict';
-var  
-   _     = require('underscore')
+var
+  _     = require('underscore')
   ,strUtils = require('underscore.string')
   ,async = require('async')
   ,cs    = require('./checksum')
@@ -17,7 +17,7 @@ var
   ,step  = require('step')
   ,util  = require('util')
   ,uuid  = require('node-uuid')
-;
+  ;
 
 
 var config = {
@@ -71,7 +71,7 @@ var
   ,VIEW_BY_TAG               = 'by_tag'
   ,VIEW_TRASH                = 'by_trash'
 
-;
+  ;
 
 // a hashmap, keyed by oid, that caches importBatch objects while they are being processed
 priv.batch_in_process = {};
@@ -82,12 +82,12 @@ priv.markBatchInit = function (anImportBatch) {
 };
 
 /*
-priv.markBatchStarted = function (anImportBatch) {
-  anImportBatch.setStartedAt(new Date());
-};
-*/
+ priv.markBatchStarted = function (anImportBatch) {
+ anImportBatch.setStartedAt(new Date());
+ };
+ */
 
-priv.markBatchComplete = function (anImportBatch) 
+priv.markBatchComplete = function (anImportBatch)
 {
   if (_.isObject(anImportBatch)) {
     if (_.has(priv.batch_in_process, anImportBatch.oid)) {
@@ -147,9 +147,9 @@ exports.findVersion = function findVersion(oid, callback) {
     },
     function (err, body, hdr) {
       if (err) {
-        if (err.scope === 'couch' && err.status_code === 404) { 
-        // there is no doc with that id, return null
-        callback(null); return;
+        if (err.scope === 'couch' && err.status_code === 404) {
+          // there is no doc with that id, return null
+          callback(null); return;
         } else { throw err;} // some other error
       }
       log.info("Version of image '%s' is: %s", oid, hdr.etag);
@@ -159,7 +159,7 @@ exports.findVersion = function findVersion(oid, callback) {
 };
 
 
-/** 
+/**
  * The main method for saving and processing an image
  */
 function save(anImgPath, options, callback)
@@ -169,7 +169,7 @@ function save(anImgPath, options, callback)
       function(next) {
         parseAndTransform(anImgPath, options, next);
       },
-      
+
       function(aryPersist, next) {
         persistMultiple(aryPersist, null, next);
       },
@@ -184,7 +184,7 @@ function save(anImgPath, options, callback)
       }
     ],
     function(err, theSavedImage) {
-      if (err) { 
+      if (err) {
         var errMsg = util.format("Error occurred while saving image '%s': '%s'", anImgPath, err);
         log.error(errMsg);
         if (_.isFunction(callback)) { callback(errMsg); }
@@ -206,18 +206,18 @@ exports.save = save;
 
 
 /*
- * When provided with an image path, an optional stream, and a set of transforms, 
+ * When provided with an image path, an optional stream, and a set of transforms,
  * instantiate a gm object, and pass it to parseImage for each variant
  * Invokes the callback with an array of ImageData/Stream to persist
  */
-function parseAndTransform(anImgPath, options, callback) 
+function parseAndTransform(anImgPath, options, callback)
 {
   if (!_.isFunction(callback)) throw "parseAndTransform is not very useful if you don't provide a valid callback";
 
-  var saveOriginal = options && _.has(options, 'saveOriginal') ? 
+  var saveOriginal = options && _.has(options, 'saveOriginal') ?
     options.saveOriginal : true;
 
-  var variants     = options && _.has(options, 'desiredVariants') && _.isArray(options.desiredVariants) ? 
+  var variants     = options && _.has(options, 'desiredVariants') && _.isArray(options.desiredVariants) ?
     options.desiredVariants : [];
 
   var batchId = options && _.isString(options.batch_id) ? options.batch_id : '' ;
@@ -225,9 +225,9 @@ function parseAndTransform(anImgPath, options, callback)
   // var variant = variants[0];
 
   /*
-  var imgStream = (_.isObject(anImgStream)) ?  
-    anImgStream : fs.createReadStream(anImgPath);
-  */
+   var imgStream = (_.isObject(anImgStream)) ?
+   anImgStream : fs.createReadStream(anImgPath);
+   */
   // var imgStream = fs.createReadStream(anImgPath);
 
   var aryPersist = [];
@@ -255,12 +255,12 @@ function parseAndTransform(anImgPath, options, callback)
         log.debug("No variants to process for '%s'", anImgPath);
         callback(null, aryPersist);
       }
-      else { 
+      else {
 
         var iterator = function(variant, next) {
           // variant.orig_id = origOid;
           transform(theImgMeta, variant, function(err, theVariantData, theVariantPath) {
-            if (err) { next(err); } 
+            if (err) { next(err); }
             log.trace('theVariantPath is: %s', theVariantPath);
             aryPersist.push({ data: theVariantData, stream: theVariantPath, isTemp: true });
             next();
@@ -279,7 +279,7 @@ function parseAndTransform(anImgPath, options, callback)
 
 
 /** returns theImgData, theImgStream */
-function transform(anImgMeta, variant, callback) 
+function transform(anImgMeta, variant, callback)
 {
   var gmImg = gm(anImgMeta.path);
   if (log.isDebugEnabled()) { log.debug("Generating variant %j of image '%s'", variant, anImgMeta.path); }
@@ -290,7 +290,7 @@ function transform(anImgMeta, variant, callback)
         if (variant.width || variant.height) {
           var newSize = img_util.fitToSize(anImgMeta.size, { width: variant.width, height: variant.height });
           gmImg.resize(newSize.width, newSize.height);
-        } 
+        }
 
         var tmp_file_name = config.workDir + '/plm-' + anImgMeta.oid + '-' + variant.name;
         gmImg.write(tmp_file_name, function(err) {
@@ -301,10 +301,10 @@ function transform(anImgMeta, variant, callback)
       function(aTmpFileName, next){
         parseImage(aTmpFileName, next);
       }
-    ], 
+    ],
 
     // called after waterfall ends
-    function(err, theVariantMeta, theVariantPath){ 
+    function(err, theVariantMeta, theVariantPath){
       if (_.has(variant, 'name')) {
         theVariantMeta.name = variant.name;
       }
@@ -318,7 +318,7 @@ function transform(anImgMeta, variant, callback)
       theVariantMeta.updated_at = anImgMeta.updated_at;
 
       log.debug("Done processing variant '%s' of image '%s': %j", theVariantMeta.name, anImgMeta.name, theVariantMeta);
-      callback(err, theVariantMeta, theVariantPath); 
+      callback(err, theVariantMeta, theVariantPath);
     }
   );
 }  // end transform
@@ -327,10 +327,10 @@ function transform(anImgMeta, variant, callback)
 /*
  * Private method that takes a string path to file system, and:
  *
- * - parses the image, 
+ * - parses the image,
  * - computes its checksum,
- * - instantiates an Image object, and 
- * - invokes callback(err, imgData, imgPath) 
+ * - instantiates an Image object, and
+ * - invokes callback(err, imgData, imgPath)
  *
  * where:
  *
@@ -341,7 +341,7 @@ function transform(anImgMeta, variant, callback)
  * TODO: need a version of this method that returns the gm object so that variants can be generated by
  * re-using the original object
  */
-function parseImage(anImgPath, callback) 
+function parseImage(anImgPath, callback)
 {
   if (!_.isFunction(callback)) throw "parseImage is not very useful if you don't provide a valid callback";
 
@@ -355,7 +355,7 @@ function parseImage(anImgPath, callback)
   step(
     function () {
       log.debug("parsing image file '%s'", anImgPath);
-      // the 'bufferStream: true' parm is critical, as it buffers the file in memory 
+      // the 'bufferStream: true' parm is critical, as it buffers the file in memory
       // and makes it possible to stream the bits repeatedly
       gmImg.identify({bufferStream: true},this);
     },
@@ -379,7 +379,7 @@ function parseImage(anImgPath, callback)
       }
     },
 
-    function (aString) { 
+    function (aString) {
       log.trace("checksum for file '%s' is: %s", anImgPath, aString);
       imageMeta.checksum = aString;
       // log.trace("checksumed image: " + JSON.stringify(imageMeta,null,"  "));
@@ -398,7 +398,7 @@ exports.parseImage = parseImage;
 function persistMultiple(aryPersist, aryResult, callback)
 {
   // handle empty aryPersist
-  if ( !(aryPersist instanceof Array) || aryPersist.length === 0) 
+  if ( !(aryPersist instanceof Array) || aryPersist.length === 0)
   {
     var err = 'persistMultiple cowardly refused to persist an empty array of persist instructions';
     log.error(err);
@@ -409,7 +409,7 @@ function persistMultiple(aryPersist, aryResult, callback)
   }
 
   // if a results array has not been passed to us, create a new one;
-  // passing a result array is helpful for aggregating the results 
+  // passing a result array is helpful for aggregating the results
   // of multiple invocations of this method
   if (!_.isArray(aryResult)) aryResult = [];
 
@@ -446,17 +446,17 @@ function persistMultiple(aryPersist, aryResult, callback)
  *
  * This should be moved to a DAO class that is couchdb-specific
  */
-function persist(persistCommand, callback) 
+function persist(persistCommand, callback)
 {
-  var 
-  db = nano(
-    {
-      url: 'http://' + config.db.host + ':' + config.db.port + '/' + config.db.name,
-      log: nanoLogFunc
-    }
-  )
-  ,imgData   = persistCommand.data
-  ;
+  var
+    db = nano(
+      {
+        url: 'http://' + config.db.host + ':' + config.db.port + '/' + config.db.name,
+        log: nanoLogFunc
+      }
+    )
+    ,imgData   = persistCommand.data
+    ;
 
   step(
 
@@ -484,14 +484,14 @@ function persist(persistCommand, callback)
         //log.trace("stream: %s", util.inspect(imgStream));
 
         try {
-        imgStream.pipe(
-          db.attachment.insert(
-            imgData.oid,
-            attachName,
-            null,
-            'image/'+imgData.format,
-            {rev: imgData._storage.rev}, this)
-        );  
+          imgStream.pipe(
+            db.attachment.insert(
+              imgData.oid,
+              attachName,
+              null,
+              'image/'+imgData.format,
+              {rev: imgData._storage.rev}, this)
+          );
         }
         catch(e) { log.error("error while streaming: %j", e);}
       } else {
@@ -506,13 +506,13 @@ function persist(persistCommand, callback)
 
       // clean-up work directory if this was a temp file generated in the workDir
       if ( persistCommand.isTemp && _.isString(persistCommand.stream) ) {
-        fs.unlink(persistCommand.stream, function(err) { 
-          if (err) { log.warn("error when deleting '%s' from workDir: %j", persistCommand.stream, err); } 
+        fs.unlink(persistCommand.stream, function(err) {
+          if (err) { log.warn("error when deleting '%s' from workDir: %j", persistCommand.stream, err); }
         });
       }
 
-      if (err) { 
-        if (_.isFunction(callback)) callback(err); 
+      if (err) {
+        if (_.isFunction(callback)) callback(err);
         log.error("Error while running persist command %j", persistCommand);
       } else {
         // imgData._storage.rev = body.rev;
@@ -541,19 +541,19 @@ function show(oid,options, callback)
   var imgOut = {};
 
   // the view below sorts images by:
-  //  - oid, 
-  //  - whether they are originals or variants, and 
+  //  - oid,
+  //  - whether they are originals or variants, and
   //  - width
   //
   // this returns rows in the following order:
   // - original first
   // - variants in ascending size
   db.view(IMG_DESIGN_DOC, VIEW_BY_OID_WITH_VARIANT,
-    { 
+    {
       startkey: [oid, 0, 0]      // 0 = original -  0 = min width
       ,endkey:  [oid, 1, 999999] // 1 = variant  -  999999 = max width
       ,include_docs: true
-    }, 
+    },
     function(err, body) {
       log.debug("Retrieving image '%s' and its variants using view '%s'", oid, VIEW_BY_OID_WITH_VARIANT);
 
@@ -564,7 +564,7 @@ function show(oid,options, callback)
 
 
 
-      if (!err) 
+      if (!err)
       {
         // if (log.isTraceEnabled()) { log.trace("by_oid_w_variant result: %j", body); }
         if (body.rows.length === 0) {
@@ -616,7 +616,7 @@ exports.index = function index(options,callback)
 {
   log.debug("Calling 'index' with options: %j", util.inspect(options));
 
-  // TODO: 
+  // TODO:
   //  - The use cases below need to be expanded
   //  - Need to define paging options, and paging impl
 
@@ -629,10 +629,16 @@ exports.index = function index(options,callback)
       var filterByTag = options.filter;
 
       exports.findByTags(filterByTag, options,callback);
-    }
+    }else
+    if(options.trashState){
+      if(options.trashState ==='in'){
+        exports.viewTrash(options,callback);
+      }
 
+
+    }
   }
-  else {
+  else if (_.isEmpty(options)){
     // TODO: this is temporary, returns all images sorted by creation time
     exports.findByCreationTime( null, callback, options);
   }
@@ -649,7 +655,7 @@ exports.index = function index(options,callback)
  *
  *   showMetadata: false by default, set to true to enable display of Image.metadata_raw
  */
-exports.findByCreationTime = function findByCreationTime( criteria, callback, options ) 
+exports.findByCreationTime = function findByCreationTime( criteria, callback, options )
 {
   log.debug("findByCreationTime criteria: %j ", criteria);
 
@@ -685,7 +691,7 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
   db.view(IMG_DESIGN_DOC, VIEW_BY_CTIME, view_opts,
     function(err, body) {
       if (!err) {
-        // TODO: factor this out into a function that maps the body.rows collection 
+        // TODO: factor this out into a function that maps the body.rows collection
         // into the proper Array of Image originals and their variants
         for (var i = 0; i < body.rows.length; i++) {
           var docBody = body.rows[i].doc;
@@ -696,13 +702,13 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
           // Assign a URL to the image. Note, this is temporary as the images
           // will eventually move out of Couch / Touch DB.
           anImg.url = priv.getImageUrl(docBody);
-          
+
           if ( anImg.isOriginal()) {
             imgMap[anImg.oid] = anImg;
             aryImgOut.push(anImg);
           } else {
             // if the image is a variant, add it to the original's variants array
-            if (_.isObject(imgMap[anImg.orig_id])) 
+            if (_.isObject(imgMap[anImg.orig_id]))
             {
               if (log.isTraceEnabled()) {
                 log.trace('Variant w/ name - %s', anImg.name);
@@ -727,23 +733,23 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
 /**
  * This method converts an array of image docs returned by couch, into an array of images with
  * variants. The couch documents are assumed to be ordered a sequence of original images and their
- * variants: 
+ * variants:
  *   [Orig, Var, Var..., Orig, Var, Var..., ]
  * it returns:
  *   [Orig, Orig,...] with the Orig.variants field populated
  */
-function convertImageViewToCollection(docs, options) 
+function convertImageViewToCollection(docs, options)
 {
   var aryImgOut = [];
   var opts = _.isObject(options) ? options : {};
   var imgMap = {}; // holds a hash of original images that we come across
 
-  for (var i = 0; i < docs.length; i++) 
+  for (var i = 0; i < docs.length; i++)
   {
     // log.trace(util.inspect(docs[i]));
     var doc = docs[i].doc;
 
-    if ( doc.class_name === 'plm.Image') 
+    if ( doc.class_name === 'plm.Image')
     {
       var anImg = new Image(doc);
       if (opts.showMetadata) { anImg.exposeRawMetadata = true; }
@@ -751,7 +757,7 @@ function convertImageViewToCollection(docs, options)
       // Assign a URL to the image. Note, this is temporary as the images
       // will eventually move out of Couch / Touch DB.
       anImg.url = priv.getImageUrl(doc);
-      
+
       if ( anImg.isOriginal()) {
         imgMap[anImg.oid] = anImg;
         aryImgOut.push(anImg);
@@ -847,7 +853,7 @@ function importBatchFs(target_dir, callback, options)
         if (importBatch) {
           var errMsg = util.format("Error while processing importBatchFs '%s': %s", importBatch.oid,err);
         }
-      } 
+      }
     }
   );
 }
@@ -859,7 +865,7 @@ exports.importBatchFs = importBatchFs;
  * collects saved images or errors, as the case may be
  *
  * options:
- *   - retrieveBatchOnSave: false by default, 
+ *   - retrieveBatchOnSave: false by default,
  *     if true, performs an importBatchShow(oid) after saving the batch
  */
 function saveBatch(importBatch, options, callback)
@@ -874,7 +880,7 @@ function saveBatch(importBatch, options, callback)
   importBatch.setStartedAt(new Date());
   log.debug("Saving images in importBatch '%s'", importBatch.path);
 
-  // The literal integer in the function call below limits the number of concurrent 
+  // The literal integer in the function call below limits the number of concurrent
   // processes that are spawned to save the import batch.  There is a noticeable increase in
   // throughput when increasing this number from 1 to 3.  Beyond that, the load of the system
   // increases substantially without a further increase in throughput. Mileage may vary on your
@@ -929,16 +935,16 @@ function saveBatch(importBatch, options, callback)
  * Retrieves an importBatch by oid
  *
  * options:
- *   includeImages: 
+ *   includeImages:
  *     true by default, if true returns all images with variants that are part of the batch
  *     if false, returns only the batchImport metadata
- *   
+ *
  */
 function importBatchShow(oid, options, callback) {
 
   var batchOut = {};
 
-  if (_.isObject(priv.batch_in_process[oid])) 
+  if (_.isObject(priv.batch_in_process[oid]))
   {
     batchOut = priv.batch_in_process[oid];
     log.info("Retrieved importBatch with oid '%s' from in-process cache: %j", oid, batchOut);
@@ -954,13 +960,13 @@ function importBatchShow(oid, options, callback) {
   var view = VIEW_BATCH_BY_OID_W_IMAGE;
 
   // view keys have the format:
-  // batchOid, 
+  // batchOid,
   // imageOid (or "0" for a batch record)
   // 0 = batch, 1 = original, 2 = variant
   var view_opts = {
-    //startkey: [oid,null,0,0]  
+    //startkey: [oid,null,0,0]
     //,endkey:  [oid,{},2,0]
-    startkey: [oid,null]  
+    startkey: [oid,null]
     ,endkey:  [oid,{}]
     ,include_docs: true
   };
@@ -973,7 +979,7 @@ function importBatchShow(oid, options, callback) {
         var errMsg = util.format("error in importBatchShow(%s): %j", oid, err);
         log.error(errMsg);
         callback(errMsg);
-      } 
+      }
       else
       {
         log.trace("view %s returned %s rows: %j", view, body.rows.length,body);
@@ -1012,10 +1018,10 @@ exports.importBatchShow = importBatchShow;
  */
 function importBatchFindRecent(N, options, callback) {
   var db = priv.db();
-  var aryBatchOut = []; // 
+  var aryBatchOut = []; //
   var opts = _.isObject(options) ? options : {};
   var view = VIEW_BATCH_BY_CTIME;
-  
+
   var view_opts = {
     descending: true
     ,include_docs: true
@@ -1068,7 +1074,7 @@ exports.importBatchFindRecent = importBatchFindRecent;
  * Given an array of import batches, retrieves the images and variants imported during that batch,
  * and adds them to ImportBatch.images
  */
-function importBatchRetrieveImages(aryBatch, options, callback) 
+function importBatchRetrieveImages(aryBatch, options, callback)
 {
   var aryBatchOut = [];
   log.debug("Populating images for collection of batches: %j", aryBatch);
@@ -1097,25 +1103,25 @@ function importBatchRetrieveImages(aryBatch, options, callback)
 
 
 /**
- * Recurses inside a folder and returns a tuple 
+ * Recurses inside a folder and returns a tuple
  *   {path: "target_dir/someImage", format: "jpg"}
  * for all the images that it finds underneath the folder;
  * TODO: add a parameter to limit the recursion level
  */
-function collectImagesInDir(target_dir, callback) 
+function collectImagesInDir(target_dir, callback)
 {
   var aryFile  = [];
   var aryImage = [];
 
-  // This inner function is called further below on each file under the target directory 
+  // This inner function is called further below on each file under the target directory
   // to determine whether it is an image and to determine its mime type
   function collectImage(file, next) {
     // log.trace("collecting %s", file);
     mime(file, function(err, mimeType) {
-      if (err) { 
-        log.warn("error while collecting images: %s", err); 
-        next(err); 
-        return; 
+      if (err) {
+        log.warn("error while collecting images: %s", err);
+        next(err);
+        return;
       }
 
       // converts a string like 'image/jpg' to ['image', 'jpg']
@@ -1136,7 +1142,7 @@ function collectImagesInDir(target_dir, callback)
       function(next) {
         log.trace("Diving into %s", target_dir);
         dive(target_dir, {directories: false},
-          function(err, file) { 
+          function(err, file) {
             if (err) { log.warn("error while diving through '%s': %s", target_dir, err); }
             else {aryFile.push(file);}
           },
@@ -1146,17 +1152,17 @@ function collectImagesInDir(target_dir, callback)
 
       function(next) {
         log.debug("found %s files total under '%s'", aryFile.length, target_dir);
-        
+
         // calling 'mime' concurrently can lead to a 'too many open files' error
         // so we limit the number of concurrent calls to mime, with the forEachLimit below.
-        // In addition, raising the limit leads to higher system loads, 
+        // In addition, raising the limit leads to higher system loads,
         // with no apparent improvement in performance.
         async.forEachLimit(aryFile, 3, collectImage, next);
       }
-    ],  
+    ],
 
     // called after waterfall completes
-    function(err) { 
+    function(err) {
       if (err) {
         log.error("Error while collecting images in directory '%s': %s", target_dir, err);
         callback(err);
@@ -1185,7 +1191,7 @@ function saveOrUpdate(options, callback) {
   var db = priv.db();
 
   var theDoc = options.doc,
-      tried = options.tried;
+    tried = options.tried;
 
   if(!strUtils.isBlank(theDoc.oid)){
     theDoc.updated_at = new Date();
@@ -1244,7 +1250,7 @@ function toCouch(image){
 /**
  * Find images by tags. Expects a filter object of the form:
  *
-  var filterByTag = {
+ var filterByTag = {
     "groupOp":"AND",    // OR is also allowed
     "rules":[
       {
@@ -1288,7 +1294,7 @@ function findByTags(filter, options, callback) {
   if (_.isObject(filter)) {
     view_opts.keys = _.pluck(filter.rules, 'data');
   }else {
-     throw "Invalid Argument Exception: findByTags does not understand filter argument:: '" + filter + "'";
+    throw "Invalid Argument Exception: findByTags does not understand filter argument:: '" + filter + "'";
   }
 
 
@@ -1508,7 +1514,7 @@ function tagsReplace(oidArray,oldTags, newTags,callback){
           }
           next();
 
-      });
+        });
 
       }
 
@@ -1771,12 +1777,12 @@ priv.getImageUrl = function(doc) {
  * 5 Seconds
  * 6 Millis
  */
-priv.date_to_array = function date_to_array(aDate) 
+priv.date_to_array = function date_to_array(aDate)
 {
   if (_.isString(aDate)) {
     aDate = moment(aDate, 'YYYYMMDD').toDate();
   }
-  
+
   if (!_.isDate(aDate)) {
     throw "Invalid Argument Exception: argument is not a Date, or unable to parse string argument into a Date";
   }
@@ -1825,7 +1831,7 @@ function sendToTrash(oidArray,callback){
               imagesToModify.push(image);
               //add also the variants
               if(_.isArray(image.variants) ){
-              _.forEach(image.variants, function (variantImage) {
+                _.forEach(image.variants, function (variantImage) {
                   imagesToModify.push(variantImage);
                 });
               }
@@ -1911,7 +1917,7 @@ function viewTrash(options, callback) {
 
   log.trace("viewTrash: connected to db...");
 
-  var aryImgOut = []; 
+  var aryImgOut = [];
   var imgMap    = {}; // temporary hashmap that stores original images by oid
   var anImg     = {};
 
@@ -1967,11 +1973,91 @@ function viewTrash(options, callback) {
 } // end viewTrash
 
 
+/*
+exports.deleteImage = deleteImage;
+**
+ * TODO: Move this method to a StorageService
+ *
+ * This method destroys the images permanently
+ * @param callback
+ *
+function deleteImage(oid, callback){
+
+  var db = priv.db();
+
+  var imagesToDelete = {docs:[]};
+
+  async.waterfall(
+    [
+      //Retrieve the images to modify
+      function(next) {
+
+        log.trace("Attempting to delete image with oid: '%s'", oid);
+
+        show(oid, null, function(err, image) {
+          if (err) { next2(err); }
+          else {
+            imagesToModify.push(image);
+            //add also the variants
+            if(_.isArray(image.variants) ){
+              _.forEach(image.variants, function (variantImage) {
+                imagesToModify.push(variantImage);
+              });
+            }
+            next2();
+          }
+        });
+
+        viewTrash(null, function (err, docs) {
+          if (err) {
+            callback(err);
+          } else {
+            _.forEach(docs, function (doc) {
+              //To delete a document set the _deleted member to true
+              var docToDestroy = {};
+              docToDestroy._id = doc._id;
+              docToDestroy._rev = doc._rev;
+              docToDestroy._deleted = true;
+
+              imagesToDelete.docs.push(docToDestroy);
+            });
+            next();
+          }
+        });
+
+      },
+
+
+      function(next) {
+
+        db.bulk(imagesToDelete, next);
+
+      }
+
+    ],
+
+    // called after waterfall completes
+    function(err) {
+      if (err) {
+        log.error("Error while emptying trash", err);
+        callback(err);
+      } else {
+        log.info("Successfully emptied trash");
+        callback(null);
+      }
+    }
+  );
+
+} // end deleteImage
+*/
+
+
 exports.emptyTrash = emptyTrash;
 
 /**
  * TODO: Move this method to a StorageService
  *
+ * This method destroys the images permanently
  * @param callback
  */
 function emptyTrash(callback){
@@ -2031,9 +2117,9 @@ function emptyTrash(callback){
 
 // export all functions in pub map
 /*
-for (var func in pub) {
-  if(_.isFunction(pub[func])) {
-    exports[func] = pub[func];
-  }
-}
-*/
+ for (var func in pub) {
+ if(_.isFunction(pub[func])) {
+ exports[func] = pub[func];
+ }
+ }
+ */

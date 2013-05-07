@@ -41,15 +41,15 @@ module.exports = new Class (
     this._storage  = {};
 
 
-    if (_.isObject(args) && (args.inTrash)) {
-      this.inTrash = true;
+    if (_.isObject(args) && (args.in_trash)) {
+      this.in_trash = true;
     }
 
   },
 
   // move this method to a makePersistent method
   sendToTrash : function(){
-    this.inTrash = true;
+    this.in_trash = true;
   }
 
 });

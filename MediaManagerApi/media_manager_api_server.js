@@ -171,6 +171,54 @@ function startServer(serverPort, config, callback) {
             return next();
           });
         console.log('MediaManagerApiRouter.initialize: read defined!');
+
+        //
+        //  delete a single instance . route (DELETE resource.path)
+        //
+        pat = resource.requestPath('delete');
+        console.log('MediaManagerApiRouter.initialize: delete, request path to match - ' + pat);
+        server.del(pat,
+          function (req, res, next) {
+            logger.info({
+              event: '__request__',
+              req: req});
+            var options = {
+              req: req,
+              onSuccess: that.genOnSuccess(resource, req, res),
+              onError: that.genOnError(resource, req, res)
+            };
+            var parsedUrl = url.parse(req.url, true);
+            if (_.has(parsedUrl, 'query')) {
+              options['query'] = parsedUrl.query;
+            }
+            resource.doRequest('DELETE',
+              options);
+            return next();
+          });
+
+        //
+        //  delete a collection. route (DELETE resource.path)
+        //
+        pat = resource.requestPath('collection');
+        console.log('MediaManagerApiRouter.initialize: delete a collection, request path to match - ' + pat);
+        server.del(pat,
+          function (req, res, next) {
+            logger.info({
+              event: '__request__',
+              req: req});
+            var options = {
+              req: req,
+              onSuccess: that.genOnSuccess(resource, req, res),
+              onError: that.genOnError(resource, req, res)
+            };
+            var parsedUrl = url.parse(req.url, true);
+            if (_.has(parsedUrl, 'query')) {
+              options['query'] = parsedUrl.query;
+            }
+            resource.doRequest('DELETE',
+              options);
+            return next();
+          });
       });
     };
 

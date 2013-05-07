@@ -1,7 +1,11 @@
 'use strict';
 
 module.exports = {
-   dbHost:'localhost'
-  ,dbPort:5984
-  ,dbName:'plm-media-manager-dev0'
+  db: {
+    database: "plm-media-manager-dev0",
+    local: {
+      host: "localhost",
+      port: 5984
+    }
+  }
 };

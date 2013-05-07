@@ -366,7 +366,8 @@ var Resource = new Class({
         return this.update(id, options.attr, options);
       }
       else if (method === 'DELETE') {
-        return this.update(id, options);
+       // return this.update(id, options);
+        return this.delete(id,options);
       }
     }
     else {
@@ -376,6 +377,9 @@ var Resource = new Class({
       }
       else if (method === 'POST') {
         return this.create(options.attr, options);
+      }
+      else if (method === 'DELETE') {
+        return this.delete(null, options);
       }
     }
   },
@@ -479,6 +483,7 @@ var Images = new Class({
       filesize: 'filesize',
       taken_at: 'taken_at',
       created_at: 'created_at',
+      in_trash : 'in_trash',
       variants: 'variants',
       tags: 'tags'
     };
@@ -501,7 +506,8 @@ var Images = new Class({
       taken_at: 'taken_at',
       created_at: 'created_at',
       variants: 'variants',
-      tags: 'tags'
+      tags: 'tags',
+      in_trash : 'in_trash'
     };
     log.debug('Images.initialize: Desired full form attributes - %s', JSON.stringify(_.values(this._fullFormAttrs)));
   },
@@ -639,7 +645,51 @@ var Images = new Class({
 
   },
 
+  delete: function(id, options) {
+    log.info('Images.delete: Deleting for path - %s',+ this.path);
+    options = options || {};
+    var that = this;
 
+    if(id){//delete single image
+      imageService.deleteImage(id,function(err, result) {
+        var status = 200;
+        if (err) {
+          log.info('Images.delete', 'error from image service - ' + err);
+          status = 500;
+          options.errorCode = -1;
+          options.errorMessage = err;
+        }
+        log.info('Images.delete: invoking callback with status - %s, path - %s', status, that.path);
+        that.doCallbacks(status, result, options);
+      });
+    }
+    else //delete a collection of images
+    if(options && options.query && options.query && options.query.trashState){
+      if(options.query.trashState==="in"){
+        imageService.emptyTrash(function(err, result) {
+          var status = 200;
+          if (err) {
+            log.info('Images.delete', 'error from image service - ' + err);
+            status = 500;
+            options.errorCode = -1;
+            options.errorMessage = err;
+          }
+          log.info('Images.delete: invoking callback with status - %s, path - %s', status, that.path);
+          that.doCallbacks(status, result, options);
+        });
+      }
+
+    }else{
+        status = 400; //Bad Request
+        options.errorCode = -1;
+        options.errorMessage = 'Image.delete Bad request.';
+        that.doCallbacks(status,
+          options.attr,
+          options);
+
+    }
+    return that;
+  },
 
   //
   //  transformRep: ImageService returns data which is transformed according
@@ -1439,28 +1489,40 @@ var StorageChangesFeed = new Class({
 function buildIndexOptions(options){
   var indexOptions = {};
 
-  var filter = {};
-  if(options.query){
-    filter.groupOp = _.has(options.query, 'tag_query_op') ? options.query.tag_query_op : 'OR';
-  }
-  filter.rules = [];
+  if(options.query && options.query.tags){
 
-  if(options.query.tags){
-    var tagsArray =   options.query.tags.split(",");
-    _.each(tagsArray,
-      function(tag) {
-        var rule = {
-          "field":"tags",
-          "op":"eq",
-          "data":tag
-        };
-        filter.rules.push(rule);
-      });
+    var filter = {};
+    indexOptions.filter=filter;
+
+    filter.rules = [];
+
+    filter.groupOp = _.has(options.query, 'tag_query_op') ? options.query.tag_query_op : 'OR';
+
+      var tagsArray =   options.query.tags.split(",");
+      _.each(tagsArray,
+        function(tag) {
+          var rule = {
+            "field":"tags",
+            "op":"eq",
+            "data":tag
+          };
+          filter.rules.push(rule);
+        });
+
+
+    if(_.size(filter.rules) === 0){
+      indexOptions = null;
+    }
   }
-  if(_.size(filter.rules) === 0){
-    return null;
+
+  if(options.query && options.query.trashState){
+    indexOptions.trashState = options.query.trashState;
   }
-  indexOptions.filter=filter;
+
+  if (_.isEmpty(indexOptions)){
+    indexOptions = null;
+  }
+
   return indexOptions;
 }
 

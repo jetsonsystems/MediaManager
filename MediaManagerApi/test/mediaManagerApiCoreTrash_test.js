@@ -23,10 +23,10 @@ var config = {
 var serverPort = 9000;
 
 var dbOptions = {
-  host:config.db.local.host,
-  port:config.db.local.port,
-  dbName:config.db.database,
-  dbType:'couchdb'
+  host: config.db.local.host,
+  port: config.db.local.port,
+  dbName: config.db.database,
+  dbType: 'couchdb'
 };
 
 
@@ -35,15 +35,14 @@ imageService.config.db.port = dbOptions.port;
 imageService.config.db.name = dbOptions.dbName;
 
 
-
 testDataManager.setDBOptions(dbOptions);
 testDataManager.setImageService(imageService);
 
 
 // init the test client
 var client = restify.createJsonClient({
-  version:'*',
-  url:'http://localhost:' + serverPort
+  version: '*',
+  url: 'http://localhost:' + serverPort
 });
 
 function initializeTestServer(options, done) {
@@ -67,7 +66,7 @@ function initializeTestServer(options, done) {
     //start server
     function startTestServer(callback) {
 
-      media_manager_api_server.startServer(serverPort,config, function (err, result) {
+      media_manager_api_server.startServer(serverPort, config, function (err, result) {
           if (err) {
             console.log(err);
           }
@@ -121,104 +120,172 @@ function tearDownTestServer(options, done) {
 describe('service: MediaManagerApi Trash Operations', function () {
 
 
+  describe('Trash tests', function () {
 
-    describe('Trash tests', function () {
+    // test: Send an image to the trash
+    //PUT /images/<image ID>?inTrash=true
 
-        // test: Send an image to the trash
-        //PUT /images/<image ID>?inTrash=true
+    // Recover an image from the trash
+    //PUT /images/<image ID>?inTrash=false
 
-        // Recover an image from the trash
-        //PUT /images/<image ID>?inTrash=false
+    // Delete permanently an image based on its ID
+    // DELETE /images/<image ID>
 
-        // Delete permanently an image based on its ID
-        // DELETE /images/<image ID>
+    // Test  : All images in database must be deleted regardless they are in trash or not
+    // DELETE /images[?trashState=any]
 
-        // Test  : All images in database must be deleted regardless they are in trash or not
-        // DELETE /images[?trashState=any]
-
-
-        //Search by trash state
-        // indicates whether to return (i) images out of trash, or
-        // (ii) all regardless of trash state, or (iii) in trash, respectively.
-        // Defaults to trashState=out when parameter is omitted.
-        // In other words, by default hide images that have been placed in trash.
-        //GET /images?trashState=out|any|in:
+    // Empty trash
+    // DELETE /images[?trashState=in]
 
 
-
-        // test: Send an image to the trash
-        //PUT /images/<image ID>?inTrash=true
-
-        it('Send an image to the trash', function (done) {
-
-            var imagesOids = [];
-
-            async.waterfall([
-
-                //initialize test images without tags
-                function (next) {
-                    var options = {
-                        populateTags:false
-                    };
-
-                    initializeTestServer(options, next);
-                },
-
-                function (next) {
-
-                    // Get the oids of the saved images
-                    testDataManager.getAllImages(
-                        function (err, result) {
-                            if (err) {
-                                console.log(err);
-                            }
-                            else {
-                                imagesOids = _.pluck(result, "oid");
-
-                            }
-                            next(null);
-                        }
-
-                    );
-                }
-            ], function (err, results) {
-
-                //add the tags to the images
-                /*var assignTagsCommand = {
-                    "add":{
-                        "images":imagesOids, "tags":["tag3", "tag2", "tag1"]
-                    }
-                };  */
+    //Search by trash state
+    // indicates whether to return (i) images out of trash, or
+    // (ii) all regardless of trash state, or (iii) in trash, respectively.
+    // Defaults to trashState=out when parameter is omitted.
+    // In other words, by default hide images that have been placed in trash.
+    //GET /images?trashState=out|any|in:
 
 
-                //pick one of the three images and send it to trash
-                var oidToSendToTrash = imagesOids[0];
+    // test: Send an image to the trash
+    //PUT /images/<image ID>?inTrash=true
 
-                client.put('/v0/images/$'+oidToSendToTrash+'?inTrash=true', function (err, req, res, data) {
+    it('Send an image to the trash', function (done) {
+
+      var imagesOids = [];
+
+      async.waterfall([
+
+        //initialize test images without tags
+        function (next) {
+          var options = {
+            populateTags: false
+          };
+
+          initializeTestServer(options, next);
+        },
+
+        function (next) {
+
+          // Get the oids of the saved images
+          testDataManager.getAllImages(
+            function (err, result) {
+              if (err) {
+                console.log(err);
+              }
+              else {
+                imagesOids = _.pluck(result, "oid");
+
+              }
+              next(null);
+            }
+
+          );
+        },
+
+        //pick one of the three images and send it to trash
+        function (next) {
+
+          var oidToSendToTrash = imagesOids[0];
+
+          client.put('/v0/images/$' + oidToSendToTrash + '?inTrash=true', function (err, req, res, data) {
 
 
-                    should.not.exist(err);
-                    res.should.have.status(200);
+            should.not.exist(err);
+            res.should.have.status(200);
 
-                    done();
-                });
+            next();
+          });
 
+        },
+        //check there is one image in trash
+        function (next) {
+
+          client.get('/v0/images?trashState=in', function (err, req, res, data) {
+
+              should.not.exist(err);
+              res.should.have.status(200);
+
+              var filteredImages = data.images;
+              expect(filteredImages).to.have.length(1);
+
+            next();
             });
 
-        });
+        },
+        //Empty the trash
+        function (next) {
+
+          client.del('/v0/images?trashState=in', function (err, req, res, data) {
+
+            should.not.exist(err);
+            res.should.have.status(200);
 
 
+            next();
+          });
+
+        }/*,
+        //pick a single image and delete it permanently
+        function (next) {
+
+          client.del('/v0/images/$' + imagesOids[0] + '?', function (err, req, res, data) {
+
+            should.not.exist(err);
+            res.should.have.status(200);
 
 
-        afterEach(function (done) {
-            tearDownTestServer(null,done);
-        });//end after
+            next();
+          });
+
+        }*/
+
+
+        //restore previous image from trash
+        /*function (next) {
+
+          var oidToSendToTrash = imagesOids[0];
+
+          client.put('/v0/images/$' + oidToSendToTrash + '?inTrash=false', function (err, req, res, data) {
+
+
+            should.not.exist(err);
+            res.should.have.status(200);
+
+            next();
+          });
+
+        },*/
+        //check there is no image in trash
+        //function (next) {
+
+          //  var oidToSendToTrash = imagesOids[0];
+
+          // client.put('/v0/images/$' + oidToSendToTrash + '?inTrash=false', function (err, req, res, data) {
+
+
+          //   should.not.exist(err);
+          /////   res.should.have.status(200);
+
+          //next();
+          // });
+
+        //}
+
+
+      ], function (err, results) {
+
+        done()
+
+      });
 
     });
 
 
+    afterEach(function (done) {
+      tearDownTestServer(null, done);
+    });//end after
 
-
+  });
 
 
   //-------------------------------------------------------------------------------------------------------------------
