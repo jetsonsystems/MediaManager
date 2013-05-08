@@ -8,7 +8,12 @@ var async = require('async')
   , chai = require('chai')
   , expect = chai.expect
   , should = require("should")
-  , _ = require('underscore');
+  , _ = require('underscore')
+  ,log4js = require('log4js');
+
+var thisFileName =  __filename.substring(__filename.lastIndexOf("/"),__filename.length);
+var log = log4js.getLogger(thisFileName);
+
 
 var config = {
   db: {
@@ -189,6 +194,9 @@ describe('service: MediaManagerApi Trash Operations', function () {
 
           client.put('/v0/images/$' + oidToSendToTrash + '?inTrash=true', function (err, req, res, data) {
 
+            if(err){
+              log.error(err);
+            }
 
             should.not.exist(err);
             res.should.have.status(200);
@@ -201,6 +209,10 @@ describe('service: MediaManagerApi Trash Operations', function () {
         function (next) {
 
           client.get('/v0/images?trashState=in', function (err, req, res, data) {
+
+            if(err){
+              log.error(err);
+            }
 
               should.not.exist(err);
               res.should.have.status(200);
@@ -217,6 +229,10 @@ describe('service: MediaManagerApi Trash Operations', function () {
 
           client.del('/v0/images?trashState=in', function (err, req, res, data) {
 
+            if(err){
+              log.error(err);
+            }
+
             should.not.exist(err);
             res.should.have.status(200);
 
@@ -229,6 +245,10 @@ describe('service: MediaManagerApi Trash Operations', function () {
         function (next) {
 
           client.del('/v0/images/$' + imagesOids[0] + '?', function (err, req, res, data) {
+
+           if(err){
+           log.error(err);
+           }
 
             should.not.exist(err);
             res.should.have.status(200);
@@ -248,6 +268,10 @@ describe('service: MediaManagerApi Trash Operations', function () {
           client.put('/v0/images/$' + oidToSendToTrash + '?inTrash=false', function (err, req, res, data) {
 
 
+           if(err){
+           log.error(err);
+           }
+
             should.not.exist(err);
             res.should.have.status(200);
 
@@ -262,6 +286,9 @@ describe('service: MediaManagerApi Trash Operations', function () {
 
           // client.put('/v0/images/$' + oidToSendToTrash + '?inTrash=false', function (err, req, res, data) {
 
+          //if(err){
+           // log.error(err);
+          //}
 
           //   should.not.exist(err);
           /////   res.should.have.status(200);

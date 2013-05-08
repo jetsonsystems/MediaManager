@@ -8,7 +8,12 @@ var async = require('async')
   , chai = require('chai')
   , expect = chai.expect
   , should = require("should")
-  , _ = require('underscore');
+  , _ = require('underscore')
+  ,log4js = require('log4js');
+
+var thisFileName =  __filename.substring(__filename.lastIndexOf("/"),__filename.length);
+var log = log4js.getLogger(thisFileName);
+
 
 var config = {
   db: {
@@ -136,6 +141,10 @@ describe('service: MediaManagerApi', function () {
     it('should get all the three images', function (done) {
       client.get('/v0/images?', function (err, req, res, data) {
 
+        if(err){
+          log.error(err);
+        }
+
         should.not.exist(err);
         res.should.have.status(200);
 
@@ -148,6 +157,10 @@ describe('service: MediaManagerApi', function () {
 
     it('should get 2 images containing tag family', function (done) {
       client.get('/v0/images?tags=family', function (err, req, res, data) {
+
+        if(err){
+          log.error(err);
+        }
 
         should.not.exist(err);
         res.should.have.status(200);
@@ -165,6 +178,10 @@ describe('service: MediaManagerApi', function () {
     it('should get 1 images containing tag "america"', function (done) {
       client.get('/v0/images?tags=america', function (err, req, res, data) {
 
+        if(err){
+          log.error(err);
+        }
+
         should.not.exist(err);
         res.should.have.status(200);
 
@@ -180,6 +197,10 @@ describe('service: MediaManagerApi', function () {
 
     it('should get 2 images containing tag "family" AND tag "friend"', function (done) {
       client.get('/v0/images?tags=family,friends&tag_query_op=AND', function (err, req, res, data) {
+
+        if(err){
+          log.error(err);
+        }
 
         should.not.exist(err);
         res.should.have.status(200);
@@ -215,6 +236,10 @@ describe('service: MediaManagerApi', function () {
 
     it('should get all the distinct tags in database', function (done) {
       client.get('/v0/tags?', function (err, req, res, data) {
+
+        if(err){
+          log.error(err);
+        }
 
         should.not.exist(err);
         res.should.have.status(200);
@@ -289,14 +314,25 @@ describe('service: MediaManagerApi', function () {
         }
       ], function (err, results) {
 
+        var imagesOidsWith$ = [];
+        //prepend a $ on each imageOid
+        _.forEach(imagesOids, function (imageOid) {
+          imagesOidsWith$.push('$'+imageOid);
+        });
+
         //add the tags to the images
+
         var assignTagsCommand = {
           "add":{
-            "images":imagesOids, "tags":["tag3", "tag2", "tag1"]
+            "images":imagesOidsWith$, "tags":["tag3", "tag2", "tag1"]
           }
         };
 
         client.post('/v0/tagger?', assignTagsCommand, function (err, req, res, data) {
+
+          if(err){
+            log.error(err);
+          }
 
           //assert that the tags were added to the images
 
@@ -359,15 +395,26 @@ describe('service: MediaManagerApi', function () {
         *          .
         * oldTags[n] will be replaced by newTags[n]
         */
+
+        var imagesOidsWith$ = [];
+        //prepend a $ on each imageOid
+        _.forEach(imagesOids, function (imageOid) {
+          imagesOidsWith$.push('$'+imageOid);
+        });
+
         var replaceTagsCommand = {
           "replace":{
-            "images":imagesOids
+            "images":imagesOidsWith$
             ,"oldTags":["family", "friends"]
             ,"newTags":["my family", "my friends"]
           }
         };
 
         client.post('/v0/tagger?', replaceTagsCommand, function (err, req, res, data) {
+
+          if(err){
+            log.error(err);
+          }
 
           //assert that the tags were replaced in the images
 
@@ -427,14 +474,24 @@ describe('service: MediaManagerApi', function () {
         }
       ], function (err, results) {
 
+        var imagesOidsWith$ = [];
+        //prepend a $ on each imageOid
+        _.forEach(imagesOids, function (imageOid) {
+          imagesOidsWith$.push('$'+imageOid);
+        });
+
         var removeTagsCommand = {
           "remove":{
-            "images":imagesOids
+            "images":imagesOidsWith$
             ,"tagsToRemove":["family", "friends"]
           }
         };
 
         client.post('/v0/tagger?', removeTagsCommand, function (err, req, res, data) {
+
+          if(err){
+            log.error(err);
+          }
 
           //assert that the tags were removed in the images
 

@@ -76,6 +76,7 @@ module.exports = function mediaManagerApiModule(config, options) {
     //
     if (config && !_.isEqual(mediaManagerApi.config, config)) {
       var msg = 'MediaManagerApi/lib/MediaManagerApiCore.js: Reinstantiating with a different configuration. Module is a singleton.';
+      log.error(msg);
       throw Object.create(new Error(msg),
                           { name: { value: 'ReinstantiatingWithDifferentConfig' },
                             message: { value: msg } });
@@ -535,7 +536,7 @@ var Images = new Class({
   read: function(id, options) { 
     log.info('Images.read: Reading for path - %s, id - %s', this.path, id);
     var that = this;
-    imageService.show(id.replace('$', ''), null, function(err, result) {
+    imageService.show(removePrefix(id), null, function(err, result) {
       var status = 200;
       if (err) {
         log.info('Images.read: error from image service - %s', err);
@@ -566,7 +567,7 @@ var Images = new Class({
         if(options && options.query){
           if(options.query.inTrash==="true"){
             wasDeleted = true;
-            imageService.sendToTrash([id.replace('$', '')],function(err, theSentToTrashImages){
+            imageService.sendToTrash([removePrefix(id)],function(err, theSentToTrashImages){
               if (err) {
                 log.error('Images.update.imageService.sendToTrash: error from image service - %s', err);
                 status = 500;
@@ -588,7 +589,7 @@ var Images = new Class({
       //1) retrieve the image
       function(next){
         if(!wasDeleted){
-          imageService.show(id.replace('$', ''),null,function(err,imgOut){
+          imageService.show(removePrefix(id),null,function(err,imgOut){
 
             if (err) {
               log.error('Images.update.show: error from image service - %s', err);
@@ -651,7 +652,7 @@ var Images = new Class({
     var that = this;
 
     if(id){//delete single image
-      imageService.deleteImage(id,function(err, result) {
+      imageService.deleteImage(removePrefix(id),function(err, result) {
         var status = 200;
         if (err) {
           log.info('Images.delete', 'error from image service - ' + err);
@@ -877,7 +878,7 @@ var Tagger = new Class({
         log.info('Tagger.add: Payload - %s', JSON.stringify(attr));
         var listOfImages = attr.add.images;
         var listOfTags = attr.add.tags;
-        imageService.tagsAdd(listOfImages, listOfTags,
+        imageService.tagsAdd(removePrefix(listOfImages), listOfTags,
           function (err, result) {
             var status = 200;
             if (err) {
@@ -899,7 +900,7 @@ var Tagger = new Class({
         var listOfImages = attr.replace.images;
         var oldTags = attr.replace.oldTags;
         var newTags = attr.replace.newTags;
-        imageService.tagsReplace(listOfImages, oldTags,newTags,
+        imageService.tagsReplace(removePrefix(listOfImages), oldTags,newTags,
           function (err, result) {
             var status = 200;
             if (err) {
@@ -922,7 +923,7 @@ var Tagger = new Class({
         var listOfImages = attr.remove.images;
         var tagsToRemove = attr.remove.tagsToRemove;
         //var newTags = attr.replace.newTags;
-        imageService.tagsRemove(listOfImages, tagsToRemove,
+        imageService.tagsRemove(removePrefix(listOfImages), tagsToRemove,
           function (err, result) {
             var status = 200;
             if (err) {
@@ -1070,7 +1071,7 @@ var Importers = new Class({
   read: function(id, options) {
     log.info('Importers.read, Reading for path - %s, id - %s', this.path, id);
     var that = this;
-    imageService.importBatchShow(id.replace('$', ''),
+    imageService.importBatchShow(removePrefix(id),
                                  { includeImages: false },
                                  function(err, result) {
                                    var status = 200;
@@ -1184,7 +1185,7 @@ var ImportersImages = new Class({
     options = options || {};
     var that = this;
     var batchId = options.req.params[0];
-    imageService.importBatchShow(batchId.replace('$', ''),
+    imageService.importBatchShow(removePrefix(batchId),
                                  { includeImages: true },
                                  function(err, result) {
                                    var status = 200;
@@ -1283,7 +1284,7 @@ var StorageSynchronizers = new Class({
     log.info('StorageSynchronizers.read: Reading for path - %s, id - %s', this.path, id);
     var that = this;
     options.isInstRef = true;
-    var synchronizerId = id.replace('$', '');
+    var synchronizerId = removePrefix(id);
     var synchronizer = storage.syncState(synchronizerId, 
                                          function(err, synchronizer) {
                                            that.doCallbacks(200, synchronizer, options);
@@ -1526,3 +1527,23 @@ function buildIndexOptions(options){
   return indexOptions;
 }
 
+/**
+ * removes the $ in a string oid or array of string oids
+ *
+ */
+function removePrefix(oids){
+  if (_.isString(oids)){
+    return oids.replace('$', '');
+  }
+
+  if (_.isArray(oids)){
+    var cleanOids = [];
+    _.each(oids,function(oid){
+      cleanOids.push(oid.replace('$', ''));
+    });
+    return cleanOids;
+  }
+
+  log.error("------------- removePrefix: Not valid oids parameter -----------------");
+
+}
