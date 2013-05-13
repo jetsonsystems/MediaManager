@@ -154,6 +154,12 @@ describe('ImageService Testing Trash', function () {
 
           }
 
+          _.each(docs,function(doc){
+              if(doc.isOriginal()){
+                expect(doc.variants).to.have.length(2);//if is original should have 2 variants
+              }
+            });
+
           done();
         });
 

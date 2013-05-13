@@ -522,7 +522,7 @@ var Images = new Class({
     imageService.index(indexOptions,function(err, result) {
       var status = 200;
       if (err) {
-        log.info('Images.index', 'error from image service - ' + err);
+        log.error('Images.index', 'error from image service - ' + err);
         status = 500;
         options.errorCode = -1;
         options.errorMessage = err;
@@ -655,7 +655,7 @@ var Images = new Class({
       imageService.deleteImage(removePrefix(id),function(err, result) {
         var status = 200;
         if (err) {
-          log.info('Images.delete', 'error from image service - ' + err);
+          log.error('Images.delete', 'error from image service - ' + err);
           status = 500;
           options.errorCode = -1;
           options.errorMessage = err;
@@ -670,7 +670,7 @@ var Images = new Class({
         imageService.emptyTrash(function(err, result) {
           var status = 200;
           if (err) {
-            log.info('Images.delete', 'error from image service - ' + err);
+            log.error('Images.delete', 'error from image service - ' + err);
             status = 500;
             options.errorCode = -1;
             options.errorMessage = err;
@@ -819,7 +819,7 @@ var Tags = new Class({
     imageService.tagsGetAll(function(err, result) {
       var status = 200;
       if (err) {
-        log.info('Tags.index', 'error from image service - ' + err);
+        log.error('Tags.index', 'error from image service - ' + err);
         status = 500;
         options.errorCode = -1;
         options.errorMessage = err;
@@ -852,7 +852,7 @@ var Tagger = new Class({
     imageService.tagsGetAll(function (err, result) {
       var status = 200;
       if (err) {
-        log.info('Tagger.index', 'error from image service - ' + err);
+        log.error('Tagger.index', 'error from image service - ' + err);
         status = 500;
         options.errorCode = -1;
         options.errorMessage = err;
@@ -882,7 +882,7 @@ var Tagger = new Class({
           function (err, result) {
             var status = 200;
             if (err) {
-              log.info('Tagger.add: Error in imageService.tagsAdd - %j', err);
+              log.error('Tagger.add: Error in imageService.tagsAdd - %j', err);
               status = 500;
               options.errorCode = -1;
               options.errorMessage = err;
@@ -904,7 +904,7 @@ var Tagger = new Class({
           function (err, result) {
             var status = 200;
             if (err) {
-              log.info('Tagger.replace: Error in imageService.tagsReplace - %j', err);
+              log.error('Tagger.replace: Error in imageService.tagsReplace - %j', err);
               status = 500;
               options.errorCode = -1;
               options.errorMessage = err;
@@ -927,7 +927,7 @@ var Tagger = new Class({
           function (err, result) {
             var status = 200;
             if (err) {
-              log.info('Tagger.remove: Error in imageService.tagsRemove - %j', err);
+              log.error('Tagger.remove: Error in imageService.tagsRemove - %j', err);
               status = 500;
               options.errorCode = -1;
               options.errorMessage = err;
@@ -992,7 +992,7 @@ var Importers = new Class({
           function(err, importBatch) {
             var status = 200;
             if (err) { 
-              log.info('Importers.create: Error saving image (1) - %j', err);
+              log.error('Importers.create: Error saving image (1) - %j', err);
               status = 500;
               options.errorCode = -1;
               options.errorMessage = err;
@@ -1026,7 +1026,7 @@ var Importers = new Class({
         );
       }
       catch (err) {
-        log.info('Importers.create: Error saving image (2) - %s', err);
+        log.error('Importers.create: Error saving image (2) - %s', err);
         status = 500;
         options.errorCode = -1;
         options.errorMessage = err;
@@ -1057,7 +1057,7 @@ var Importers = new Class({
                                        function(err, result) {
                                          var status = 200;
                                          if (err) {
-                                           log.info('Importers.index: error from image service - %s', err);
+                                           log.error('Importers.index: error from image service - %s', err);
                                            status = 500;
                                            options.errorCode = -1;
                                            options.errorMessage = err;
@@ -1076,7 +1076,7 @@ var Importers = new Class({
                                  function(err, result) {
                                    var status = 200;
                                    if (err) {
-                                     log.info('Importers.show: error from image service - %s', err);
+                                     log.error('Importers.show: error from image service - %s', err);
                                      status = 500;
                                      options.errorCode = -1;
                                      options.errorMessage = err;
@@ -1190,7 +1190,7 @@ var ImportersImages = new Class({
                                  function(err, result) {
                                    var status = 200;
                                    if (err) {
-                                     log.info('ImportersImages.index: error from image service - %s', err);
+                                     log.error('ImportersImages.index: error from image service - %s', err);
                                      status = 500;
                                      options.errorCode = -1;
                                      options.errorMessage = err;
@@ -1267,7 +1267,7 @@ var StorageSynchronizers = new Class({
       that.doCallbacks(200, synchronizer, options);
     }
     catch (err) {
-      log.info('StorageSynchronizers.create: Caught error - %s', err);
+      log.error('StorageSynchronizers.create: Caught error - %s', err);
       options.errorCode = -1;
       options.errorMessage = err.message;
       try {
@@ -1472,7 +1472,7 @@ var StorageChangesFeed = new Class({
       that.doCallbacks(200, changesFeed, options);
     }
     catch (err) {
-      log.info('StorageChangesFeed.create: Caught error - %s', err);
+      log.error('StorageChangesFeed.create: Caught error - %s', err);
       options.errorCode = -1;
       options.errorMessage = err.message;
       try {

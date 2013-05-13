@@ -529,6 +529,7 @@ function persist(persistCommand, callback)
  * Retrieve an image and its variants by oid; by default, the field Image.metadata_raw is suppressed
  * from the object returned.  If you need this field, pass the showMetadata option.
  *
+ * oid must be an oid of an original image, not a variant
  * options:
  *
  *   showMetadata: false by default, set to true to enable display of Image.metadata_raw
@@ -667,10 +668,6 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
 
   log.debug("findByCreationTime: connected to db...");
 
-  var aryImgOut = []; // images sorted by creation time
-  var imgMap    = {}; // temporary hashmap that stores original images by oid
-  var anImg     = {};
-
   // couchdb specific view options
   var view_opts = {
     startkey: []
@@ -691,36 +688,13 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
   db.view(IMG_DESIGN_DOC, VIEW_BY_CTIME, view_opts,
     function(err, body) {
       if (!err) {
-        // TODO: factor this out into a function that maps the body.rows collection
-        // into the proper Array of Image originals and their variants
-        for (var i = 0; i < body.rows.length; i++) {
-          var docBody = body.rows[i].doc;
 
-          anImg = new Image(docBody);
-          if (opts.showMetadata) { anImg.exposeRawMetadata = true; }
+        var results = body.rows;
+        //extract only the "doc" part
+        var resultDocs = _.pluck(results, "doc");
 
-          // Assign a URL to the image. Note, this is temporary as the images
-          // will eventually move out of Couch / Touch DB.
-          anImg.url = priv.getImageUrl(docBody);
+        var aryImgOut = convert_couch_body_to_array_of_images(opts,resultDocs);
 
-          if ( anImg.isOriginal()) {
-            imgMap[anImg.oid] = anImg;
-            aryImgOut.push(anImg);
-          } else {
-            // if the image is a variant, add it to the original's variants array
-            if (_.isObject(imgMap[anImg.orig_id]))
-            {
-              if (log.isTraceEnabled()) {
-                log.trace('Variant w/ name - %s', anImg.name);
-                log.trace('Variant w/ doc. body keys - (%j)', _.keys(docBody));
-                log.trace('Variant w/ image keys - (%j)', _.keys(anImg));
-              }
-              imgMap[anImg.orig_id].variants.push(anImg);
-            } else {
-              log.warn("Warning: found variant image without a parent %j", anImg);
-            }
-          }
-        }
         callback(null, aryImgOut);
 
       } else {
@@ -729,6 +703,49 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
     }
   );
 }; // end findByCreationTime
+
+/*
+* maps the body.rows collection
+  into the proper Array of Image originals and their variants
+ */
+function convert_couch_body_to_array_of_images(opts,resultDocs){
+
+  var aryImgOut = [];
+  var imgMap    = {}; // temporary hashmap that stores original images by oid
+  var anImg     = {};
+
+  for (var i = 0; i < resultDocs.length; i++) {
+    var docBody = resultDocs[i];
+
+    anImg = new Image(docBody);
+    if (opts.showMetadata) { anImg.exposeRawMetadata = true; }
+
+    // Assign a URL to the image. Note, this is temporary as the images
+    // will eventually move out of Couch / Touch DB.
+    anImg.url = priv.getImageUrl(docBody);
+
+    if ( anImg.isOriginal()) {
+      imgMap[anImg.oid] = anImg;
+      aryImgOut.push(anImg);
+    } else {
+      // if the image is a variant, add it to the original's variants array
+      if (_.isObject(imgMap[anImg.orig_id]))
+      {
+        if (log.isTraceEnabled()) {
+          log.trace('Variant w/ name - %s', anImg.name);
+          log.trace('Variant w/ doc. body keys - (%j)', _.keys(docBody));
+          log.trace('Variant w/ image keys - (%j)', _.keys(anImg));
+        }
+        imgMap[anImg.orig_id].variants.push(anImg);
+      } else {
+        log.warn("Warning: found variant image without a parent %j", anImg);
+      }
+    }
+  }
+
+  return aryImgOut;
+
+}
 
 /**
  * This method converts an array of image docs returned by couch, into an array of images with
@@ -1334,31 +1351,33 @@ function findByTags(filter, options, callback) {
         //extract only the "doc" part
         var resultDocs = _.pluck(results, "doc");
 
+        var resultDocsOids = _.pluck(resultDocs, "oid");
 
-        _.forEach(resultDocs, function (docBody) {
 
-          anImg = new Image(docBody);
-          if (opts.showMetadata) { anImg.exposeRawMetadata = true; }
+        var aryImgOut = [];
 
-          // Assign a URL to the image. Note, this is temporary as the images
-          // will eventually move out of Couch / Touch DB.
-          anImg.url = priv.getImageUrl(docBody);
-
-          if ( anImg.isOriginal()) {
-            imgMap[anImg.oid] = anImg;
-            aryImgOut.push(anImg);
-          } else {
-            // if the image is a variant, add it to the original's variants array
-            if (_.isObject(imgMap[anImg.orig_id]))
-            {
-              imgMap[anImg.orig_id].variants.push(anImg);
-            } else {
-              log.warn("Warning: found variant image without a parent %j", anImg);
+         async.forEachLimit(resultDocsOids,
+          1,
+          function (oid,next){
+            show(oid,null,function(err,image){
+              if (err) { callback(err); }
+              else {
+                aryImgOut.push(image);
+              }
+              next();
+              }
+            );
+           },
+          function(err) {
+            if (err) {
+              callback(err);
+            }else{
+              //all images were processed time to callback
+              callback(null, aryImgOut);
             }
-          }
-        });
+        }
+        );
 
-        callback(null, aryImgOut);
 
       } else {
         callback(util.format("error in findByTags with view options '%j' - err: %s - body: %j", view_opts, err, body));
@@ -1414,34 +1433,7 @@ function findByOids(oidsArray, options, callback) {
         //extract only the "doc" part
         var resultDocs = _.pluck(results, "doc");
 
-
-        _.forEach(resultDocs, function (docBody) {
-
-          anImg = new Image(docBody);
-          if (opts.showMetadata) { anImg.exposeRawMetadata = true; }
-
-          // Assign a URL to the image. Note, this is temporary as the images
-          // will eventually move out of Couch / Touch DB.
-          anImg.url = priv.getImageUrl(docBody);
-
-          if ( anImg.isOriginal()) {
-            imgMap[anImg.oid] = anImg;
-            aryImgOut.push(anImg);
-          } else {
-            // if the image is a variant, add it to the original's variants array
-            if (_.isObject(imgMap[anImg.orig_id]))
-            {
-              if (log.isTraceEnabled()) {
-                log.trace('Variant w/ name - %s', anImg.name);
-                log.trace('Variant w/ doc. body keys - (%j)', _.keys(docBody));
-                log.trace('Variant w/ image keys - (%j)', _.keys(anImg));
-              }
-              imgMap[anImg.orig_id].variants.push(anImg);
-            } else {
-              log.warn("Warning: found variant image without a parent %j", anImg);
-            }
-          }
-        });
+        var aryImgOut = convert_couch_body_to_array_of_images(opts,resultDocs);
 
         callback(null, aryImgOut);
 
@@ -1938,32 +1930,38 @@ function viewTrash(options, callback) {
         //extract only the "doc" part
         var resultDocs = _.pluck(results, "doc");
 
-        _.forEach(resultDocs, function (docBody) {
 
-          anImg = new Image(docBody);
-          if (opts.showMetadata) { anImg.exposeRawMetadata = true; }
+        var aryImgOut = [];
 
-          // Assign a URL to the image. Note, this is temporary as the images
-          // will eventually move out of Couch / Touch DB.
-          anImg.url = priv.getImageUrl(docBody);
-
-          if ( anImg.isOriginal()) {
-            imgMap[anImg.oid] = anImg;
-            aryImgOut.push(anImg);
-          } else {
-            // if the image is a variant, add it to the original's variants array
-            if (_.isObject(imgMap[anImg.orig_id]))
-            {
-              imgMap[anImg.orig_id].variants.push(anImg);
-            } else {
-              log.warn("Warning: found variant image without a parent %j", anImg);
+        async.forEachLimit(resultDocs,
+          1,
+          function (doc,next){
+            var anImage = new Image(doc);
+            if(anImage.isOriginal()){//retrieve also the variants
+              show(doc.oid,null,function(err,image){
+                  if (err) { callback(err); }
+                  else {
+                    aryImgOut.push(image);
+                  }
+                  next();
+                }
+            )
             }
-            //also add to the result array to viewTrash
-            aryImgOut.push(anImg);
+            else{//is a variant
+              aryImgOut.push(anImage);
+              next();
+            }
           }
-        });
-
-        callback(null, aryImgOut);
+          ,
+          function(err) {
+            if (err) {
+              callback(err);
+            }else{
+              //all images were processed time to callback
+              callback(null, aryImgOut);
+            }
+          }
+        );
 
       } else {
         callback(util.format("error in viewTrash with view options '%j' - err: %s - body: %j", view_opts, err, body));

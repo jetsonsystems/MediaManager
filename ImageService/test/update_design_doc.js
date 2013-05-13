@@ -19,9 +19,9 @@ function updateDesignDoc(options, callback) {
   var design_doc_couchdb = {
     "views":{
       "by_oid_with_variant":{
-        "map":"function(doc) { if ((!doc.in_trash)&& (doc.class_name === 'plm.Image')) { var key; if (doc.orig_id === ''){ key = [doc.oid,0,doc.size.width]; emit(key, doc.path) } else { key = [doc.orig_id,1,doc.size.width]; emit(key, doc.name)}}}"
+        "map":"function (doc) {  if (doc.class_name === 'plm.Image') {   var key;   if (doc.orig_id === '') {  key = [doc.oid, 0, doc.size.width];  emit(key, doc.path)  } else {   key = [doc.orig_id, 1, doc.size.width];      emit(key, doc.name)    }  } }"
       }, "by_oid_without_variant":{
-        "map":"function(doc) { if ((!doc.in_trash) && (doc.class_name === 'plm.Image')) { var key; if (doc.orig_id === ''){ key = doc.oid; emit(key) } } }"
+        "map":"function (doc) {  if (doc.class_name === 'plm.Image') { var key; if (doc.orig_id === '') {  key = doc.oid;  emit(key)    }}}"
       }, "by_creation_time":{
         "map":"function(doc) { if ((!doc.in_trash) && (doc.class_name === 'plm.Image')) { var key = date_to_array(doc.created_at); if (doc.orig_id === '') { key.push(doc.oid,0,doc.size.width); emit(key,doc.path)} else { key.push(doc.orig_id,1,doc.size.width); emit(key,doc.name) }} function date_to_array(aDate) { var out = [], d = new Date(aDate); out.push(d.getFullYear()); out.push(d.getMonth()+1); out.push(d.getDate()); out.push(d.getHours()); out.push(d.getMinutes()); out.push(d.getSeconds()); out.push(d.getMilliseconds()); return out;} }"
       }, "batch_by_ctime":{

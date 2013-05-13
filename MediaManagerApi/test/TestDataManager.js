@@ -58,7 +58,13 @@ TestDataManager.prototype = (function () {
 
 
     function ingest(anImagePath, next) {
-      var saveOptions={retrieveSavedImage:true};
+      var saveOptions = {
+          retrieveSavedImage:true,
+          desiredVariants: [
+            {   name: 'thumb.jpg', format: "JPG", width: 120, height: 150}
+            ,
+            {  name: 'screen.jpg', format: "JPG", width: 360, height: 450}
+          ]};
       imageService.save(
         anImagePath,
         saveOptions,

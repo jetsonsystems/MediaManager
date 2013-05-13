@@ -56,11 +56,11 @@ function initializeTestServer(options, done) {
     function populateTestData(callback) {
 
       testDataManager.populateTestData(options, function (err, result) {
-        if (err) {
-          console.log(err);
+        if(err){
+          log.error(err);
         }
         else {
-          console.log("Test data inserted");
+          log.info("Test data inserted");
         }
         callback(null);
       });
@@ -72,11 +72,11 @@ function initializeTestServer(options, done) {
     function startTestServer(callback) {
 
       media_manager_api_server.startServer(serverPort, config, function (err, result) {
-          if (err) {
-            console.log(err);
+          if(err){
+            log.error(err);
           }
           else {
-            console.log("Test server started");
+            log.info("Test server started");
           }
           callback(null);
         }
@@ -95,8 +95,10 @@ function tearDownTestServer(options, done) {
 
     function stopTestServer(next) {
       media_manager_api_server.stopServer(function (err) {
-        if (!err) {
-          console.log('test server stopped!');
+        if(err){
+          log.error(err);
+        }else{
+          log.info('test server stopped!');
         }
         next(null);
 
@@ -106,8 +108,10 @@ function tearDownTestServer(options, done) {
     function destroyTestDatabase(next) {
 
       testDataManager.destroyTestData(function (err) {
-        if (!err) {
-          console.log('test data destroyed!');
+        if(err){
+          log.error(err);
+        }else{
+          log.info('test data destroyed!');
         }
         next(null);
 
@@ -174,8 +178,8 @@ describe('service: MediaManagerApi Trash Operations', function () {
           // Get the oids of the saved images
           testDataManager.getAllImages(
             function (err, result) {
-              if (err) {
-                console.log(err);
+              if(err){
+                log.error(err);
               }
               else {
                 imagesOids = _.pluck(result, "oid");
@@ -214,11 +218,12 @@ describe('service: MediaManagerApi Trash Operations', function () {
               log.error(err);
             }
 
-              should.not.exist(err);
-              res.should.have.status(200);
+            should.not.exist(err);
+            res.should.have.status(200);
 
-              var filteredImages = data.images;
-              expect(filteredImages).to.have.length(1);
+            var filteredImages = data.images;
+            expect(filteredImages).to.have.length(3);//1 original + 2 variants
+
 
             next();
             });
