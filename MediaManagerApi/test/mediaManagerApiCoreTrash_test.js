@@ -132,10 +132,10 @@ describe('service: MediaManagerApi Trash Operations', function () {
   describe('Trash tests', function () {
 
     // test: Send an image to the trash
-    //PUT /images/<image ID>?inTrash=true
+    //PUT /images/<image ID>?in_trash=true
 
     // Recover an image from the trash
-    //PUT /images/<image ID>?inTrash=false
+    //PUT /images/<image ID>?in_trash=false
 
     // Delete permanently an image based on its ID
     // DELETE /images/<image ID>
@@ -156,7 +156,7 @@ describe('service: MediaManagerApi Trash Operations', function () {
 
 
     // test: Send an image to the trash
-    //PUT /images/<image ID>?inTrash=true
+    //PUT /images/<image ID>?in_trash=true
 
     it('Send an image to the trash', function (done) {
 
@@ -196,7 +196,7 @@ describe('service: MediaManagerApi Trash Operations', function () {
 
           var oidToSendToTrash = imagesOids[0];
 
-          client.put('/v0/images/$' + oidToSendToTrash + '?inTrash=true', function (err, req, res, data) {
+          client.put('/v0/images/$' + oidToSendToTrash + '?in_trash=true', function (err, req, res, data) {
 
             if(err){
               log.error(err);
@@ -270,7 +270,7 @@ describe('service: MediaManagerApi Trash Operations', function () {
 
           var oidToSendToTrash = imagesOids[0];
 
-          client.put('/v0/images/$' + oidToSendToTrash + '?inTrash=false', function (err, req, res, data) {
+          client.put('/v0/images/$' + oidToSendToTrash + '?in_trash=false', function (err, req, res, data) {
 
 
            if(err){
@@ -289,7 +289,7 @@ describe('service: MediaManagerApi Trash Operations', function () {
 
           //  var oidToSendToTrash = imagesOids[0];
 
-          // client.put('/v0/images/$' + oidToSendToTrash + '?inTrash=false', function (err, req, res, data) {
+          // client.put('/v0/images/$' + oidToSendToTrash + '?in_trash=false', function (err, req, res, data) {
 
           //if(err){
            // log.error(err);

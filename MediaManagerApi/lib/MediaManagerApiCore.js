@@ -565,7 +565,7 @@ var Images = new Class({
       // check if the image is sent to trash
       function(next){
         if(options && options.query){
-          if(options.query.inTrash==="true"){
+          if(options.query.in_trash==="true"){
             wasDeleted = true;
             imageService.sendToTrash([removePrefix(id)],function(err, theSentToTrashImages){
               if (err) {
