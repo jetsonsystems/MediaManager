@@ -150,7 +150,7 @@ describe('ImageService Testing Trash', function () {
           if (err) {
             done(err);
           } else {
-            expect(docs).to.have.length(6);//2 original images plus their 2 variants each
+            expect(docs).to.have.length(2);//2 original images, each one has 2 variants in the variants attribute
 
           }
 

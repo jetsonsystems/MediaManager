@@ -222,7 +222,7 @@ describe('service: MediaManagerApi Trash Operations', function () {
             res.should.have.status(200);
 
             var filteredImages = data.images;
-            expect(filteredImages).to.have.length(3);//1 original + 2 variants
+            expect(filteredImages).to.have.length(1);//1 original, the 2 variants are in the variants attribute
 
 
             next();

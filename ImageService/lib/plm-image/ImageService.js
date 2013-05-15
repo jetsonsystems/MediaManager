@@ -1947,8 +1947,8 @@ function viewTrash(options, callback) {
                 }
             )
             }
-            else{//is a variant
-              aryImgOut.push(anImage);
+            else{
+              //is a variant, do nothing since the variant is already nested in the variants attribute of an original
               next();
             }
           }
