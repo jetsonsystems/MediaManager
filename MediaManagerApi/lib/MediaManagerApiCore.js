@@ -816,17 +816,40 @@ var Tags = new Class({
     options = options || {};
     var that = this;
 
-    imageService.tagsGetAll(function(err, result) {
-      var status = 200;
-      if (err) {
-        log.error('Tags.index', 'error from image service - ' + err);
-        status = 500;
-        options.errorCode = -1;
-        options.errorMessage = err;
-      }
-      log.info('Tags.index: invoking callback with status - %s, path - %s', status, that.path);
-      that.doCallbacks(status, result, options);
-    });
+    if (_.isEmpty(options.query)){
+      imageService.tagsGetAll(function(err, result) {
+        var status = 200;
+        if (err) {
+          log.error('Tags.index', 'error from image service - ' + err);
+          status = 500;
+          options.errorCode = -1;
+          options.errorMessage = err;
+        }
+        log.info('Tags.index: invoking callback with status - %s, path - %s', status, that.path);
+        that.doCallbacks(status, result, options);
+      });
+    }else
+    if(options.query.images){
+      //get the ids of the images to get their tags
+
+      var imagesIds = options.query.images.split(",") ;
+
+      //retrieve the tags of a set of images
+      imageService.tagsGetImagesTags(removePrefix(imagesIds),function(err, result) {
+        var status = 200;
+        if (err) {
+          log.error('Tags.index', 'error from image service - ' + err);
+          status = 500;
+          options.errorCode = -1;
+          options.errorMessage = err;
+        }
+        log.info('Tags.index: invoking callback with status - %s, path - %s', status, that.path);
+        that.doCallbacks(status, result, options);
+      });
+
+    }
+
+
     return that;
   }
 

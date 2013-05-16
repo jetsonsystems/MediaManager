@@ -9,9 +9,9 @@ var async = require('async')
   , expect = chai.expect
   , should = require("should")
   , _ = require('underscore')
-  ,log4js = require('log4js');
+  , log4js = require('log4js');
 
-var thisFileName =  __filename.substring(__filename.lastIndexOf("/"),__filename.length);
+var thisFileName = __filename.substring(__filename.lastIndexOf("/"), __filename.length);
 var log = log4js.getLogger(thisFileName);
 
 
@@ -258,8 +258,66 @@ describe('service: MediaManagerApi', function () {
     });
 
 
+    it('Get the tags of a set of images', function (done) {
+      /**
+       * "eastwood.png" = ["trips", "family", "friends"];
+       * "hopper.png" = ["zoo", "america", "friends"];
+       */
+      var expectedTagsForEastWoodAndHopper = ["america", "family", "friends", "trips", "zoo"];
+
+      var imagesIds = {};
+
+
+      async.waterfall([
+
+        function (next) {
+          //get the ids of the images
+          client.get('/v0/images?', function (err, req, res, data) {
+
+            if (err) {
+              log.error(err);
+            }
+            _.each(data.images,function(image){
+                imagesIds[image.name]=image.id;
+            });
+
+            next();
+          });
+
+        },
+        //retrieve the tags for of eastwood.png and hopper.png
+        function (next) {
+
+          //eastwood.png id (already has the $ prefix)
+          var estwoodId = imagesIds["eastwood.png"];
+
+          //hopper.png id (already has the $ prefix)
+          var hopperId = imagesIds["hopper.png"];
+
+          client.get('/v0/tags?images='+estwoodId+','+hopperId, function (err, req, res, data) {
+            if (err) {
+              log.error(err);
+            }
+
+            should.not.exist(err);
+            res.should.have.status(200);
+
+            var retrievedListOfTagsOfListOfImages = data.tags;
+            expect(retrievedListOfTagsOfListOfImages).to.deep.equal(expectedTagsForEastWoodAndHopper);
+
+            next()
+          });
+        }
+
+      ], function (err, results) {
+        done();
+      });
+
+
+    });
+
     afterEach(function (done) {
-      tearDownTestServer(null,done);
+      tearDownTestServer(null, done);
     });//end afterEach
 
 
@@ -269,11 +327,11 @@ describe('service: MediaManagerApi', function () {
 
 
     /*beforeEach(function (done) {
-      var options = {
-        populateTags:false
-      };
-      initializeTestServer(options, done);
-    });//end beforeEach*/
+     var options = {
+     populateTags:false
+     };
+     initializeTestServer(options, done);
+     });//end beforeEach*/
 
 
     /*{
@@ -391,14 +449,14 @@ describe('service: MediaManagerApi', function () {
       ], function (err, results) {
 
         /**
-        *
-        * The tags in oldTags will be replaced by the tags in newTags
-        * oldTags[1] will be replaced by newTags[1]
-        * oldTags[2] will be replaced by newTags[2]
-        *          .
-        *          .
-        * oldTags[n] will be replaced by newTags[n]
-        */
+         *
+         * The tags in oldTags will be replaced by the tags in newTags
+         * oldTags[1] will be replaced by newTags[1]
+         * oldTags[2] will be replaced by newTags[2]
+         *          .
+         *          .
+         * oldTags[n] will be replaced by newTags[n]
+         */
 
         var imagesOidsWith$ = [];
         //prepend a $ on each imageOid
@@ -439,11 +497,11 @@ describe('service: MediaManagerApi', function () {
 
 
     /*
-    * remove: removes a list of tags from the tags of a list of Images.
-    * This action removes the tags passed from the list of tags that an Image may already have. For example,
-    * removing the tags ["red","white","blue"] from an image that has the tags ["blue","green","yellow"]
-    * would result in the image having the tags: ["green", "yellow"].
-    * */
+     * remove: removes a list of tags from the tags of a list of Images.
+     * This action removes the tags passed from the list of tags that an Image may already have. For example,
+     * removing the tags ["red","white","blue"] from an image that has the tags ["blue","green","yellow"]
+     * would result in the image having the tags: ["green", "yellow"].
+     * */
     it('Remove a list of tags in a list of Images', function (done) {
 
       var imagesOids = [];
@@ -520,9 +578,6 @@ describe('service: MediaManagerApi', function () {
     });//end after
 
   });
-
-
-
 
 
   //-------------------------------------------------------------------------------------------------------------------

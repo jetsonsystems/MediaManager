@@ -44,6 +44,13 @@ TestDataManager.prototype = (function () {
     return m;
   };
 
+  /**
+   *
+   * @param options
+   *        options.populateTags
+   * @param callback
+   * @private
+   */
   var _populateTestData = function (options, callback) {
 
 

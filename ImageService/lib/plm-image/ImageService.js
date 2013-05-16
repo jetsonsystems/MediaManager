@@ -1719,7 +1719,72 @@ function tagsGetAll(callback){
   );
 
 
-} // end getAllTags
+} // end tagsGetAll
+
+
+
+exports.tagsGetImagesTags = tagsGetImagesTags;
+/**
+ * Get the list of tags of a set of images
+ * @param callback
+ */
+function tagsGetImagesTags(imagesIdsArray,callback){
+
+  log.debug("Attempting to get tags of a set of images .........");
+
+  var db = priv.db();
+
+  log.trace("tagsGetImagesTags: connected to db...");
+
+
+  // couchdb specific view options
+  var view_opts={ include_docs: true
+  };
+  if (_.isArray(imagesIdsArray)) {
+    view_opts.keys = imagesIdsArray;
+  }else {
+    throw "Invalid Argument Exception: tagsGetImagesTags does not understand imagesIdsArray:: '" + imagesIdsArray + "'";
+  }
+
+  log.trace("Getting tags of a set of images using view '%s' with view_opts %j", VIEW_BY_OID_WITHOUT_VARIANT, view_opts);
+
+  db.view(IMG_DESIGN_DOC, VIEW_BY_OID_WITHOUT_VARIANT, view_opts,
+    function(err, body) {
+
+      if (!err) {
+
+        //extract only the "doc" part
+        var resultDocs = _.pluck(body.rows, "doc");
+
+        var resultTags = [];
+
+        //collect all the tags
+        _.each(resultDocs,function(image){
+          resultTags.push(image.tags);
+        });
+
+        resultTags = _.flatten(resultTags);
+
+        //remove duplicates
+        resultTags = _.uniq(resultTags);
+
+        //sort tags
+        resultTags.sort();
+
+
+        log.debug("tagsGetImagesTags query returned: '%j'", resultTags);
+
+        callback(null, resultTags);
+
+      } else {
+        callback(util.format("error getting tags of a set of images: '%s', with body: '%j'", err, body));
+      }
+    }
+  );
+
+
+} // end tagsGetImagesTags
+
 
 
 /*
