@@ -50,6 +50,10 @@ module.exports = new Class (
   // move this method to a makePersistent method
   sendToTrash : function(){
     this.in_trash = true;
+  },
+
+  restoreFromTrash : function(){
+    this.in_trash = false;
   }
 
 });

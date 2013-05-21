@@ -558,29 +558,47 @@ var Images = new Class({
     var that = this;
     var status = 200;
     var theImage = null;
-    var wasDeleted = false;
+    var isTrashOperation = false;
     async.waterfall([
 
 
-      // check if the image is sent to trash
+      // check if is a trash operation
       function(next){
         if(options && options.query){
-          if(options.query.in_trash==="true"){
-            wasDeleted = true;
-            imageService.sendToTrash([removePrefix(id)],function(err, theSentToTrashImages){
-              if (err) {
-                log.error('Images.update.imageService.sendToTrash: error from image service - %s', err);
-                status = 500;
-                options.errorCode = -1;
-                options.errorMessage = err;
-              }else{
-                theImage = theSentToTrashImages[0];
-              }
+          if(_.isString(options.query.in_trash) ){
+            isTrashOperation = true;
+            if(options.query.in_trash==="true"){
+  
+              imageService.sendToTrash([removePrefix(id)],function(err, theSentToTrashImages){
+                if (err) {
+                  log.error('Images.update.imageService.sendToTrash: error from image service - %s', err);
+                  status = 500;
+                  options.errorCode = -1;
+                  options.errorMessage = err;
+                }else{
+                  theImage = theSentToTrashImages[0];
+                }
+                next();
+              });
+            }else
+            if(options.query.in_trash==="false"){
+              imageService.restoreFromTrash([removePrefix(id)],function(err, theRestoredFromTrashImages){
+                if (err) {
+                  log.error('Images.update.imageService.restoreFromTrash: error from image service - %s', err);
+                  status = 500;
+                  options.errorCode = -1;
+                  options.errorMessage = err;
+                }else{
+                  theImage = theRestoredFromTrashImages[0];
+                }
+                next();
+              });
+            }
+            else{
               next();
-            });
-          }else{
-            next();
-          }
+            }
+
+        }
         } else{
           next();
         }
@@ -588,7 +606,7 @@ var Images = new Class({
       },
       //1) retrieve the image
       function(next){
-        if(!wasDeleted){
+        if(!isTrashOperation){
           imageService.show(removePrefix(id),null,function(err,imgOut){
 
             if (err) {
@@ -607,7 +625,7 @@ var Images = new Class({
       },
       //2) update the fields
       function(next){
-        if(!wasDeleted){
+        if(!isTrashOperation){
         //TODO set fields
         }else{
           next();
@@ -618,7 +636,7 @@ var Images = new Class({
 
       //3) call saveOrUpdate
       function(next){
-        if(!wasDeleted){
+        if(!isTrashOperation){
           imageService.saveOrUpdate(
           {"doc":theImage, "tried":0},  function (err, result) {
             if (err) {

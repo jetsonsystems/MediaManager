@@ -229,6 +229,82 @@ describe('service: MediaManagerApi Trash Operations', function () {
             });
 
         },
+        //restore previous image from trash
+        function (next) {
+
+         var oidToSendToTrash = imagesOids[0];
+
+         client.put('/v0/images/$' + oidToSendToTrash + '?in_trash=false', function (err, req, res, data) {
+
+           if(err){
+           log.error(err);
+           }
+
+           should.not.exist(err);
+           res.should.have.status(200);
+
+           next();
+         });
+
+         },
+        //check there is no image in trash
+        function (next) {
+
+          client.get('/v0/images?trashState=in', function (err, req, res, data) {
+
+            if(err){
+              log.error(err);
+            }
+
+            should.not.exist(err);
+            res.should.have.status(200);
+
+            var filteredImages = data.images;
+            expect(filteredImages).to.have.length(0);
+
+
+            next();
+          });
+
+        },
+        //pick one of the three images and send it to trash
+        function (next) {
+
+          var oidToSendToTrash = imagesOids[0];
+
+          client.put('/v0/images/$' + oidToSendToTrash + '?in_trash=true', function (err, req, res, data) {
+
+            if(err){
+              log.error(err);
+            }
+
+            should.not.exist(err);
+            res.should.have.status(200);
+
+            next();
+          });
+
+        },
+        //check there is one image in trash
+        function (next) {
+
+          client.get('/v0/images?trashState=in', function (err, req, res, data) {
+
+            if(err){
+              log.error(err);
+            }
+
+            should.not.exist(err);
+            res.should.have.status(200);
+
+            var filteredImages = data.images;
+            expect(filteredImages).to.have.length(1);//1 original, the 2 variants are in the variants attribute
+
+
+            next();
+          });
+
+        },
         //Empty the trash
         function (next) {
 
@@ -245,7 +321,28 @@ describe('service: MediaManagerApi Trash Operations', function () {
             next();
           });
 
-        }/*,
+        },
+        //check there is no image in trash
+        function (next) {
+
+          client.get('/v0/images?trashState=in', function (err, req, res, data) {
+
+            if(err){
+              log.error(err);
+            }
+
+            should.not.exist(err);
+            res.should.have.status(200);
+
+            var filteredImages = data.images;
+            expect(filteredImages).to.have.length(0);
+
+
+            next();
+          });
+
+        }
+        /*,
         //pick a single image and delete it permanently
         function (next) {
 
@@ -254,7 +351,6 @@ describe('service: MediaManagerApi Trash Operations', function () {
            if(err){
            log.error(err);
            }
-
             should.not.exist(err);
             res.should.have.status(200);
 

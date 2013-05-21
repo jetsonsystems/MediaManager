@@ -1910,7 +1910,7 @@ function sendToTrash(oidArray,callback){
 
       },
 
-      //set deleted attribute to true
+      //send image to trash
       function(next) {
         _.forEach(imagesToModify, function (imageToModify) {
           imageToModify.sendToTrash();
@@ -1952,6 +1952,96 @@ function sendToTrash(oidArray,callback){
 
 } // end sendToTrash
 
+
+exports.restoreFromTrash = restoreFromTrash;
+
+/**
+ * TODO: Move this method to a StorageService
+ *
+ * @param oidArray
+ * @param callback
+ */
+function restoreFromTrash(oidArray,callback){
+
+  var imagesToModify = [];
+
+  async.waterfall(
+    [
+      //Retrieve the images to modify
+      function(next) {
+
+        log.trace("Finding images to restore from Trash ...");
+
+        function iterator(imageOid, next2) {
+          show(imageOid, null, function(err, image) {
+            if (err) { next2(err); }
+            else {
+              imagesToModify.push(image);
+              //add also the variants
+              if(_.isArray(image.variants) ){
+                _.forEach(image.variants, function (variantImage) {
+                  imagesToModify.push(variantImage);
+                });
+              }
+              next2();
+            }
+          });
+        }
+
+        async.forEachLimit( oidArray, 3, iterator,function(err) {
+          if (err) {
+            var msgErr = util.format("Error finding images to restore from trash: %j", err);
+            log.error(msgErr);
+            next(err);
+          } else {
+            log.debug("Done finding images to restore from trash");
+            next();
+          }
+        });
+
+      },
+
+      //restore from trash
+      function(next) {
+        _.forEach(imagesToModify, function (imageToModify) {
+          imageToModify.restoreFromTrash();
+        });
+        next();
+      },
+
+      //save the modified images
+      function(next) {
+        var saveOrUpdateParameters = _.map(imagesToModify, function(image){ return {"doc":image,"tried":0}; });
+        async.forEachLimit(saveOrUpdateParameters, 3, saveOrUpdate, function(err) {
+
+          if (err) {
+            log.error("Error while restoring images from trash", err);
+            next(err);
+          } else {
+            log.info("Successfully restored images from trash");
+          }
+          next();
+
+        });
+
+      }
+
+    ],
+
+    // called after waterfall completes
+    function(err) {
+      if (err) {
+        log.error("Error while restoring images from trash ", err);
+        callback(err);
+      } else {
+        log.info("Successfully restored images from trash");
+        var theImagesRestoredFromTrash = imagesToModify;
+        callback(null,theImagesRestoredFromTrash);
+      }
+    }
+  );
+
+} // end restoreFromTrash
 
 exports.viewTrash = viewTrash;
 
