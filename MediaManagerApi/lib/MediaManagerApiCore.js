@@ -476,6 +476,7 @@ var Images = new Class({
     this._shortFormAttrs = {
       oid: 'id',
       app_id: 'app_id',
+      batch_id: 'importer_id',
       name: 'name',
       url: 'url',
       geometry: 'geometry',
@@ -493,6 +494,7 @@ var Images = new Class({
     this._fullFormAttrs = {
       oid: 'id',
       app_id: 'app_id',
+      batch_id: 'importer_id',
       name: 'name',
       path: 'path',
       import_root_dir: 'import_root_dir',
@@ -785,6 +787,12 @@ var Images = new Class({
                //  Likewise, object IDs begin with '$' followed by the object ID itself.
                //
                newRep['app_id'] = _.has(rep, attr) ? '$' + rep[attr] : undefined;
+             }
+             else if (attrs[attr] === 'importer_id') {
+               //
+               //  Likewise...
+               //
+               newRep['importer_id'] = _.has(rep, attr) ? '$' + rep[attr] : undefined;
              }
              else if (attr === 'variants') {
                if (_.has(rep, 'variants')) {

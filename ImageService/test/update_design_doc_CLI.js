@@ -46,7 +46,7 @@ var options = {
   host:argv.h,
   port:argv.p,
   dbName:dbName,
-  design_doc:argv.t
+  dbType:argv.t
 };
 
 if (options.design_doc === 'couchdb') {
