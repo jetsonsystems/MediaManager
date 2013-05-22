@@ -341,6 +341,24 @@ describe('service: MediaManagerApi Trash Operations', function () {
             next();
           });
 
+        },
+        //pick a single image and delete it permanently
+        function (next) {
+
+          var oidToDeletePermanently = imagesOids[1];
+
+          client.del('/v0/images/$' + oidToDeletePermanently, function (err, req, res, data) {
+
+            if(err){
+              log.error(err);
+            }
+
+            should.not.exist(err);
+            res.should.have.status(200);
+
+            next();
+          });
+
         }
         /*,
         //pick a single image and delete it permanently

@@ -113,9 +113,9 @@ describe('ImageService Testing Trash', function () {
 
             var oidOfImagesToSendToTrash = [];
 
-            _.forEach(imagesToSendToTrashNames, function (imageToSendToTrashName) {
-              oidOfImagesToSendToTrash.push(theSavedImages[imageToSendToTrashName].oid);
-            });
+            for (var i = 0; i < imagesToSendToTrashNames.length; i++){
+              oidOfImagesToSendToTrash.push(theSavedImages[imagesToSendToTrashNames[i]].oid);
+            }
 
             imageService.sendToTrash(oidOfImagesToSendToTrash, function (err) {
                 if (err) {

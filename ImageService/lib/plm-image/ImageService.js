@@ -1487,9 +1487,9 @@ function tagsReplace(oidArray,oldTags, newTags,callback){
 
       //replace the tags
       function(next) {
-        _.forEach(imagesToModify, function (imageToModify) {
-          imageToModify.tagsReplace(oldTags,newTags);
-        });
+        for (var i = 0; i < imagesToModify.length; i++) {
+          imagesToModify[i].tagsReplace(oldTags,newTags);
+        }
         next();
       },
 
@@ -1562,9 +1562,9 @@ function tagsRemove(oidArray,tagsToRemove,callback){
 
       //remove the tags
       function(next) {
-        _.forEach(imagesToModify, function (imageToModify) {
-          imageToModify.tagsDelete(tagsToRemove);
-        });
+        for (var i = 0; i < imagesToModify.length; i++) {
+          imagesToModify[i].tagsDelete(tagsToRemove);
+        }
         next();
       },
 
@@ -1637,9 +1637,9 @@ function tagsAdd(oidArray, tagsArray,callback){
 
       //add the tags
       function(next) {
-        _.forEach(imagesToModify, function (imageToModify) {
-          imageToModify.tagsAdd(tagsArray);
-        });
+        for (var i = 0; i < imagesToModify.length; i++) {
+          imagesToModify[i].tagsAdd(tagsArray);
+        }
         next();
       },
 
@@ -1888,9 +1888,9 @@ function sendToTrash(oidArray,callback){
               imagesToModify.push(image);
               //add also the variants
               if(_.isArray(image.variants) ){
-                _.forEach(image.variants, function (variantImage) {
-                  imagesToModify.push(variantImage);
-                });
+                for (var i = 0; i < image.variants.length; i++) {
+                  imagesToModify.push(image.variants[i]);
+                }
               }
               next2();
             }
@@ -1912,9 +1912,9 @@ function sendToTrash(oidArray,callback){
 
       //send image to trash
       function(next) {
-        _.forEach(imagesToModify, function (imageToModify) {
-          imageToModify.sendToTrash();
-        });
+        for (var i = 0; i < imagesToModify.length; i++) {
+          imagesToModify[i].sendToTrash();
+        }
         next();
       },
 
@@ -1979,9 +1979,9 @@ function restoreFromTrash(oidArray,callback){
               imagesToModify.push(image);
               //add also the variants
               if(_.isArray(image.variants) ){
-                _.forEach(image.variants, function (variantImage) {
-                  imagesToModify.push(variantImage);
-                });
+                for (var i = 0; i < image.variants.length; i++) {
+                  imagesToModify.push(image.variants[i]);
+                }
               }
               next2();
             }
@@ -2003,9 +2003,9 @@ function restoreFromTrash(oidArray,callback){
 
       //restore from trash
       function(next) {
-        _.forEach(imagesToModify, function (imageToModify) {
-          imageToModify.restoreFromTrash();
-        });
+        for (var i = 0; i < imagesToModify.length; i++) {
+          imagesToModify[i].restoreFromTrash();
+        }
         next();
       },
 
@@ -2126,83 +2126,90 @@ function viewTrash(options, callback) {
 } // end viewTrash
 
 
-/*
-exports.deleteImage = deleteImage;
-**
+
+exports.deleteImages = deleteImages;
+/**
  * TODO: Move this method to a StorageService
  *
  * This method destroys the images permanently
  * @param callback
- *
-function deleteImage(oid, callback){
+ */
+function deleteImages(oidArray, callback){
 
   var db = priv.db();
 
-  var imagesToDelete = {docs:[]};
+  var imagesToDelete = [];
+  var imagesToDeletePermanently = {docs:[]};
 
   async.waterfall(
     [
       //Retrieve the images to modify
       function(next) {
 
-        log.trace("Attempting to delete image with oid: '%s'", oid);
+        log.trace("Finding images to delete permanently ...");
 
-        show(oid, null, function(err, image) {
-          if (err) { next2(err); }
-          else {
-            imagesToModify.push(image);
-            //add also the variants
-            if(_.isArray(image.variants) ){
-              _.forEach(image.variants, function (variantImage) {
-                imagesToModify.push(variantImage);
-              });
+        function iterator(imageOid, next2) {
+          show(imageOid, null, function(err, image) {
+            if (err) { next2(err); }
+            else {
+              imagesToDelete.push(image);
+              //add also the variants
+              if(_.isArray(image.variants) ){
+                for (var i = 0; i < image.variants.length; i++) {
+                  imagesToDelete.push(image.variants[i]);
+                }
+              }
+              next2();
             }
-            next2();
-          }
-        });
+          });
+        }
 
-        viewTrash(null, function (err, docs) {
+        async.forEachLimit( oidArray, 3, iterator,function(err) {
           if (err) {
-            callback(err);
+            var msgErr = util.format("Error finding images to delete permanently: %j", err);
+            log.error(msgErr);
+            next(err);
           } else {
-            _.forEach(docs, function (doc) {
-              //To delete a document set the _deleted member to true
-              var docToDestroy = {};
-              docToDestroy._id = doc._id;
-              docToDestroy._rev = doc._rev;
-              docToDestroy._deleted = true;
-
-              imagesToDelete.docs.push(docToDestroy);
-            });
+            log.debug("Done finding images to delete permanently");
             next();
           }
         });
 
       },
 
-
       function(next) {
+        for (var i = 0; i < imagesToDelete.length; i++) {
 
-        db.bulk(imagesToDelete, next);
+          //To delete a document set the _deleted member to true
+          var docToDestroy = {};
+          docToDestroy._id = imagesToDelete[i]._id;
+          docToDestroy._rev = imagesToDelete[i]._rev;
+          docToDestroy._deleted = true;
 
+          imagesToDeletePermanently.docs.push(docToDestroy);
+
+        }
+
+        next();
+      },
+      function(next) {
+        db.bulk(imagesToDeletePermanently, next);
       }
-
     ],
 
     // called after waterfall completes
     function(err) {
       if (err) {
-        log.error("Error while emptying trash", err);
+        log.error("Error while deleting images permanently", err);
         callback(err);
       } else {
-        log.info("Successfully emptied trash");
+        log.info("Successfully deleted images permanently");
         callback(null);
       }
     }
   );
 
 } // end deleteImage
-*/
 
 
 exports.emptyTrash = emptyTrash;
@@ -2230,28 +2237,15 @@ function emptyTrash(callback){
           if (err) {
             callback(err);
           } else {
-            _.forEach(docs, function (doc) {
-              //To delete a document set the _deleted member to true
-              var docToDestroy = {};
-              docToDestroy._id = doc._id;
-              docToDestroy._rev = doc._rev;
-              docToDestroy._deleted = true;
 
-              imagesToDelete.docs.push(docToDestroy);
-            });
-            next();
+            var oidsToDelete = _.pluck(docs, "oid");
+
+            deleteImages(oidsToDelete,next);
+
           }
         });
 
-      },
-
-
-      function(next) {
-
-        db.bulk(imagesToDelete, next);
-
       }
-
     ],
 
     // called after waterfall completes

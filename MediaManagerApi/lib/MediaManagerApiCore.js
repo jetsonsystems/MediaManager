@@ -367,7 +367,6 @@ var Resource = new Class({
         return this.update(id, options.attr, options);
       }
       else if (method === 'DELETE') {
-       // return this.update(id, options);
         return this.delete(id,options);
       }
     }
@@ -670,7 +669,7 @@ var Images = new Class({
     var that = this;
 
     if(id){//delete single image
-      imageService.deleteImage(removePrefix(id),function(err, result) {
+      imageService.deleteImages([removePrefix(id)],function(err, result) {
         var status = 200;
         if (err) {
           log.error('Images.delete', 'error from image service - ' + err);

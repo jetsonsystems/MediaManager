@@ -183,6 +183,7 @@ function startServer(serverPort, config, callback) {
               event: '__request__',
               req: req});
             var options = {
+              id: req.params[0],
               req: req,
               onSuccess: that.genOnSuccess(resource, req, res),
               onError: that.genOnError(resource, req, res)
