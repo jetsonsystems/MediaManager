@@ -1010,9 +1010,38 @@ function importBatchShow(oid, options, callback) {
           }
 
           batchOut = new ImportBatch(doc);
-          batchOut.images = convertImageViewToCollection(body.rows);
+
 
           if (opts.includeImages) {
+            //by default include images out of trash
+            var imagesTrashState = "out";
+
+            if(opts.imagesTrashState){
+              imagesTrashState = opts.imagesTrashState;
+            }
+
+            var images = convertImageViewToCollection(body.rows);
+            var filteredImages = [];
+            //filter images by trash state
+            if(imagesTrashState==="out"){
+              for (var i = 0; i < images.length; i++) {
+                if(images[i].inTrash()===false){
+                  filteredImages.push(images[i]);
+                }
+              }
+
+            }else if(imagesTrashState==="in"){
+              for (var i = 0; i < images.length; i++) {
+                if(images[i].inTrash()===true){
+                  filteredImages.push(images[i]);
+                }
+              }
+
+            }else if(imagesTrashState==="any"){// any (all images of importbatch)
+              filteredImages=images;
+            }
+            batchOut.images = filteredImages;
+
             log.info("Retrieved importBatch with oid '%s' and %s images: %j", oid, batchOut.images.length, batchOut);
           } else {
             log.info("Retrieved importBatch with oid '%s' and includeImages = false: %j", oid, batchOut);

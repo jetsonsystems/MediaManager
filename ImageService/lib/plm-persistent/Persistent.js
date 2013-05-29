@@ -54,6 +54,10 @@ module.exports = new Class (
 
   restoreFromTrash : function(){
     this.in_trash = false;
+  },
+
+  inTrash : function(){
+    return this.in_trash === true;
   }
 
 });
