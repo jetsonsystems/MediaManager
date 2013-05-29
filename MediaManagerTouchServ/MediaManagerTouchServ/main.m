@@ -93,33 +93,35 @@ int main(int argc, const char * argv[])
             [database designDocumentWithName: @"_design/plm-image"];
         
         [design defineViewNamed: @"by_oid_with_variant" mapBlock: MAPBLOCK({
-            NSString* oid;
-            NSNumber* isDerived;
-            NSNumber* docWidth = [[doc objectForKey: @"size"] objectForKey: @"width"];
+            if ([doc[@"class_name"] isEqualToString:@"plm.Image"]) {
+                NSString* oid;
+                NSNumber* isDerived;
+                NSNumber* docWidth = [[doc objectForKey: @"size"] objectForKey: @"width"];
             
-            if ([[doc objectForKey: @"orig_id"] isEqualToString:@""]) {
-                oid = doc[@"oid"];
-                isDerived = [NSNumber numberWithInteger: 0];
+                if ([[doc objectForKey: @"orig_id"] isEqualToString:@""]) {
+                    oid = doc[@"oid"];
+                    isDerived = [NSNumber numberWithInteger: 0];
+                }
+                else {
+                    oid = doc[@"orig_id"];
+                    isDerived = [NSNumber numberWithInteger: 1];
+                }
+                emit([NSArray arrayWithObjects:oid, isDerived, docWidth, nil],
+                     doc[@"path"]);
             }
-            else {
-                oid = doc[@"orig_id"];
-                isDerived = [NSNumber numberWithInteger: 1];
-            }
-            emit([NSArray arrayWithObjects:oid, isDerived, docWidth, nil],
-                 doc[@"path"]);
-        }) version: @"0.0.1"];
+        }) version: @"0.0.2"];
         
         [design defineViewNamed: @"by_oid_without_variant" mapBlock: MAPBLOCK({
             if ([doc[@"class_name"] isEqualToString:@"plm.Image"]) {
                 if ([[doc objectForKey: @"orig_id"] isEqualToString:@""]) {
-                    emit(doc[@"oid"], doc[@"name"]);
+                    emit(doc[@"oid"], doc[@"path"]);
                 }
             }
-        }) version: @"0.0.2"];
+        }) version: @"0.0.3"];
         
         [design defineViewNamed: @"by_creation_time" mapBlock: MAPBLOCK({
             if (([[doc objectForKey: @"class_name"] isEqualToString:@"plm.Image"]) &&
-                (!doc[@"in_trash"])) {
+                (![doc objectForKey: @"in_trash"] || ![[doc objectForKey: @"in_trash"] boolValue])) {
                 id docCreatedAt = doc[@"created_at"];
                 //
                 // build the key:
@@ -182,29 +184,11 @@ int main(int argc, const char * argv[])
                       nil],
                      docPath);
             }
-        }) version: @"0.0.8"];
-        
-        [design
-         defineViewNamed: @"by_tag"
-         mapBlock: MAPBLOCK({
-            if ([[doc objectForKey: @"class_name"] isEqualToString:@"plm.Image"]) {
-                if (![doc objectForKey: @"in_trash"] || !doc[@"in_trash"]) {
-                    if ([doc objectForKey: @"tags"]) {
-                        for (id tag in [doc objectForKey: @"tags"]) {
-                            emit(tag, doc[@"tags"]);
-                        }
-                    }
-                }
-            }
-        })
-         reduceBlock: REDUCEBLOCK(return [NSNumber numberWithInteger:1];)
-         version: @"0.0.2"
-         ];
-
+        }) version: @"0.0.9"];
         
         [design defineViewNamed: @"batch_by_ctime" mapBlock: MAPBLOCK({
             if (([[doc objectForKey: @"class_name"] isEqualToString:@"plm.ImportBatch"]) &&
-                (![doc objectForKey: @"in_trash"] || !doc[@"in_trash"])) {
+                (![doc objectForKey: @"in_trash"] || ![[doc objectForKey: @"in_trash"] boolValue])) {
                 id docCreatedAt = doc[@"created_at"];
                 //
                 // build the key:
@@ -236,6 +220,7 @@ int main(int argc, const char * argv[])
                 NSNumber* second = [NSNumber numberWithInteger: [components second]];
                 NSNumber* milliseconds = [NSNumber numberWithInteger: 0];
 
+                NSString* oid = doc[@"oid"];
                 id docPath = doc[@"path"];
                 emit([NSArray arrayWithObjects:
                       year,
@@ -245,69 +230,85 @@ int main(int argc, const char * argv[])
                       minute,
                       second,
                       milliseconds,
+                      oid,
                       nil],
                      docPath);
             }
         }) version: @"0.0.1"];
         
         [design defineViewNamed: @"batch_by_oid_w_image" mapBlock: MAPBLOCK({
-            if (![doc objectForKey: @"in_trash"] || !doc[@"in_trash"]) {
-                if ([[doc objectForKey: @"class_name"]
-                    isEqualToString:@"plm.ImportBatch"]) {
-                    //
-                    //  emit([doc.oid, '0', 0, 0], doc.path)
-                    //
-                    NSString* oid = doc[@"oid"];
-                    id docPath = doc[@"path"];
-                    emit([NSArray arrayWithObjects:
-                          oid,
-                          @"0",
-                          [NSNumber numberWithInteger: 0],
-                          [NSNumber numberWithInteger: 0],
-                          nil],
-                         docPath);
-                }
-                else if ([[doc objectForKey: @"class_name"]
-                         isEqualToString:@"plm.Image"]) {
-                    //
-                    //  original doc:
-                    //    emit([doc.batch_id, doc.oid, 1, doc.size.width], doc.path)
-                    //
-                    //  variant:
-                    //    emit([doc.batch_id, doc.orig_id, 2, doc.size.width], doc.path)
-                    //
-                    NSString* batchId = doc[@"batch_id"];
-                    NSString* oid;
-                    NSNumber* originalFlag;
-                    NSNumber* docWidth = [[doc objectForKey: @"size"] objectForKey: @"width"];
-                
-                    if ([[doc objectForKey: @"orig_id"] isEqualToString:@""]) {
-                        oid = doc[@"oid"];
-                        originalFlag = [NSNumber numberWithInteger: 1];
-                    }
-                    else {
-                        oid = doc[@"orig_id"];
-                        originalFlag = [NSNumber numberWithInteger: 2];
-                    }
-                    id docPath = doc[@"path"];
-                    emit([NSArray arrayWithObjects:
-                          batchId,
-                          oid,
-                          originalFlag,
-                          docWidth,
-                          nil],
-                         docPath);
-                }
-            }
-        }) version: @"0.0.2"];
-
-	[design defineViewNamed: @"by_trash" mapBlock: MAPBLOCK({
-            if (doc[@"in_trash"]) {
+            if ([[doc objectForKey: @"class_name"] isEqualToString:@"plm.ImportBatch"]) {
+                //
+                //  emit([doc.oid, '0', 0, 0], doc.path)
+                //
                 NSString* oid = doc[@"oid"];
                 id docPath = doc[@"path"];
-                emit(oid, docPath);
-	    }
-        }) version: @"0.0.1"];
+                emit([NSArray arrayWithObjects:
+                      oid,
+                      @"0",
+                      [NSNumber numberWithInteger: 0],
+                      [NSNumber numberWithInteger: 0],
+                      nil],
+                     docPath);
+            }
+            else if ([[doc objectForKey: @"class_name"] isEqualToString:@"plm.Image"]) {
+                //
+                //  original doc:
+                //    emit([doc.batch_id, doc.oid, 1, doc.size.width], doc.path)
+                //
+                //  variant:
+                //    emit([doc.batch_id, doc.orig_id, 2, doc.size.width], doc.path)
+                //
+                NSString* batchId = doc[@"batch_id"];
+                NSString* oid;
+                NSNumber* originalFlag;
+                NSNumber* docWidth = [[doc objectForKey: @"size"] objectForKey: @"width"];
+                
+                if ([[doc objectForKey: @"orig_id"] isEqualToString:@""]) {
+                    oid = doc[@"oid"];
+                    originalFlag = [NSNumber numberWithInteger: 1];
+                }
+                else {
+                    oid = doc[@"orig_id"];
+                    originalFlag = [NSNumber numberWithInteger: 2];
+                }
+                id docName = doc[@"name"];
+                emit([NSArray arrayWithObjects:
+                      batchId,
+                      oid,
+                      originalFlag,
+                      docWidth,
+                      nil],
+                     docName);
+            }
+        }) version: @"0.0.5"];
+
+        [design
+         defineViewNamed: @"by_tag"
+         mapBlock: MAPBLOCK({
+            if ([[doc objectForKey: @"class_name"] isEqualToString:@"plm.Image"]) {
+	        if (![doc objectForKey: @"in_trash"] || ![[doc objectForKey: @"in_trash"] boolValue]) {
+                    if ([doc objectForKey: @"tags"]) {
+                        for (id tag in [doc objectForKey: @"tags"]) {
+                            emit(tag, doc[@"tags"]);
+                        }
+                    }
+                }
+            }
+        })
+         reduceBlock: REDUCEBLOCK(return [NSNumber numberWithInteger:1];)
+         version: @"0.0.3"
+         ];
+
+        [design defineViewNamed: @"by_trash" mapBlock: MAPBLOCK({
+            if ([doc objectForKey: @"in_trash"]) {
+                if ([[doc objectForKey: @"in_trash"] boolValue]) {
+                    NSString* oid = doc[@"oid"];
+                    id docPath = doc[@"path"];
+                    emit(oid, docPath);
+                }
+            }
+        }) version: @"0.0.3"];
         
         [design saveChanges];
                 
@@ -317,7 +318,7 @@ int main(int argc, const char * argv[])
             listener.readOnly = options.readOnly;
             [listener start];
         }];
-        NSString* serverVersion = @"0.0.0";
+        NSString* serverVersion = @"0.0.1";
         NSLog(@"MediaManagerTouchServ %@ is listening%@ on port %d ... relax!",
               serverVersion,
               (options.readOnly ? @" in read-only mode" : @""),
