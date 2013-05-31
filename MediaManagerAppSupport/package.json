@@ -10,7 +10,7 @@
   "dependencies" : {
     "log4js"        : "0.5.x",
     "node-uuid"    : "~1.4.0",
-    "restify"      : "~2.0.4",
+    "restify"      : "2",
     "retry" : "*",
     "underscore"   : "~1.4.2",
     "websocket" : "https://github.com/marekjulian/WebSocket-Node/tarball/master",
