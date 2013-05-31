@@ -54,6 +54,7 @@ var Router = function() {
 
       server.opts(pat,
                   function(req, res, next) {
+                    // console.log(lp + '__request__ req - ' + util.inspect(req));
                     res.header('Access-Control-Allow-Origin', 'http://appjs');
                     res.header('Access-Control-Allow-Methods', "POST, GET, OPTIONS");
                     res.header('Access-Control-Allow-Headers', 'Content-Type');
@@ -111,8 +112,9 @@ var Router = function() {
       pat = resource.requestPath('read');
       server.opts(pat,
                   function(req, res, next) {
+                    // console.log(lp + '__request__ req - ' + util.inspect(req));
                     res.header('Access-Control-Allow-Origin', 'http://appjs');
-                    res.header('Access-Control-Allow-Methods', "GET, PUT, OPTIONS");
+                    res.header('Access-Control-Allow-Methods', "GET, PUT, DELETE, OPTIONS");
                     res.header('Access-Control-Allow-Headers', 'Content-Type');
                     res.send(204);
                     return next();
@@ -124,7 +126,7 @@ var Router = function() {
       logger.debug(lp + '__info__ Router configuration; read, request path to match - ' + pat);
       server.get(pat,
                  function(req, res, next) {
-                   logger.info(lp + '__request__ id - ' + req.params[0] + ', req - ' + util.inspect(req));
+                   // console.log(lp + '__request__ id - ' + req.params[0] + ', req - ' + util.inspect(req));
                    res.header('Access-Control-Allow-Origin', 'http://appjs');
                    res.header('Access-Control-Allow-Methods', "POST, GET, PUT, OPTIONS");
                    apiWorkers.doRequest(resource, 'GET',
@@ -141,7 +143,7 @@ var Router = function() {
       logger.debug(lp + '__info__ Router configuration; update, request path to match - ' + pat);
       server.put(pat,
                  function(req, res, next) {
-                   logger.info(lp + '__request__ id - ' + req.params[0] + ', req - ' + util.inspect(req));
+                   // console.log(lp + '__request__ id - ' + req.params[0] + ', req - ' + util.inspect(req));
                    res.header('Access-Control-Allow-Origin', 'http://appjs');
                    res.header('Access-Control-Allow-Methods', "PUT");
                    var options = {
@@ -159,12 +161,35 @@ var Router = function() {
                    apiWorkers.doRequest(resource, 'PUT', options);
                    return next();
                  });
+
+      //
+      //  delete route (DELETE resource.path, where resource.path points to an instance)
+      //
+      pat = resource.requestPath('delete');
+      logger.debug(lp + '__info__ Router configuration; delete, request path to match - ' + pat);
+      server.del(pat,
+                 function(req, res, next) {
+                   // console.log(lp + '__request__ id - ' + req.params[0] + ', req - ' + util.inspect(req));
+                   res.header('Access-Control-Allow-Origin', 'http://appjs');
+                   res.header('Access-Control-Allow-Methods', "DELETE");
+                   var options = {
+                     id: req.params[0],
+                     onSuccess: that.genOnSuccess(resource, req, res),
+                     onError: that.genOnError(resource, req, res)
+                   };
+                   var parsedUrl = url.parse(req.url, true);
+                   if (_.has(parsedUrl, 'query')) {
+                     options['query'] = parsedUrl.query;
+                   }
+                   apiWorkers.doRequest(resource, 'DELETE', options);
+                   return next();
+                 });
     });
   };
 
   this.genOnSuccess = function(resource, req, res) {
     return function(responseBody) {
-      console.log('index.js: Handling - ' + req.method + ' ' + req.url + ', response payload of length - ' + JSON.stringify(responseBody).length);
+      // console.log('index.js: Handling - ' + req.method + ' ' + req.url + ', response payload of length - ' + JSON.stringify(responseBody).length);
       logger.info({event: '__resposne__',
                    status: 0});
       res.json(200, responseBody);
@@ -173,7 +198,7 @@ var Router = function() {
 
   this.genOnError = function(resource, req, res) {
     return function(responseBody) {
-      console.log('index.js: Handling - ' + req.method + ' ' + resource.path + ', response payload - ' + JSON.stringify(responseBody));
+      // console.log('index.js: Handling - ' + req.method + ' ' + resource.path + ', response payload - ' + JSON.stringify(responseBody));
       var fields = {event: '__response__',
                     status: 1,
                     error_code: _.has(responseBody, 'error_code')? responseBody.error_code : -1,
