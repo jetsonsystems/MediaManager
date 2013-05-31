@@ -2,7 +2,7 @@
 
 var
   should  = require('should')
-  ,config = require('./config')
+  ,config = require('config')
   ,expect = require('chai').expect
   ,fs     = require('fs')
   ,Image  = require('ImageService/lib/plm-image/Image')

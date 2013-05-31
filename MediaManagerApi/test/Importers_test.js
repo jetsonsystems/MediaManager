@@ -8,7 +8,7 @@ var
 ;
 
 var
-  config = require('./config')
+  config = require('config')
   ,dbMan = require('./databaseManager.js')
   ,imageService = require('ImageService')
   ,Importers = require('../lib/MediaManagerApiCore')(config, {singleton: false}).Importers
