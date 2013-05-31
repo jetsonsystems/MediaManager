@@ -1233,8 +1233,22 @@ var ImportersImages = new Class({
     options = options || {};
     var that = this;
     var batchId = options.req.params[0];
+    var imagesFilter = { includeImages: true };
+    if(options.query && options.query.trashState){
+      if(options.query.trashState === 'in'){
+        imagesFilter.imagesTrashState='in';
+      }else
+      if(options.query.trashState === 'out'){
+        imagesFilter.imagesTrashState='out'
+      }else
+      if(options.query.trashState === 'any'){
+        imagesFilter.imagesTrashState='any'
+      }
+
+    }
+
     imageService.importBatchShow(removePrefix(batchId),
-                                 { includeImages: true },
+                                  imagesFilter,
                                  function(err, result) {
                                    var status = 200;
                                    if (err) {
@@ -1586,9 +1600,9 @@ function removePrefix(oids){
 
   if (_.isArray(oids)){
     var cleanOids = [];
-    _.each(oids,function(oid){
-      cleanOids.push(oid.replace('$', ''));
-    });
+    for (var i = 0; i < oids.length; i++) {
+      cleanOids.push(oids[i].replace('$', ''));
+    }
     return cleanOids;
   }
 

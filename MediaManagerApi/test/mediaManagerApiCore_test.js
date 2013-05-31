@@ -2,9 +2,11 @@
 
 var async = require('async')
   , restify = require('restify')
+  , config = require('config')
   , imageService = require('ImageService')
   , testDataManager = require('./TestDataManager')
   , media_manager_api_server = require("../media_manager_api_server")
+  //, media_manager_api_server = require('../lib/MediaManagerApiCore')(config, {singleton: false})
   , chai = require('chai')
   , expect = chai.expect
   , should = require("should")
@@ -15,24 +17,15 @@ var thisFileName = __filename.substring(__filename.lastIndexOf("/"), __filename.
 var log = log4js.getLogger(thisFileName);
 
 
-var config = {
-  db: {
-    database: "plm-media-manager-dev0",
-    local: {
-      host: "localhost",
-      port: 5984
-    }
-  }
-};
-
 var serverPort = 9000;
 
 var dbOptions = {
-  host:config.db.local.host,
-  port:config.db.local.port,
-  dbName:config.db.database,
-  dbType:'couchdb'
+  host: config.db.local.host,
+  port: config.db.local.port,
+  dbName: config.db.database,
+  dbType: config.db.local.type // couchdb | touchdb
 };
+
 
 
 imageService.config.db.host = dbOptions.host;

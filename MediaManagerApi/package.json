@@ -26,5 +26,6 @@
     ,"mocha" : "~1.7.4"
     ,"nano"  : "https://github.com/jetsonsystems/nano/tarball/master"
     ,"should": "~1.2.1"
+    ,"config"   : "~0.4.18"
   }
 }
