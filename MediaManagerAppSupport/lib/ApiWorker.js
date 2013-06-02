@@ -7,7 +7,7 @@ var log4js = require('log4js');
 
 var notifications = require('MediaManagerApi/lib/Notifications');
 
-var configPath = '/Users/marekjulian/Projects/PLM/DeskTopApp/node-webworker/test/config/log4js.json';
+var configPath = process.env.LOG4JS_CONFIG;
 log4js.configure(configPath);
 var logger = log4js.getLogger('plm.MediaManagerAppSupport');
 var tmp = __filename.split('/');
