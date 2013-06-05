@@ -634,8 +634,11 @@ exports.index = function index(options,callback)
     if(options.trashState){
       if(options.trashState ==='in'){
         exports.viewTrash(options,callback);
+      }else{
+        var trashStateFilter = {};
+        trashStateFilter.trashState=options.trashState;
+        exports.findImagesByTrashState(trashStateFilter,callback);
       }
-
 
     }
   }
@@ -1414,6 +1417,97 @@ function findByTags(filter, options, callback) {
     }
   );
 } // end findByTags
+
+
+/**
+ * options.trashState : in|out|any
+ * @type {Function}
+ */
+exports.findImagesByTrashState = findImagesByTrashState;
+
+
+function findImagesByTrashState(options, callback) {
+
+  var opts = options || {};
+
+  log.debug("findImagesByTrashState opts: " + util.inspect(opts));
+
+  var db = priv.db();
+
+  log.trace("findImagesByTrashState: connected to db...");
+
+  var aryImgOut = []; // images sorted by creation time
+  var imgMap    = {}; // temporary hashmap that stores original images by oid
+  var anImg     = {};
+
+  // couchdb specific view options
+  var view_opts={ include_docs: true};
+
+
+  log.trace("Finding images by trashState using view '%s' with view_opts %j", VIEW_BY_OID_WITHOUT_VARIANT, view_opts);
+
+
+  db.view(IMG_DESIGN_DOC, VIEW_BY_OID_WITHOUT_VARIANT, view_opts,
+    function(err, body) {
+
+      if (!err) {
+
+        //remove duplicates
+        var possibleMatches = _.uniq(body.rows,function (doc) {
+          return doc.id;
+        });
+
+        // Filter images by trashState
+        var results = _.filter(possibleMatches, function(m) {
+              if(opts.trashState==="in"){
+                  return m.doc.in_trash===true;
+              }else
+              if(opts.trashState==="out"){
+                return !(m.doc.in_trash); //m.doc.in_trash is undefined null or false
+              }else
+              if(opts.trashState==="any"){
+                return true; //return the doc regardless of it trashState
+              }
+            }
+        );
+
+        //extract only the "doc" part
+        var resultDocs = _.pluck(results, "doc");
+
+        var resultDocsOids = _.pluck(resultDocs, "oid");
+
+
+        var aryImgOut = [];
+
+        async.forEachLimit(resultDocsOids,
+          1,
+          function (oid,next){
+            show(oid,null,function(err,image){
+                if (err) { callback(err); }
+                else {
+                  aryImgOut.push(image);
+                }
+                next();
+              }
+            );
+          },
+          function(err) {
+            if (err) {
+              callback(err);
+            }else{
+              //all images were processed time to callback
+              callback(null, aryImgOut);
+            }
+          }
+        );
+
+
+      } else {
+        callback(util.format("error in findImagesByTrashState with view options '%j' - err: %s - body: %j", view_opts, err, body));
+      }
+    }
+  );
+} // end findByTrashState
 
 
 exports.findByOids = findByOids;
@@ -2238,7 +2332,7 @@ function deleteImages(oidArray, callback){
     }
   );
 
-} // end deleteImage
+} // end deleteImages
 
 
 exports.emptyTrash = emptyTrash;

@@ -665,13 +665,22 @@ var Images = new Class({
 
   },
 
-  delete: function(id, options) {
-    log.info('Images.delete: Deleting for path - %s',+ this.path);
+  delete: function (id, options) {
+    log.info('Images.delete: Deleting for path - %s', +this.path);
     options = options || {};
     var that = this;
 
-    if(id){//delete single image
-      imageService.deleteImages([removePrefix(id)],function(err, result) {
+    if (id) {//delete single image
+
+      async.waterfall([
+
+        function (next) {
+
+          imageService.deleteImages([removePrefix(id)], next);
+
+        }
+      ], function (err, result) {
+
         var status = 200;
         if (err) {
           log.error('Images.delete', 'error from image service - ' + err);
@@ -679,14 +688,23 @@ var Images = new Class({
           options.errorCode = -1;
           options.errorMessage = err;
         }
+
         log.info('Images.delete: invoking callback with status - %s, path - %s', status, that.path);
         that.doCallbacks(status, result, options);
+        return that;
       });
+
     }
     else //delete a collection of images
-    if(options && options.query && options.query && options.query.trashState){
-      if(options.query.trashState==="in"){
-        imageService.emptyTrash(function(err, result) {
+    if (options && options.query && options.query.trashState) {
+      if (options.query.trashState === "in") {
+
+        async.waterfall([
+          function (next) {
+            imageService.emptyTrash(next);
+          }
+        ], function (err, result) {
+
           var status = 200;
           if (err) {
             log.error('Images.delete', 'error from image service - ' + err);
@@ -694,21 +712,61 @@ var Images = new Class({
             options.errorCode = -1;
             options.errorMessage = err;
           }
+
           log.info('Images.delete: invoking callback with status - %s, path - %s', status, that.path);
           that.doCallbacks(status, result, options);
+          return that;
         });
+
+      } else {
+
+        var trashStateFilter = {};
+        trashStateFilter.trashState = options.query.trashState;
+
+        var oidsToDelete = [];
+        async.waterfall([
+          function (next) {
+            imageService.findImagesByTrashState(trashStateFilter, function (err, results) {
+              if (err) {
+                next(err);
+              }
+              else {
+                oidsToDelete = _.pluck(results, "oid");
+                next(null);
+              }
+
+            });
+          },
+          function (next) {
+            imageService.deleteImages(oidsToDelete, next);
+          }
+        ], function (err, result) {
+
+          var status = 200;
+          if (err) {
+            log.error('Images.delete', 'error from image service - ' + err);
+            status = 500;
+            options.errorCode = -1;
+            options.errorMessage = err;
+          }
+
+          log.info('Images.delete: invoking callback with status - %s, path - %s', status, that.path);
+          that.doCallbacks(status, result, options);
+          return that;
+        });
+
       }
 
-    }else{
-        status = 400; //Bad Request
-        options.errorCode = -1;
-        options.errorMessage = 'Image.delete Bad request.';
-        that.doCallbacks(status,
-          options.attr,
-          options);
-
+    } else {
+      status = 400; //Bad Request
+      options.errorCode = -1;
+      options.errorMessage = 'Image.delete Bad request.';
+      that.doCallbacks(status,
+        options.attr,
+        options);
+      return that;
     }
-    return that;
+
   },
 
   //

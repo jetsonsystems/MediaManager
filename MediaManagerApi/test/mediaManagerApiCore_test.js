@@ -6,7 +6,6 @@ var async = require('async')
   , imageService = require('ImageService')
   , testDataManager = require('./TestDataManager')
   , media_manager_api_server = require("../media_manager_api_server")
-  //, media_manager_api_server = require('../lib/MediaManagerApiCore')(config, {singleton: false})
   , chai = require('chai')
   , expect = chai.expect
   , should = require("should")
