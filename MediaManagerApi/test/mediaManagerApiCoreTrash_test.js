@@ -6,7 +6,6 @@ var async = require('async')
   , imageService = require('ImageService')
   , testDataManager = require('./TestDataManager')
   , media_manager_api_server = require("../media_manager_api_server")
-  //, media_manager_api_server = require('../lib/MediaManagerApiCore')(config, {singleton: false})
   , chai = require('chai')
   , expect = chai.expect
   , should = require("should")
@@ -83,6 +82,7 @@ function initializeTestServer(options, done) {
 
 
 function tearDownTestServer(options, done) {
+
   async.waterfall([
 
     function stopTestServer(next) {
@@ -120,8 +120,7 @@ function tearDownTestServer(options, done) {
 
 describe('service: MediaManagerApi Trash Operations', function () {
 
-
-  describe('Trash tests', function () {
+  describe('MediaManagerApi - Trash Operations tests', function () {
 
     // test: Send an image to the trash
     //PUT /images/<image ID>?in_trash=true
@@ -218,27 +217,27 @@ describe('service: MediaManagerApi Trash Operations', function () {
 
 
             next();
-            });
+          });
 
         },
         //restore previous image from trash
         function (next) {
 
-         var oidToSendToTrash = imagesOids[0];
+          var oidToSendToTrash = imagesOids[0];
 
-         client.put('/v0/images/$' + oidToSendToTrash + '?in_trash=false', function (err, req, res, data) {
+          client.put('/v0/images/$' + oidToSendToTrash + '?in_trash=false', function (err, req, res, data) {
 
-           if(err){
-           log.error(err);
-           }
+            if(err){
+              log.error(err);
+            }
 
-           should.not.exist(err);
-           res.should.have.status(200);
+            should.not.exist(err);
+            res.should.have.status(200);
 
-           next();
-         });
+            next();
+          });
 
-         },
+        },
         //check there is no image in trash
         function (next) {
 
@@ -352,36 +351,112 @@ describe('service: MediaManagerApi Trash Operations', function () {
           });
 
         }
-        /*,
-        //pick a single image and delete it permanently
+
+      ], function (err, results) {
+
+        done()
+
+      });
+    });
+
+    afterEach(function (done) {
+      tearDownTestServer(null, done);
+    });//end after
+  });
+
+  describe('MediaManagerApi - Permanently Delete Images by trashState', function () {
+
+
+  /**
+   * Test 1) delete in
+   *
+   *
+   * Test 2) delete out
+   *
+   *
+   * Test 3) delete any
+   */
+
+    var imagesOids = [];
+    var oidToSendToTrash;
+
+    /**
+     * Prepare environment or each test
+      1)Retrieve all images
+      2)pick up 1 image and send it to trash
+     */
+    beforeEach(function (done) {
+      async.waterfall([
+
+        //initialize test images without tags
+        function (next) {
+          var options = {
+            populateTags: false
+          };
+
+          initializeTestServer(options, next);
+        },
+
         function (next) {
 
-          client.del('/v0/images/$' + imagesOids[0] + '?', function (err, req, res, data) {
+          // Get the oids of the saved images
+          testDataManager.getAllImages(
+            function (err, result) {
+              if(err){
+                log.error(err);
+              }
+              else {
+                imagesOids = _.pluck(result, "oid");
 
-           if(err){
-           log.error(err);
-           }
+              }
+              next(null);
+            }
+
+          );
+        },
+
+        //pick one of the three images and send it to trash
+        function (next) {
+
+          oidToSendToTrash = imagesOids[0];
+
+          client.put('/v0/images/$' + oidToSendToTrash + '?in_trash=true', function (err, req, res, data) {
+
+            if(err){
+              log.error(err);
+            }
+
             should.not.exist(err);
             res.should.have.status(200);
-
 
             next();
           });
 
-        }*/
+        }
+      ], function (err, results) {
 
+        done()
 
-        //restore previous image from trash
-        /*function (next) {
+      });
 
-          var oidToSendToTrash = imagesOids[0];
+    });//end before
 
-          client.put('/v0/images/$' + oidToSendToTrash + '?in_trash=false', function (err, req, res, data) {
+    afterEach(function (done) {
+      tearDownTestServer(null, done);
+    });//end after
 
+    it('delete images with trashState=in', function (done) {
 
-           if(err){
-           log.error(err);
-           }
+      async.waterfall([
+
+        //delete images with trashState=in
+        function (next) {
+
+          client.del('/v0/images?trashState=in', function (err, req, res, data) {
+
+            if(err){
+              log.error(err);
+            }
 
             should.not.exist(err);
             res.should.have.status(200);
@@ -389,25 +464,27 @@ describe('service: MediaManagerApi Trash Operations', function () {
             next();
           });
 
-        },*/
-        //check there is no image in trash
-        //function (next) {
+        },
 
-          //  var oidToSendToTrash = imagesOids[0];
+        //check the image in trash was deleted
+        function (next) {
 
-          // client.put('/v0/images/$' + oidToSendToTrash + '?in_trash=false', function (err, req, res, data) {
 
-          //if(err){
-           // log.error(err);
-          //}
+          client.get('/v0/images/$' + oidToSendToTrash, function (err, req, res, data) {
 
-          //   should.not.exist(err);
-          /////   res.should.have.status(200);
+            if(err){
+              log.error(err);
+            }
 
-          //next();
-          // });
+            should.not.exist(err);
+            res.should.have.status(200);
 
-        //}
+            expect(data.image).to.be.empty;
+
+            next();
+          });
+
+        }
 
 
       ], function (err, results) {
@@ -418,36 +495,141 @@ describe('service: MediaManagerApi Trash Operations', function () {
 
     });
 
+    it('delete images with trashState=any', function (done) {
 
-    afterEach(function (done) {
-      tearDownTestServer(null, done);
-    });//end after
+      async.waterfall([
 
-  });
+        //delete images with trashState=any (all images)
+        function (next) {
+
+          client.del('/v0/images?trashState=any', function (err, req, res, data) {
+
+            if(err){
+              log.error(err);
+            }
+
+            should.not.exist(err);
+            res.should.have.status(200);
+
+            next();
+          });
+
+        },
+
+        //check that all images in trash were deleted
+        function (next) {
+
+          client.get('/v0/images?trashState=in', function (err, req, res, data) {
+
+            if(err){
+              log.error(err);
+            }
+
+            should.not.exist(err);
+            res.should.have.status(200);
+
+            expect(data.images).to.have.length(0);
+
+            next();
+          });
+
+        },
+        //check that all images out of trash were ALSO deleted
+        function (next) {
+
+          client.get('/v0/images?trashState=out', function (err, req, res, data) {
+
+            if(err){
+              log.error(err);
+            }
+
+            should.not.exist(err);
+            res.should.have.status(200);
+
+            expect(data.images).to.have.length(0);
+
+            next();
+          });
+
+        }
 
 
-  //-------------------------------------------------------------------------------------------------------------------
-  //REQUEST:
-  //method POST
-  //localhost:9000/v0/importers
-  //import_dir    /home/dmora/projects/jetsonsys/MediaManager/MediaManagerApi/test/images
-  //RESPONSE
-  /*
-   {
-   "status": 0,
-   "importer": {
-   "id": "$73fabdf0-fed1-4423-83fd-ff5d6b5e3ee6",
-   "import_dir": "/home/dmora/projects/jetsonsys/MediaManager/MediaManagerApi/test/images",
-   "created_at": "2012-12-21T16:37:10.804Z",
-   "started_at": "2012-12-21T16:37:10.804Z",
-   "num_to_import": 1,
-   "num_imported": 0,
-   "num_success": 0,
-   "num_error": 0
-   }
-   }
-   */
-  //-------------------------------------------------------------------------------------------------------------------
 
+      ], function (err, results) {
+
+        done()
+
+      });
+
+    });
+
+    it('delete images with trashState=out', function (done) {
+
+      async.waterfall([
+
+        //delete images with trashState=out
+        function (next) {
+
+          client.del('/v0/images?trashState=out', function (err, req, res, data) {
+
+            if(err){
+              log.error(err);
+            }
+
+            should.not.exist(err);
+            res.should.have.status(200);
+
+            next();
+          });
+
+        },
+
+        //check the images out of trash was deleted
+        function (next) {
+
+          client.get('/v0/images?trashState=out', function (err, req, res, data) {
+
+            if(err){
+              log.error(err);
+            }
+
+            should.not.exist(err);
+            res.should.have.status(200);
+
+            expect(data.images).to.have.length(0);
+
+            next();
+          });
+
+        },
+        //check the images in trash were NOT deleted
+        function (next) {
+
+          client.get('/v0/images?trashState=in', function (err, req, res, data) {
+
+            if(err){
+              log.error(err);
+            }
+
+            should.not.exist(err);
+            res.should.have.status(200);
+
+            expect(data.images).to.have.length(1);
+
+            next();
+          });
+
+        }
+
+
+      ], function (err, results) {
+
+        done()
+
+      });
+
+    });
+
+});
 
 });
