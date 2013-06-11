@@ -2,7 +2,7 @@
 
 var async = require('async')
   , restify = require('restify')
-  , config = require('config')
+  , config = require('./config')
   , imageService = require('ImageService')
   , testDataManager = require('./TestDataManager')
   , media_manager_api_server = require("../media_manager_api_server")

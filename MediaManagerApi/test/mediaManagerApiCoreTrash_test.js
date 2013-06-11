@@ -38,7 +38,8 @@ testDataManager.setImageService(imageService);
 // init the test client
 var client = restify.createJsonClient({
   version: '*',
-  url: 'http://localhost:' + serverPort
+  url: 'http://localhost:' + serverPort,
+  headers: {connection: "close"}
 });
 
 function initializeTestServer(options, done) {
