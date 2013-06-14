@@ -28,6 +28,12 @@ module.exports = {
                                              }),
   StorageSynchronizers: new mmApi.StorageSynchronizers('/storage/synchronizers',
                                                        {instName: 'synchronizer',
-                                                        pathPrefix: pathPrefix})
+                                                        pathPrefix: pathPrefix}),
+  Tags:new mmApi.Tags('/tags',
+                      {instName:'tag',
+                       pathPrefix: pathPrefix}),
+  Tagger:new mmApi.Tagger('/tagger',
+                          {instName:'tagger',
+                           pathPrefix: pathPrefix})
 
 };
