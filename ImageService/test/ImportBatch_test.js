@@ -7,11 +7,9 @@ var
 
 var
   fs     = require('fs')
-  ,Image = require('../lib/plm-image/Image')
-  ,ImportBatch = require('../lib/plm-image/ImportBatch')
+  ,mmStorage = require('MediaManagerStorage')({}, { singleton: false })
   ,util   = require('util')
 ;
-
 
 describe('ImportBatch', function () {
 
@@ -24,9 +22,12 @@ describe('ImportBatch', function () {
     ,CREATED_AT   = new Date()
     ,STARTED_AT   = new Date( CREATED_AT.getTime() + 1000) 
     ,COMPLETED_AT = new Date( STARTED_AT.getTime() + 5000)
-    ,importBatch  = new ImportBatch(
-      {path: IMPORT_DIR, oid: OID, images_to_import: IMAGES_TO_IMPORT, created_at: CREATED_AT})
-    ,IMG1 = new Image({path: PATH1, oid: OID+'1'})
+    ,importBatch  = mmStorage.docFactory('plm.ImportBatch',
+                                         {path: IMPORT_DIR, 
+                                          oid: OID, 
+                                          images_to_import: IMAGES_TO_IMPORT, 
+                                          created_at: CREATED_AT})
+    ,IMG1 = mmStorage.docFactory('plm.Image', {path: PATH1, oid: OID+'1'})
     ,ERR = "Something bad happened"
     ,out = {}
   ;

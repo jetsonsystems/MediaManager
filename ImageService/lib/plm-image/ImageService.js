@@ -7,8 +7,6 @@ var
   ,dive  = require('dive')
   ,fs    = require('fs')
   ,gm    = require('gm')
-  ,Image = require('./Image')
-  ,ImportBatch = require('./ImportBatch')
   ,img_util = require('./image_util')
   ,log4js   = require('log4js')
   ,mime     = require('mime-magic')
@@ -33,6 +31,13 @@ var config = {
     numJobs: 1  // number of image processing jobs to trigger in parallel during imports
   }
 };
+
+//
+// Note any config is OK here now, as we don't use MediaManagerStore to actually talk
+// to the DB. In the future we should require invoking ImageService as a function passing a config,
+// where the returned instance will use that config.
+//
+var mmStorage = require('MediaManagerStorage')(config.db, {singleton: false});
 
 exports.config = config;
 
@@ -349,7 +354,7 @@ function parseImage(anImgPath, callback)
   if (config.app && _.has(config.app, 'id')) {
     attrs.app_id = config.app.id;
   }
-  var imageMeta = new Image(attrs);
+  var imageMeta = mmStorage.docFactory('plm.Image', attrs);
   var gmImg   = gm(fs.createReadStream(anImgPath));
 
   step(
@@ -572,14 +577,14 @@ function show(oid,options, callback)
           log.warn("Unable to find image with oid '%s'", oid);
         } else {
           var docBody = body.rows[0].doc;
-          imgOut = new Image(docBody);
+          imgOut = mmStorage.docFactory('plm.Image', docBody);
           imgOut.url = priv.getImageUrl(docBody);
           if (opts.showMetadata) { imgOut.exposeRawMetadata = true; }
           if (body.rows.length > 0) {
             for (var i = 1; i < body.rows.length; i++) {
               // log.trace('show: variant - oid - %j, size - %j, orig_id - %j',row.doc.oid, row.doc.geometry, row.doc.orig_id);
               var vDocBody = body.rows[i].doc;
-              var vImage = new Image(vDocBody);
+              var vImage = mmStorage.docFactory('plm.Image', vDocBody);
               if (opts.showMetadata) { vImage.exposeRawMetadata = true; }
               vImage.url = priv.getImageUrl(vDocBody);
               // log.trace('show: oid - %j, assigned url - %j',row.doc.oid, vImage.url);
@@ -720,7 +725,7 @@ function convert_couch_body_to_array_of_images(opts,resultDocs){
   for (var i = 0; i < resultDocs.length; i++) {
     var docBody = resultDocs[i];
 
-    anImg = new Image(docBody);
+    anImg = mmStorage.docFactory('plm.Image', docBody);
     if (opts.showMetadata) { anImg.exposeRawMetadata = true; }
 
     // Assign a URL to the image. Note, this is temporary as the images
@@ -771,7 +776,7 @@ function convertImageViewToCollection(docs, options)
 
     if ( doc.class_name === 'plm.Image')
     {
-      var anImg = new Image(doc);
+      var anImg = mmStorage.docFactory('plm.Image', doc);
       if (opts.showMetadata) { anImg.exposeRawMetadata = true; }
 
       // Assign a URL to the image. Note, this is temporary as the images
@@ -839,7 +844,7 @@ function importBatchFs(target_dir, callback, options)
           attrs.app_id = config.app.id;
         }
 
-        importBatch = new ImportBatch(attrs);
+        importBatch = mmStorage.docFactory('plm.ImportBatch', attrs);
 
         if (log.isDebugEnabled()) { log.debug('New importBatch: %j', importBatch); }
 
@@ -1012,7 +1017,7 @@ function importBatchShow(oid, options, callback) {
             throw util.format("Invalid view returned in importBatchShow by view '%s'", view);
           }
 
-          batchOut = new ImportBatch(doc);
+          batchOut = mmStorage.docFactory('plm.ImportBatch', doc);
 
 
           if (opts.includeImages) {
@@ -1094,7 +1099,7 @@ function importBatchFindRecent(N, options, callback) {
         for (var i = 0; i < body.rows.length; i++) {
           var doc = body.rows[i].doc;
           if (doc.class_name === 'plm.ImportBatch') {
-            var importBatch = new ImportBatch(doc);
+            var importBatch = mmStorage.docFactory('plm.ImportBatch', doc);
             priv.setCouchRev(importBatch, doc);
             aryBatchOut.push(importBatch);
           }
@@ -2214,7 +2219,7 @@ function viewTrash(options, callback) {
         async.forEachLimit(resultDocs,
           1,
           function (doc,next){
-            var anImage = new Image(doc);
+            var anImage = mmStorage.docFactory('plm.Image', doc);
             if(anImage.isOriginal()){//retrieve also the variants
               show(doc.oid,null,function(err,image){
                   if (err) { callback(err); }

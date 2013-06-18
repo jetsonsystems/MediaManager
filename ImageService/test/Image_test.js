@@ -2,7 +2,7 @@ var
   should  = require('should')
   ,expect = require('chai').expect
   ,fs     = require('fs')
-  ,Image  = require('../lib/plm-image/Image')
+  ,mmStorage = require('MediaManagerStorage')({}, { singleton: false })
 ;
 
 describe('Image', function () {
@@ -17,7 +17,9 @@ describe('Image', function () {
 
   //This will be called before each test
   beforeEach(function (done) {
-    image = new Image({path: PATH, oid: OID});
+    image = mmStorage.docFactory('plm.Image', 
+                                 { path: PATH, 
+                                   oid: OID });
     done();
   });//end before
 

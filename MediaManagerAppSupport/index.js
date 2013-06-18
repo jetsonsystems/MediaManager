@@ -1,9 +1,11 @@
 //
-//  MediaManagerAppSupport: App server side support code. IE:
+//  MediaManagerAppSupport: App server side support code. 
 //
-//    - init: To be called on application start. Returns an app instance.
+//    Usage:
 //
-//    - app: An instance of our application.
+//      var app = require('MediaManagerAppSupport')(appjs, routes);
+//
+//    The app instance returned by invoking the module has the following interface:
 //
 //      methods:
 //        config: Returns the application configuration.
@@ -25,7 +27,7 @@ var config = require('MediaManagerAppConfig');
 var storage = require('./lib/storage.js');
 var mmApi = require('MediaManagerApi/lib/MediaManagerApiCore')(config);
 var mmStorageModule = require('MediaManagerStorage');
-var mmStorage = mmStorageModule(config.db, {singleton: true});
+var mmStorage = mmStorageModule(config.db, {singleton: true}).get('touchdb');
 var MediaManagerRouter = require('./lib/MediaManagerRouter.js');
 var AppServWorkerMessages = require('./lib/AppServWorkerMessages.js');
 
@@ -33,7 +35,7 @@ var EventEmitter = require('events').EventEmitter;
 
 var log = log4js.getLogger('plm.MediaManagerAppSupport');
 
-var init = function(appjs, routes) {
+var MediaManagerAppSupportModule = function(appjs, routes) {
 
   var logPrefix = 'init: ';
 
@@ -203,4 +205,4 @@ var init = function(appjs, routes) {
   return app;
 };
 
-module.exports.init = init;
+module.exports = MediaManagerAppSupportModule;
