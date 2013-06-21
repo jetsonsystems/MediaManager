@@ -65,7 +65,8 @@ module.exports = function assetManagerModule(config, dbUpdateSeq, options) {
   var gdriveUploader = new gdrive.Uploader(account, 
                                            config.storage.gdrive.persistDir,
                                            {dryRun: options.dryRun,
-                                            uploadqFile: 'uploadq.json'});
+                                            uploadqFile: 'uploadq.json',
+                                            location: config.storage.gdrive.locations.originals});
 
   var uploadStats = {
     numChanges: 0,
@@ -91,9 +92,9 @@ module.exports = function assetManagerModule(config, dbUpdateSeq, options) {
                      // Have an Image document corresponding to the original asset.
                      //
                      logger.info(logPrefix + 'Have valid change!');
-                     gdriveUploader.enqueue({docId: image.oid,
-                                             path: image.path
-                                            });
+                     gdriveUploader.enqueue({assetType: "original",
+                                             docId: image.oid,
+                                             path: image.path});
                      uploadStats.numQueued = uploadStats.numQueued + 1;
                    }
                    else {

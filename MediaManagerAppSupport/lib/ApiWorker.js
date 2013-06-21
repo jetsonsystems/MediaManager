@@ -30,7 +30,7 @@ _.each(_.values(ApiResources), function(resource) {
 // message to the ApiWorkers module.
 //
 function handleNotification(msg) {
-  logger.info(logPrefix + 'Worker received notification - ' + util.inspect(msg));
+  logger.debug(logPrefix + 'Worker received notification - ' + util.inspect(msg));
   postMessage(ApiWorkerMessages.createNotificationMsg(msg));
 };
 
@@ -63,6 +63,6 @@ onmessage = function(e) {
     resource.doRequest(request.method, options);
   }
   else {
-    logger.info(lp + 'Invalid message received by worker, type - ' + e.data.type);
+    logger.error(lp + 'Invalid message received by worker, type - ' + e.data.type);
   }
 };

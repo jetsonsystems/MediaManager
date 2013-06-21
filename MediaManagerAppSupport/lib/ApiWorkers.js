@@ -76,7 +76,7 @@ _.each(_.values(ApiResources), function(resource) {
     }
     else if (e.data.type === ApiWorkerMessages.NOTIFICATION) {
       var notification = e.data.notification;
-      logger.info(logPrefix + 'Received notification message - ' + util.inspect(notification));
+      logger.debug(logPrefix + 'Received notification message - ' + util.inspect(notification));
       notifications.publish(notification.resource,
                             notification.event,
                             notification.data);

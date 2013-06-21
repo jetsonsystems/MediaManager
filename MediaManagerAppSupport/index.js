@@ -30,7 +30,6 @@ var mmStorageModule = require('MediaManagerStorage');
 var mmStorage = mmStorageModule(config.db, {singleton: true}).get('touchdb');
 var MediaManagerRouter = require('./lib/MediaManagerRouter.js');
 var AppServWorkerMessages = require('./lib/AppServWorkerMessages.js');
-var assetManagerModule = require('./lib/AssetManager.js');
 
 var EventEmitter = require('events').EventEmitter;
 
@@ -159,12 +158,6 @@ var MediaManagerAppSupportModule = function(appjs, routes) {
             log.error('MediaManagerAppSupport: Storage initialization error whiling connecting to changes feed - ' + createErr);
             app.emit('localStorageInitError');
           }
-
-          //
-          // Instantiate the asset manager to upload originals to GoogleDrive or
-          // whatever service we desire.
-          //
-          app.assetManager = assetManagerModule(config, currentInfo.updateSeq);
         }
       };
 
