@@ -180,7 +180,7 @@ var init = function(config, options) {
   if (_.has(useConfig, 'app')) {
     imageService.config.app = useConfig.app;
   }
-  storage = storageModule(useConfig.db, options);
+  storage = storageModule(useConfig.db, options).get('touchdb');
 };
 
 /*

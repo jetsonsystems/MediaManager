@@ -56,13 +56,45 @@ An <b>application server</b> which runs as a <b>web worker</b> sub-process. It p
   * An [AssetManager](./lib/AssetManager.js) instance which is responsible for taking care of assets associated with documents captured in our touchdb / couchdb data store.
 
 ### [AssetManager](./lib/AssetManager.js)
-Monitors an instance of the touchdb / couchdb changes feed for documents which require special attention with respect to their associated assets. For example, when an image document is imported, its original asset is uploaded to Google Drive.
 
-A work queue is maintained, *<b>gdriveUploadQ</b>*, which is a FIFO queue. Items pushed onto the queue contain the following attributes:
+```
+USAGE:
+
+  var assetManager = require('MediaManagerAppSupprt/lib/AssetManager')(config,
+                                                                       dbUpdateSeq,
+                                                                       options)
+  
+  config:      Application config.
+  dbUpdateSeq: TouchDB / CouchDB update sequence to start monitoring the 
+               changes feed from.
+  options:
+    dryRun:    Run in dry run mode where assets are NOT actually uploaded. 
+               Defauilt: false.
+
+```
+
+Monitors an instance of the touchdb / couchdb *<b>changes feed</b>* for documents which require special attention with respect to their associated assets. For example, when an image document is imported, its original asset is uploaded to Google Drive.
+
+An instance of a [gdrive.Uploader](https://github.com/jetsonsystems/MediaManager/blob/master/MediaManagerStorage/lib/gdrive/README.md) is maintained. When a new original assets associated with the current application (based upon *<b>app_id</b>* in the application config and the plm.Image document) are received via the *<b>changes feed</b>*, the asset is <b>enqueued</b> in the [gdrive.Uploader](https://github.com/jetsonsystems/MediaManager/blob/master/MediaManagerStorage/lib/gdrive/README.md).
+
+Assets <b>enqueued</b> have  the following attributes:
 
   * doc_id: Document ID of the document the asset is associated with. For example, if it is an [plm.Image](./plm-image/README.md) document, it is its *<b>oid</b>* attribute.
   * path: Path to document on local filesystem.
+
+#### Classes
+None
+##### Methods
+None
+##### Attributes
+
+  * *<b>uploadStats</b>*: Statistics related to the progress of uploads. Contains the following attributes:
+    * numChanges: Number of new documents encountered by monitoring the changes feed.
+    * numQueued: Number of original documents created by the current application instance, which were queued for Google Drive upload.
+    * numStarted: Number uploads started.
+    * numSuccess: Number of upload successes.
+    * numError: Number of upload errors.
   
-An instance of a [gdrive.Uploader](https://github.com/jetsonsystems/MediaManager/blob/master/MediaManagerStorage/lib/gdrive/README.md) is instantiated and passed the *<b>gdriveUploadQ</b>*.
+  
 
 

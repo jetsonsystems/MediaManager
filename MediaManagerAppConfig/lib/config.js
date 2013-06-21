@@ -69,6 +69,16 @@ var config = Object.create({}, {
     value: _config.services,
     writable: false
   },
+  storage: {
+    //
+    // DO NOT mess with this.
+    //
+    value: _config.storage,
+    writable: false
+  },
+  linkedAccounts: {
+    value: _config.linkedAccounts
+  },
   logging: {
     //
     // DO NOT mess with this.
