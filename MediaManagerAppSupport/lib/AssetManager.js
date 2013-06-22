@@ -46,7 +46,7 @@ module.exports = function assetManagerModule(config, dbUpdateSeq, options) {
   var changesFeed = touchdb.changesFeed({since: dbUpdateSeq,
                                          includeFilter: ['plm.Image']});
 
-  var gdriveUploadQPersistFile = config.storage.gdrive.uploadQFile || 'uploadq.json';
+  var gdriveUploadqFile = config.storage.gdrive.uploadQFile || 'uploadq.json';
 
   console.log(logPrefix + 'config.storage.gdrive.persistDir - ' + config.storage.gdrive.persistDir);
 
@@ -65,7 +65,7 @@ module.exports = function assetManagerModule(config, dbUpdateSeq, options) {
   var gdriveUploader = new gdrive.Uploader(account, 
                                            config.storage.gdrive.persistDir,
                                            {dryRun: options.dryRun,
-                                            uploadqFile: 'uploadq.json',
+                                            uploadqFile: gdriveUploadqFile,
                                             location: config.storage.gdrive.locations.originals});
 
   var uploadStats = {
