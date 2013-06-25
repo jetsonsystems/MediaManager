@@ -29,15 +29,22 @@ module.exports = function assetManagerModule(config, dbUpdateSeq, options) {
 
   var options = options || {};
 
-  if (!_.has(options, 'dryRun')) {
-    options.dryRun = false;
+  var logOnly = (_.has(config.storage.gdrive, 'logOnly') && config.storage.gdrive.logOnly);
+
+  //
+  // logOnly option overrides config.
+  //
+  if (_.has(options, 'logOnly')) {
+    logOnly = options.logOnly;
   }
 
   var appId = config.app.id;
 
   var storage = storageModule(config.db, {singleton: true});
   var touchdb = storage.get('touchdb');
+  logger.info(logPrefix + 'Getting gdrive storage...');
   var gdrive = storage.get('gdrive');
+  logger.info(logPrefix + 'Got gdrive storage...');
 
   //
   // Create a changes feed to monitor, and watch for changes to Image
@@ -46,13 +53,17 @@ module.exports = function assetManagerModule(config, dbUpdateSeq, options) {
   var changesFeed = touchdb.changesFeed({since: dbUpdateSeq,
                                          includeFilter: ['plm.Image']});
 
+  logger.info(logPrefix + 'Created changes feed!');
+
   var gdriveUploadqFile = config.storage.gdrive.uploadQFile || 'uploadq.json';
 
-  console.log(logPrefix + 'config.storage.gdrive.persistDir - ' + config.storage.gdrive.persistDir);
+  logger.info(logPrefix + 'uploadqFile - ' + gdriveUploadqFile);
+
+  logger.info(logPrefix + 'config.storage.gdrive.persistDir - ' + config.storage.gdrive.persistDir);
 
   var account;
 
-  if (_.has(options, 'dryRun')) {
+  if (logOnly) {
     account = {};
   }
   else {
@@ -64,9 +75,11 @@ module.exports = function assetManagerModule(config, dbUpdateSeq, options) {
 
   var gdriveUploader = new gdrive.Uploader(account, 
                                            config.storage.gdrive.persistDir,
-                                           {dryRun: options.dryRun,
+                                           {logOnly: logOnly,
                                             uploadqFile: gdriveUploadqFile,
                                             location: config.storage.gdrive.locations.originals});
+
+  logger.info(logPrefix + 'Created gdrive uploader instance...');
 
   var uploadStats = {
     numChanges: 0,
@@ -94,6 +107,7 @@ module.exports = function assetManagerModule(config, dbUpdateSeq, options) {
                      logger.info(logPrefix + 'Have valid change!');
                      gdriveUploader.enqueue({assetType: "original",
                                              docId: image.oid,
+                                             name: image.name,
                                              path: image.path});
                      uploadStats.numQueued = uploadStats.numQueued + 1;
                    }
@@ -113,6 +127,10 @@ module.exports = function assetManagerModule(config, dbUpdateSeq, options) {
   });
   gdriveUploader.on(gdriveUploader.events.uploadError, function(uploadEvent) {
     uploadStats.numError = uploadStats.numError + 1;
+  });
+
+  gdriveUploader.on(gdriveUploader.events.authAccessTokenRefreshed, function(authEvent) {
+    account.accessToken = authEvent.account.accessToken;
   });
 
   changesFeed.listen();

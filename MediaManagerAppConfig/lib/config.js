@@ -77,7 +77,8 @@ var config = Object.create({}, {
     writable: false
   },
   linkedAccounts: {
-    value: _config.linkedAccounts
+    value: _config.linkedAccounts,
+    writable: false
   },
   logging: {
     //

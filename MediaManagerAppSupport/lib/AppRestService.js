@@ -64,7 +64,8 @@ var Router = function() {
 
       server.post(pat,
                   function create(req, res, next) {
-                    logger.info(lp + '__request__ req - ' + util.inspect(req));
+                    logger.info(lp + '__request__ method - ' + req.method + ', url - ' + req.url);
+                    logger.debug(lp + '__request__ req - ' + util.inspect(req));
                     var options = {
                       onSuccess: that.genOnSuccess(resource, req, res),
                       onError: that.genOnError(resource, req, res)

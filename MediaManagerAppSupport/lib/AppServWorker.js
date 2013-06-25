@@ -88,7 +88,7 @@ onmessage = function(e) {
     logger.info(lp + 'Creating asset manager...');
     assetManager = assetManagerModule(config, 
                                       dbInfo.updateSeq,
-                                      {dryRun: true});
+                                      {dryRun: false});
     logger.info(lp + 'Asset manager instantiated...');
   }
   else {

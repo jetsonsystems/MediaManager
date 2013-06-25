@@ -1,6 +1,8 @@
 .DS_Store
 *.framework
 *~
+runtime.json
+node_modules
 build/
 DerivedData/
 obj/

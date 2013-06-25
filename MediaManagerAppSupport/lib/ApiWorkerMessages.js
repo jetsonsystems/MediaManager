@@ -81,7 +81,7 @@ exports.createRestRequestMsg = function(resource, method, options) {
       options: options 
     }
   };
-  logger.info(logPrefix + 'Created REST request message - ' + util.inspect(msg));
+  logger.debug(logPrefix + 'Created REST request message - ' + util.inspect(msg));
   return msg;
 };
 

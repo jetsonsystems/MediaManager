@@ -106,7 +106,7 @@ module.exports.doRequest = function(resource,
                                     options) {
   var lp = logPrefix.replace('.js: ', '.doRequest: ');
   options = _.isString(options) ? JSON.parse(options) : options;
-  logger.info(lp + 'request to resource - ' + resource.fullPath() + ', method - ' + method + ", options - " + util.inspect(options));
+  logger.debug(lp + 'request to resource - ' + resource.fullPath() + ', method - ' + method + ", options - " + util.inspect(options));
 
   options = options || {};
   var worker = workers[resource.fullPath()];
@@ -119,7 +119,7 @@ module.exports.doRequest = function(resource,
 
   var msg = ApiWorkerMessages.createRestRequestMsg(resource, method, requestOpts);
 
-  logger.info(lp + 'Created msg - ' + util.inspect(msg));
+  logger.debug(lp + 'Created msg - ' + util.inspect(msg));
 
   var request = _.clone(msg.request);
   request.options = options;

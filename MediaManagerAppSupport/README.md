@@ -63,14 +63,15 @@ USAGE:
   var assetManager = require('MediaManagerAppSupprt/lib/AssetManager')(config,
                                                                        dbUpdateSeq,
                                                                        options)
+                                                                       
   
   config:      Application config.
   dbUpdateSeq: TouchDB / CouchDB update sequence to start monitoring the 
                changes feed from.
-  options:
-    dryRun:    Run in dry run mode where assets are NOT actually uploaded. 
-               Defauilt: false.
-
+  options:     
+    logOnly:   Run in logging only mode where assets are NOT actually uploaded. 
+               When specified, overrides value in config.
+               
 ```
 
 Monitors an instance of the touchdb / couchdb *<b>changes feed</b>* for documents which require special attention with respect to their associated assets. For example, when an image document is imported, its original asset is uploaded to Google Drive.
@@ -81,6 +82,48 @@ Assets <b>enqueued</b> have  the following attributes:
 
   * doc_id: Document ID of the document the asset is associated with. For example, if it is an [plm.Image](./plm-image/README.md) document, it is its *<b>oid</b>* attribute.
   * path: Path to document on local filesystem.
+
+#### Application Config
+There are several sections of the application config. which are of particular importance, and they are highlighted here.
+
+##### config.db
+Defines the database:
+
+```
+{ 
+  database: "plm-media-manager",
+  local: {
+    execPath: './MediaManagerTouchServer.app/Contents/MacOS/MediaManagerTouchServ',
+    port: "59840",
+    updateSeq: undefined
+  }
+}
+```
+##### config.storage.gdrive
+Configuration for Google Drive Storage:
+
+```
+{
+    persistDir: "./var/data/storage/gdrive",
+    account: {
+      type: 'gdrive',
+      user: 'marek@jetsonsys.com'
+    },
+    logOnly: true,
+    locations: {
+      originals: {
+        assetType: "original",
+        root: "appdata",
+        basePath: "/media/images/originals/",
+        folderId: undefined
+      }
+    }
+  }
+```
+
+  * logOnly:   Run in logging only mode where assets are NOT actually uploaded. 
+               Defauilt: false.
+
 
 #### Classes
 None
