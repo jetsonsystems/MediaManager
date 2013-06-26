@@ -1109,11 +1109,11 @@ function importBatchFindRecent(N, options, callback) {
 
         if (opts.includeImages) {
           importBatchRetrieveImages(aryBatchOut, options, function(err, out) {
-            if (!err) {log.info(success);}
+            if (!err) {log.debug(success);}
             callback(err,out);
           });
         } else {
-          log.info(success);
+          log.debug(success);
           callback(null, aryBatchOut);
         }
       }

@@ -99,7 +99,7 @@ module.exports = function assetManagerModule(config, dbUpdateSeq, options) {
                  function(event) {
                    uploadStats.numChanges = uploadStats.numChanges + 1;
                    var image = event.doc;
-                   // logger.info(logPrefix + 'Testing new image - ' + util.inspect(image));
+                   logger.debug(logPrefix + 'Testing new image - ' + util.inspect(image));
                    if ((image.orig_id === "") && (_.has(image, 'app_id') && (appId === image.app_id))) {
                      //
                      // Have an Image document corresponding to the original asset.
@@ -121,6 +121,9 @@ module.exports = function assetManagerModule(config, dbUpdateSeq, options) {
   // As uploads occur, create and update storage refs, and
   // corresponding image documents.
   //
+  // Note, we should persist the StorageRef when the upload is started.
+  // But, to expedite things we persist upon upload success.
+  //
   gdriveUploader.on(gdriveUploader.events.uploadStarted, function(uploadEvent) {
     uploadStats.numStarted = uploadStats.numStarted + 1;
   });
@@ -130,10 +133,11 @@ module.exports = function assetManagerModule(config, dbUpdateSeq, options) {
                        uploadEvent.storageRef,
                        function(error, doc) {
                          if (error) {
-                           logger.info(logPrefix + 'Error creating storage ref. for upload.');
+                           logger.info(logPrefix + 'Error creating storage ref. for upload, error - ' + error);
                          }
                          else {
-                           logger.info(logPrefix + 'Created storage ref. for upload, storage ref - ' + util.inspect(uploadEvent.storageRef));
+                           logger.info(logPrefix + 'Created storage ref. for upload, storage ref, ref id - ' + doc.oid + ', doc id - ' + doc.doc_id + ', doc class_name - ' + doc.doc_class_name);
+                           logger.debug(logPrefix + 'Created storage ref. for upload, storage ref - ' + util.inspect(uploadEvent.storageRef));
                          }
                        });
   });

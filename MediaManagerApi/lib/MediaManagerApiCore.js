@@ -1337,7 +1337,7 @@ var ImportersImages = new Class({
                                                             resourceName: 'importer' });
     if (newRep) {
       if (rep.images) {
-        log.info('ImportersImages.transformRep: Doing image transform - %j ', rep.images);
+        log.debug('ImportersImages.transformRep: Doing image transform - %j ', rep.images);
         newRep.images = this.imagesResource.transformRep(rep.images,
                                                          { isInstRef: false,
                                                            resourceName: 'images' } );
