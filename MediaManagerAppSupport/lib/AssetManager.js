@@ -106,6 +106,7 @@ module.exports = function assetManagerModule(config, dbUpdateSeq, options) {
                      //
                      logger.info(logPrefix + 'Have valid change!');
                      gdriveUploader.enqueue({assetType: "original",
+                                             docClassName: image.class_name,
                                              docId: image.oid,
                                              name: image.name,
                                              path: image.path});
@@ -117,13 +118,24 @@ module.exports = function assetManagerModule(config, dbUpdateSeq, options) {
                  });
 
   //
-  // When successful uploads occur, update the corresponding Image document.
+  // As uploads occur, create and update storage refs, and
+  // corresponding image documents.
   //
   gdriveUploader.on(gdriveUploader.events.uploadStarted, function(uploadEvent) {
     uploadStats.numStarted = uploadStats.numStarted + 1;
   });
   gdriveUploader.on(gdriveUploader.events.uploadSuccess, function(uploadEvent) {
     uploadStats.numSuccess = uploadStats.numSuccess + 1;
+    touchdb.docFactory("plm.StorageRef",
+                       uploadEvent.storageRef,
+                       function(error, doc) {
+                         if (error) {
+                           logger.info(logPrefix + 'Error creating storage ref. for upload.');
+                         }
+                         else {
+                           logger.info(logPrefix + 'Created storage ref. for upload, storage ref - ' + util.inspect(uploadEvent.storageRef));
+                         }
+                       });
   });
   gdriveUploader.on(gdriveUploader.events.uploadError, function(uploadEvent) {
     uploadStats.numError = uploadStats.numError + 1;
