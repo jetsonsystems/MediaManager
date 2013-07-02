@@ -4,5 +4,6 @@
 //
 
 module.exports = {
-  LOCAL_STORAGE_READY: 0
+  APP_SERVER_READY: 0,
+  LOCAL_STORAGE_READY: 1
 };

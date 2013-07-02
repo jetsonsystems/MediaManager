@@ -29,10 +29,20 @@ server.listen(serverPort, function() {
   logger.info(logPrefix + '__start__ Server listening on port - ' + serverPort);
 });
 
-var wsServer = new WebSocketServer({
-  httpServer: server,
-  autoAcceptConnections: false
-});
+var wsServer = undefined;
+
+try {
+  wsServer = new WebSocketServer({
+    httpServer: server,
+    autoAcceptConnections: false
+  });
+}
+catch (err) {
+  logger.info(logPrefix + 'Error creating web socket server - ' + err);
+  throw Object.create(new Error(),
+                      { name: { value: 'NotifWebServerCreateError' },
+                        message: { value: 'MediaManagerAppSupport/lib/AppNotifService: Error creating web socket server - ' + err }});
+}
 
 function originIsAllowed(origin) {
   return true;
@@ -91,10 +101,14 @@ wsServer.on('request', function(request) {
     return ;
   }
 
+  logger.info(logPrefix + '__request__ New request...');
+
   var connection = request.accept(null, request.origin);
 
+  logger.info(logPrefix + '__sending_connection_established__ Sending connection established event...');
   connection.sendUTF(JSON.stringify({resource: '/notifications',
                                      event: 'connection.established' }));
+  logger.info(logPrefix + '__sending_connection_established__ Sent connection established event!');
 
   var messageHandler = new MessageHandler(connection);
 

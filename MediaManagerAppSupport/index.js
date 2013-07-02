@@ -16,6 +16,7 @@
 //        localStorageShutdown: The local storage process was shutdown normally.
 //        localStorageInitError: Error occurred during initialization.
 //        localStorageReady: Local storage is ready to use.
+//        appReady: App is completely initialized.
 //
 
 var path = require('path');
@@ -40,16 +41,29 @@ var MediaManagerAppSupportModule = function(appjs, routes) {
   var logPrefix = 'init: ';
 
   var app = Object.create(EventEmitter.prototype,
-                          {appjs: { value: appjs },
-                           config: { value: config }});
+                          {
+                            readyStates: { value: {
+                              UNINITIALIZED: 0,
+                              INITIALIZING: 1,
+                              READY: 2
+                            }},
+                            readyState: { value: 0,
+                                          writable: true },
+                            appjs: { value: appjs },
+                            config: { value: config },
+                            servWorker: { value: undefined,
+                                          writable: true},
+                            servWorkerReady: { value: false,
+                                               writable: true }
+                          });
 
   app.logger = log4js.getLogger('plm.MediaManagerApp');
 
   log.info(logPrefix + 'initializing...');
 
-  app.mediaManagerRouter = new MediaManagerRouter(appjs, routes);
+  app.readyState = app.readyStates.INITIALIZING;
 
-  app.servWorker = undefined;
+  app.mediaManagerRouter = new MediaManagerRouter(appjs, routes);
 
   app.storage = {
     //
@@ -135,6 +149,13 @@ var MediaManagerAppSupportModule = function(appjs, routes) {
             var workerPath = path.join(__dirname, 'lib/AppServWorker.js');
             log.info('MediaManagerAppSupport: Starting AppServWorker with path - ' + workerPath);
             app.servWorker = new Worker(workerPath);
+            app.servWorker.onmessage = function(e) {
+              if (e.data.type === AppServWorkerMessages.APP_SERVER_READY) {
+                app.servWorkerReady = true;
+                app.readyState = app.readyStates.READY;
+                app.emit('appReady');
+              }
+            };
             app.servWorker.postMessage({
               "type": AppServWorkerMessages.LOCAL_STORAGE_READY,
               "appId": config.app.id,

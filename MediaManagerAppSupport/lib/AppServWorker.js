@@ -90,6 +90,15 @@ onmessage = function(e) {
                                       dbInfo.updateSeq,
                                       {dryRun: false});
     logger.info(lp + 'Asset manager instantiated...');
+    //
+    // Hack: Not sure how to tell if everything is ready to go.
+    //
+    setTimeout(function() {
+      postMessage({
+        "type": AppServWorkerMessages.APP_SERVER_READY,
+      });
+    },
+               1000);
   }
   else {
     logger.info(lp + 'Invalid message received by worker, type - ' + e.data.type);
@@ -103,4 +112,3 @@ onclose = function() {
   restService.shutdown();
   notifService.shutdown();
 };
-
