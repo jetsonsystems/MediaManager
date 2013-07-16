@@ -1027,7 +1027,7 @@ var Tagger = new Class({
       if(_.has(attr, 'remove')){
         log.info('Tagger.remove: Payload - %s', JSON.stringify(attr));
         var listOfImages = attr.remove.images;
-        var tagsToRemove = attr.remove.tagsToRemove;
+        var tagsToRemove = attr.remove.tags;
         //var newTags = attr.replace.newTags;
         imageService.tagsRemove(removePrefix(listOfImages), tagsToRemove,
           function (err, result) {
@@ -1039,7 +1039,7 @@ var Tagger = new Class({
               options.errorMessage = err;
             }
             else {
-              log.info('Tagger.remove: Removed tags on images- %j', result);
+              log.info('Tagger.remove: Removed tags on images - %j', result);
             }
             that.doCallbacks(status, listOfImages, options);
           }

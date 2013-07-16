@@ -1667,6 +1667,15 @@ function tagsRemove(oidArray,tagsToRemove,callback){
 
   var imagesToModify = null;
 
+  if (!oidArray) {
+    callback("No images provided on attempt remove tags.");
+    return;
+  }
+  else if (!tagsToRemove) {
+    callback("No tags provided on attempt to remove tags from images - " + oidArray.toString());
+    return;
+  }
+
   async.waterfall(
     [
       //Retrieve the images to modify
