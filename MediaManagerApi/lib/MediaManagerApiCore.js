@@ -515,11 +515,12 @@ var Images = new Class({
   },
 
   index: function(options) {
-    log.info('Images.index: Indexing for path - %s',+ this.path);
+    log.info('Images.index: Indexing for path - ' + this.path + ', query - ' + util.inspect(options.query));
     options = options || {};
     var that = this;
 
     var indexOptions = buildIndexOptions(options);
+    log.info('Images.index: index options - ' + util.inspect(indexOptions));
     imageService.index(indexOptions,function(err, result) {
       var status = 200;
       if (err) {
@@ -1610,29 +1611,41 @@ var StorageChangesFeed = new Class({
 function buildIndexOptions(options){
   var indexOptions = {};
 
-  if(options.query && options.query.tags){
+  if(options.query && _.has(options.query, 'tags')){
 
-    var filter = {};
-    indexOptions.filter=filter;
+    if (_.size(options.query.tags) === 0) {
+      //
+      // Return untagged. Filter anything with tags.
+      //
+      indexOptions.filter = {
+        field: 'tags',
+        op: 'ne',
+        data: []
+      };
+    }
+    else {
+      var filter = {};
+      indexOptions.filter=filter;
 
-    filter.rules = [];
+      filter.rules = [];
 
-    filter.groupOp = _.has(options.query, 'tag_query_op') ? options.query.tag_query_op : 'OR';
+      filter.groupOp = _.has(options.query, 'tag_query_op') ? options.query.tag_query_op : 'OR';
 
       var tagsArray =   options.query.tags.split(",");
       _.each(tagsArray,
-        function(tag) {
-          var rule = {
-            "field":"tags",
-            "op":"eq",
-            "data":tag
-          };
-          filter.rules.push(rule);
-        });
+             function(tag) {
+               var rule = {
+                 "field":"tags",
+                 "op":"eq",
+                 "data":tag
+               };
+               filter.rules.push(rule);
+             });
 
 
-    if(_.size(filter.rules) === 0){
-      indexOptions = null;
+      if(_.size(filter.rules) === 0){
+        indexOptions = null;
+      }
     }
   }
 

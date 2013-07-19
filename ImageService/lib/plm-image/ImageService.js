@@ -69,6 +69,8 @@ var priv = {};
 var
   IMG_DESIGN_DOC = 'plm-image'
   ,VIEW_BY_CTIME             = 'by_creation_time'
+  ,VIEW_BY_CTIME_TAGGED    = 'by_creation_time_tagged'
+  ,VIEW_BY_CTIME_UNTAGGED    = 'by_creation_time_untagged'
   ,VIEW_BY_OID_WITH_VARIANT  = 'by_oid_with_variant'
   ,VIEW_BY_OID_WITHOUT_VARIANT = 'by_oid_without_variant'
   ,VIEW_BATCH_BY_CTIME       = 'batch_by_ctime'
@@ -163,6 +165,218 @@ exports.findVersion = function findVersion(oid, callback) {
   );
 };
 
+//
+// Some helpers:
+//  bulkDocFetch: Fetch a bunch of documents given a list of doc IDs.
+//  fetchDocs: Fetch documents, optionally in batches.
+//  runView: Run a view, and optionally including documents when running
+//    the view, or separately fetching the documents.
+//
+
+//
+// bulkDocFetch: Fetchs a set of documents.
+//  Args:
+//    docIds: Array of document IDs.
+//    callback: Invoked as callbac(err, docs), where docs is an array of
+//      the fetched documents.
+//
+//  Returns: The fetched docs in an array.
+//
+//  Essentially, does the equivalent of:
+//
+//    curl -d '{"keys":["bar","baz"]}' -X POST http://127.0.0.1:5984/foo/_all_docs?include_docs=true
+//
+var bulkDocFetch = function(docIds, callback) {
+  if (docIds && _.isArray(docIds) && (docIds.length > 0)) {
+    var db = priv.db();
+    db.fetch({keys: docIds},
+             {},
+             function(err, body) {
+               if (err) {
+                 callback && callback('Error occurred fetching documents, error - ' + err);
+               }
+               else if (_.has(body, 'rows')) {
+                 if (_.isArray(body.rows) && body.rows.length > 0) {
+                   log.debug('bulkDocFetch: Fetched ' + body.rows.length + ' documents, first doc - ' + util.inspect(body.rows[0].doc));
+                   var docs = _.pluck(body.rows, "doc");
+                   callback && callback(null, docs);
+                 }
+                 else {
+                   callback && callback('No documents were fetched.');
+                 }
+               }
+             });
+  }
+  else {
+    callback && callback('No documents were requested.');
+  }
+};
+
+//
+// fetchDocs: Fetch documents, optionally in batches.
+//
+//  Args:
+//    docIds: Document IDs.
+//    options:
+//      batchSize: Batchsize to use. By default ALL documents will be fetched.
+//      callback: callback(err, docs)
+//
+var fetchDocs = function(docIds, options) {
+  options = options || {};
+  if (!options.batchSize) {
+    options.batchSize = docIds.length;
+  }
+  var callback = options.callback || undefined;
+  var docs = [];
+  var start = 0;
+  async.whilst(
+    function() { return start < docIds.length; },
+    function(innerCallback) {
+      var end = (start+options.batchSize<docIds.length)?start+options.batchSize:docIds.length;
+      log.debug('fetchDocs: Fetching [' + start + ', ' + end + '].');
+      var docIdsToFetch = docIds.slice(start, end);
+      start = end;
+      bulkDocFetch(docIdsToFetch, 
+                   function(err, docsFetched) {
+                     if (!err && docsFetched) {
+                       log.debug('fetchDocs: Adding ' + docsFetched.length + ' documents to result set...');
+                       docs.push.apply(docs, docsFetched);
+                       log.debug('fetchDocs: Total documents fetched - ' + docs.length);
+                     }
+                     innerCallback(err);
+                   });
+    },
+    function(err) {
+      log.debug('fetchDocs: Finished fetching documents, fetched - ' + docs.length);
+      callback && callback(err, docs);
+    }
+  );
+};
+
+//
+// runView: Run a view, and optionally including documents when running
+//  the view, or separately fetching the documents.
+//
+//  Args:
+//    designDoc
+//    viewName
+//    options:
+//      toReturn: What should be returned:
+//
+//        'ids': document ids
+//        'docs': documents should be returned.
+//
+//        default: 'ids'
+//
+//      viewOptions: Options to pass to the view, ie: startkey, etc.
+//      fetchDocs: When toReturn is 'docs', fetch the docs separately. include_docs = true is NOT passed to the view.
+//      fetchDocsBatchSize: When fetchDocs is specified, optionally specify a batchsize.
+//      callback:
+//
+var runView = function(designDoc, viewName, options) {
+  log.debug('runView: design doc. - ' + designDoc + ', view name - ' + viewName + ', options ' + util.inspect(options));
+  options = options || {};
+
+  if (!options.toReturn) {
+    options.toReturn = 'ids';
+  }
+  
+  var callback = options.callback || undefined;
+
+  if (!callback) {
+    log.debug('runView: no callback!');
+  }
+
+  var viewOptions = options.viewOptions || {};
+
+  if (options.toReturn === 'ids') {
+    viewOptions.include_docs = false;
+  }
+  else {
+    if (options.fetchDocs) {
+      viewOptions.include_docs = false;
+    }
+    else {
+      viewOptions.include_docs = true;
+    }
+  }
+
+  async.waterfall(
+    [
+      function(waterfallCallback) {
+        var db = priv.db();
+        var tmpResult = db.view(
+          designDoc, 
+          viewName, 
+          viewOptions, 
+          function(err, body) { 
+            if (err) {
+              var errMsg = 'Using nano.view: error - ' + err;
+              log.debug('runView: error - ' + errMsg);
+              waterfallCallback(errMsg, []);
+            }
+            else {
+              var docsOrIds = [];
+              log.debug('runView: Using nano.view: got response, typeof body - ' + typeof(body) + '.');
+              if (_.has(body, 'rows')) {
+                log.debug('runView: View matched ' + _.size(body.rows) + ' documents.');
+              
+                if (_.size(body.rows)) {
+                  if ((options.toReturn === 'docs') && viewOptions.include_docs) {
+                    docsOrIds = _.pluck(body.rows, "doc");
+                    log.debug('runView: Got ' + docsOrIds.length + ' documents...');
+                  }
+                  else {
+                    docsOrIds = _.pluck(body.rows, "id");
+                    log.debug('runView: Got ' + docsOrIds.length + ' document ids...');
+                  }
+                }
+              }
+              else {
+                log.debug('runView: Using nano.view: View returned no rows!');
+              }
+              waterfallCallback(null, docsOrIds);
+            }
+          }
+        );
+      },
+      function(docsOrIds, waterfallCallback) {
+        if (options.toReturn === 'ids') {
+          waterfallCallback(null, docsOrIds);
+        }
+        else if (options.fetchDocs) {
+          var fetchDocsOpts = {
+            callback: function(err, docs) {
+              waterfallCallback(err, docs);
+            }
+          };
+          if (options.fetchDocsBatchSize) {
+            fetchDocsOpts.batchSize = options.fetchDocsBatchSize;
+          }
+          fetchDocs(docsOrIds,
+                    fetchDocsOpts);
+        }
+        else {
+          waterfallCallback(null, docsOrIds);
+        }
+      }
+    ],
+    function(err, result) {
+      if (err) {
+        log.debug('runView: Error processing results, error - ' + err);
+        callback && callback(err);
+      }
+      else {
+        if (result.length) {
+          log.debug('runView: View returned a result of ' + result.length + ' items.');
+        }
+        else {
+          log.debug('runView: No documents!');
+        }
+        callback && callback(null, result);
+      }
+    });
+};
 
 /**
  * The main method for saving and processing an image
@@ -615,8 +829,26 @@ exports.show = show;
  * need this field, pass the showMetadata option.
  *
  * options:
- *
- *   showMetadata: false by default, set to true to enable display of Image.metadata_raw
+ *  filter: Can take on the following forms:
+ *    Object whith a list of rules:
+ *      rules: List of rules. Rules may take on the following forms:
+ *          field: 'tags'
+ *          op: 'eq'
+ *          data: <tag value>
+ *      groupOp: AND || OR
+ *    Single rule, where the rule may be one of:
+ *      * filter images w/ tags:
+ *        field: 'tags'
+ *        op: 'ne'
+ *        data: []
+ *      * filter images w/o tags:
+ *        field: 'tags'
+ *        op: 'eq'
+ *        data: []
+ *        
+ *  created:
+ *  trashState:
+ *  showMetadata: false by default, set to true to enable display of Image.metadata_raw
  */
 exports.index = function index(options,callback)
 {
@@ -626,10 +858,25 @@ exports.index = function index(options,callback)
   //  - The use cases below need to be expanded
   //  - Need to define paging options, and paging impl
 
-  if(options){
-    if (options.created) {
-      exports.findByCreationTime( options.created, callback, options );
-    }else
+  if (!options || _.isEmpty(options) || options.created || (options.filter && !_.has(options.filter, 'rules') && _.has(options.filter, 'data') && (_.size(options.filter.data) === 0))) {
+    log.debug('Invoking findByCreationTime...');
+    try {
+      options = options || {};
+      var criteria = options.created || null;
+      var opts = {};
+      opts.showMetadata = options.showMetadata || false;
+      if (options.filter && !_.has(options.filter, 'rules') && _.has(options.filter, 'data') && (_.size(options.filter.data) === 0)) {
+        opts.filterRule = options.filter;
+      }
+      log.debug('findByCreationTime: criteria - ' + util.inspect(criteria) + ', opts - ' + util.inspect(opts) + '...');
+      exports.findByCreationTime( criteria, callback, opts);
+    }
+    catch (e) {
+      log.error('findByCreationTime: Error - ' + e);
+      callback('find by creation time error - ' + e);
+    }
+  }
+  else {
     if (options.filter) {
 
       var filterByTag = options.filter;
@@ -647,12 +894,7 @@ exports.index = function index(options,callback)
 
     }
   }
-  else if (_.isEmpty(options)){
-    // TODO: this is temporary, returns all images sorted by creation time
-    exports.findByCreationTime( null, callback, options);
-  }
 };
-
 
 /**
  * Find images by creation date range. Expects a 'created' array containing a start date and an end
@@ -661,14 +903,31 @@ exports.index = function index(options,callback)
  * caution.
  *
  * options:
- *
+ *   filterRule: See exports.index. Single filter rule to filter images w or w/o tags.
  *   showMetadata: false by default, set to true to enable display of Image.metadata_raw
+ *   
  */
 exports.findByCreationTime = function findByCreationTime( criteria, callback, options )
 {
   log.debug("findByCreationTime criteria: %j ", criteria);
 
   var opts = options || {};
+
+  var view = VIEW_BY_CTIME;
+  if (_.has(opts, 'filterRule') && (opts.filterRule.field === 'tags') && (_.size(opts.filterRule.data) === 0)) {
+    if (opts.filterRule.op === 'eq') {
+      //
+      // Filter untagged.
+      //
+      view = VIEW_BY_CTIME_TAGGED;
+    }
+    else if (opts.filterRule.op === 'ne') {
+      //
+      // Filter tagged.
+      //
+      view = VIEW_BY_CTIME_UNTAGGED;
+    }
+  }
 
   log.debug("findByCreationTime opts: " + JSON.stringify(opts));
 
@@ -691,25 +950,36 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
     // throw "Invalid Argument Exception: findByCreationTime does not understand options.created argument:: '" + criteria + "'";
   }
 
-  log.trace("Finding images and their variants using view '%s' with view_opts %j", VIEW_BY_CTIME, view_opts);
+  log.trace("Finding images and their variants using view '%s' with view_opts %j", view, view_opts);
 
-  db.view(IMG_DESIGN_DOC, VIEW_BY_CTIME, view_opts,
-    function(err, body) {
-      if (!err) {
+  runView(IMG_DESIGN_DOC,
+          view,
+          {
+            toReturn: 'docs',
+            fetchDocs: true,
+            fetchDocsBatchSize: 100,
+            callback: function(err, docs) {
+              if (!err) {
+                if (docs.length <= 0) {
+                  log.warn('findByCreationTime: Unable to find any images.');
+                  callback(null, []);
+                }
+                else {
+                  log.debug('findByCreationTime: Retrieved ' + _.size(docs) + ' image documents.');
 
-        var results = body.rows;
-        //extract only the "doc" part
-        var resultDocs = _.pluck(results, "doc");
+                  var aryImgOut = convert_couch_body_to_array_of_images(opts,docs);
 
-        var aryImgOut = convert_couch_body_to_array_of_images(opts,resultDocs);
+                  log.debug('findByCreationTime: Returning ' + aryImgOut.length + ' images.');
 
-        callback(null, aryImgOut);
-
-      } else {
-        callback("error in findByCreationTime with options '" + JSON.stringify(opts) + "': " + err + ", with body '" + JSON.stringify(body) + "'");
-      }
-    }
-  );
+                  callback(null, aryImgOut);
+                }
+              }
+              else {
+                log.error('findByCreationTime: Error retrieving images, error - ' + err);
+                callback("error in findByCreationTime with options '" + JSON.stringify(opts) + "': " + err + ".");
+              }
+            }
+          });
 }; // end findByCreationTime
 
 /*
@@ -733,6 +1003,7 @@ function convert_couch_body_to_array_of_images(opts,resultDocs){
     anImg.url = priv.getImageUrl(docBody);
 
     if ( anImg.isOriginal()) {
+      log.debug('Adding image to result set, id - ' + anImg.oid);
       imgMap[anImg.oid] = anImg;
       aryImgOut.push(anImg);
     } else {

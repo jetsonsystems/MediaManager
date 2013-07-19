@@ -185,6 +185,170 @@ int main(int argc, const char * argv[])
                      docPath);
             }
         }) version: @"0.0.9"];
+
+        [design defineViewNamed: @"by_creation_time_tagged" mapBlock: MAPBLOCK({
+            if (([[doc objectForKey: @"class_name"] isEqualToString:@"plm.Image"]) &&
+                (![doc objectForKey: @"in_trash"] || ![[doc objectForKey: @"in_trash"] boolValue])) {
+                id docCreatedAt = doc[@"created_at"];
+                //
+                // build the key:
+                //
+                //   note created_at is in this format: 2012-12-05T01:37:55.087Z
+                //
+                //   key format: <key> ::= [<date part>,<image part>]
+                //
+                //     <date part> ::= <year>,<month>,<day>,<hours>,<minutes>,<seconds>,<milliseconds>
+                //
+                //     <image part> ::= <original image part> | <derived image part>
+                //     <original image part> ::= doc.oid,0,doc.size.width
+                //     <derived image part>  ::= doc.orig_id,1,doc.size.width
+                //
+                NSDateFormatter *dateFormat = [[NSDateFormatter alloc] init];
+                [dateFormat setDateFormat:@"YYYY'-'MM'-'dd'T'HH':'mm':'ss'.'SSS'Z'"];
+                NSDate *date = [dateFormat dateFromString:docCreatedAt];
+                NSCalendar* calendar = [NSCalendar currentCalendar];
+                NSDateComponents* components = [calendar
+                                                components:
+                                                (NSYearCalendarUnit|
+                                                 NSMonthCalendarUnit|
+                                                 NSDayCalendarUnit|
+                                                 NSHourCalendarUnit|
+                                                 NSMinuteCalendarUnit|
+                                                 NSSecondCalendarUnit) fromDate:date];
+                NSNumber* year = [NSNumber numberWithInteger:[components year]];
+                NSNumber* month = [NSNumber numberWithInteger:[components month]];
+                NSNumber* day = [NSNumber numberWithInteger: [components day]];
+                NSNumber* hour = [NSNumber numberWithInteger: [components hour]];
+                NSNumber* minute = [NSNumber numberWithInteger: [components minute]];
+                NSNumber* second = [NSNumber numberWithInteger: [components second]];
+                NSNumber* milliseconds = [NSNumber numberWithInteger: 0];
+                        
+                NSString* oid;
+                NSNumber* isDerived;
+                NSNumber* docWidth = [[doc objectForKey: @"size"] objectForKey: @"width"];
+
+                if ([[doc objectForKey: @"orig_id"] isEqualToString:@""]) {
+                  if ([doc objectForKey: @"tags"] && ([[doc objectForKey: @"tags"] count] > 0)) {
+                        oid = doc[@"oid"];
+                        isDerived = [NSNumber numberWithInteger: 0];
+                        id docPath = doc[@"path"];
+                        emit([NSArray arrayWithObjects:
+                              year,
+                              month,
+                              day,
+                              hour,
+                              minute,
+                              second,
+                              milliseconds,
+                              oid,
+                              isDerived,
+                              docWidth,
+                              nil],
+                              docPath);
+                  }
+                }
+                else {
+                    oid = doc[@"orig_id"];
+                    isDerived = [NSNumber numberWithInteger: 1];
+                    id docPath = doc[@"path"];
+                    emit([NSArray arrayWithObjects:
+                          year,
+                          month,
+                          day,
+                          hour,
+                          minute,
+                          second,
+                          milliseconds,
+                          oid,
+                          isDerived,
+                          docWidth,
+                          nil],
+                         docPath);
+                }
+            }
+        }) version: @"0.0.1"];
+
+        [design defineViewNamed: @"by_creation_time_untagged" mapBlock: MAPBLOCK({
+            if (([[doc objectForKey: @"class_name"] isEqualToString:@"plm.Image"]) &&
+                (![doc objectForKey: @"in_trash"] || ![[doc objectForKey: @"in_trash"] boolValue])) {
+                id docCreatedAt = doc[@"created_at"];
+                //
+                // build the key:
+                //
+                //   note created_at is in this format: 2012-12-05T01:37:55.087Z
+                //
+                //   key format: <key> ::= [<date part>,<image part>]
+                //
+                //     <date part> ::= <year>,<month>,<day>,<hours>,<minutes>,<seconds>,<milliseconds>
+                //
+                //     <image part> ::= <original image part> | <derived image part>
+                //     <original image part> ::= doc.oid,0,doc.size.width
+                //     <derived image part>  ::= doc.orig_id,1,doc.size.width
+                //
+                NSDateFormatter *dateFormat = [[NSDateFormatter alloc] init];
+                [dateFormat setDateFormat:@"YYYY'-'MM'-'dd'T'HH':'mm':'ss'.'SSS'Z'"];
+                NSDate *date = [dateFormat dateFromString:docCreatedAt];
+                NSCalendar* calendar = [NSCalendar currentCalendar];
+                NSDateComponents* components = [calendar
+                                                components:
+                                                (NSYearCalendarUnit|
+                                                 NSMonthCalendarUnit|
+                                                 NSDayCalendarUnit|
+                                                 NSHourCalendarUnit|
+                                                 NSMinuteCalendarUnit|
+                                                 NSSecondCalendarUnit) fromDate:date];
+                NSNumber* year = [NSNumber numberWithInteger:[components year]];
+                NSNumber* month = [NSNumber numberWithInteger:[components month]];
+                NSNumber* day = [NSNumber numberWithInteger: [components day]];
+                NSNumber* hour = [NSNumber numberWithInteger: [components hour]];
+                NSNumber* minute = [NSNumber numberWithInteger: [components minute]];
+                NSNumber* second = [NSNumber numberWithInteger: [components second]];
+                NSNumber* milliseconds = [NSNumber numberWithInteger: 0];
+                        
+                NSString* oid;
+                NSNumber* isDerived;
+                NSNumber* docWidth = [[doc objectForKey: @"size"] objectForKey: @"width"];
+                        
+                if ([[doc objectForKey: @"orig_id"] isEqualToString:@""]) {
+                    oid = doc[@"oid"];
+                    if (![doc objectForKey: @"tags"] || ([[doc objectForKey: @"tags"] count] <= 0)) {
+                        isDerived = [NSNumber numberWithInteger: 0];
+                        id docPath = doc[@"path"];
+                        emit([NSArray arrayWithObjects:
+                              year,
+                              month,
+                              day,
+                              hour,
+                              minute,
+                              second,
+                              milliseconds,
+                              oid,
+                              isDerived,
+                              docWidth,
+                              nil],
+                             docPath);
+                    }
+                }
+                else {
+                    oid = doc[@"orig_id"];
+                    isDerived = [NSNumber numberWithInteger: 1];
+                    id docPath = doc[@"path"];
+                    emit([NSArray arrayWithObjects:
+                          year,
+                          month,
+                          day,
+                          hour,
+                          minute,
+                          second,
+                          milliseconds,
+                          oid,
+                          isDerived,
+                          docWidth,
+                          nil],
+                         docPath);
+                }
+            }
+        }) version: @"0.0.1"];
         
         [design defineViewNamed: @"batch_by_ctime" mapBlock: MAPBLOCK({
             if (([[doc objectForKey: @"class_name"] isEqualToString:@"plm.ImportBatch"]) &&
@@ -287,7 +451,7 @@ int main(int argc, const char * argv[])
          defineViewNamed: @"by_tag"
          mapBlock: MAPBLOCK({
             if ([[doc objectForKey: @"class_name"] isEqualToString:@"plm.Image"]) {
-	        if (![doc objectForKey: @"in_trash"] || ![[doc objectForKey: @"in_trash"] boolValue]) {
+                if (![doc objectForKey: @"in_trash"] || ![[doc objectForKey: @"in_trash"] boolValue]) {
                     if ([doc objectForKey: @"tags"]) {
                         for (id tag in [doc objectForKey: @"tags"]) {
                             emit(tag, doc[@"tags"]);
@@ -318,7 +482,7 @@ int main(int argc, const char * argv[])
             listener.readOnly = options.readOnly;
             [listener start];
         }];
-        NSString* serverVersion = @"0.0.1";
+        NSString* serverVersion = @"0.0.2";
         NSLog(@"MediaManagerTouchServ %@ is listening%@ on port %d ... relax!",
               serverVersion,
               (options.readOnly ? @" in read-only mode" : @""),
