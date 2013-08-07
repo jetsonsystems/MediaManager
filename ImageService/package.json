@@ -14,9 +14,9 @@
   },
   "engine": [ "node >=0.8.0" ],
   "dependencies" : {
-    "async"       : "~0.1.22"
+    "async"       : "~0.2.9"
     ,"dive"       : "~0.3.0"
-    ,"gm"         : "~1.8.2"
+    ,"gm"         : "~1.11"
     ,"log4js"     : "~0.5.6"
     ,"mime-magic" : "~0.4.1"
     ,"moment"     : "~1.7.2"

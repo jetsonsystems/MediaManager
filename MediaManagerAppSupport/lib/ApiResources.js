@@ -7,15 +7,21 @@ var config = require('MediaManagerAppConfig');
 var mmApi = require('MediaManagerApi/lib/MediaManagerApiCore')(config);
 var apiVersion = config.services.restAPI.version;
 var pathPrefix = path.join(config.services.restAPI.pathPrefix, apiVersion);
+var urlRewriters = require('./ApiUrlRewriters');
 
 module.exports = {
 
   Images: new mmApi.Images('/images', 
                            {instName: 'image',
-                            pathPrefix: pathPrefix}),
+                            pathPrefix: pathPrefix,
+                            postTransformHook: urlRewriters.images
+                           }),
   Importers: new mmApi.Importers('/importers', 
                                  {instName: 'importer',
-                                  pathPrefix: pathPrefix}),
+                                  pathPrefix: pathPrefix,
+                                  postTransformHook: urlRewriters.importers,
+                                  imagesPostTransformHook: urlRewriters.images
+                                 }),
   ImportersImages: new mmApi.ImportersImages(null,
                                              {pathPrefix: pathPrefix,
                                               subResource: new mmApi.Importers(
@@ -24,7 +30,8 @@ module.exports = {
                                                  subResource: new mmApi.Images(
                                                    '/images', 
                                                    {instName: 'image'})
-                                                })
+                                                }),
+                                              postTransformHook: urlRewriters.importersImages
                                              }),
   StorageSynchronizers: new mmApi.StorageSynchronizers('/storage/synchronizers',
                                                        {instName: 'synchronizer',

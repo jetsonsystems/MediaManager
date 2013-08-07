@@ -461,7 +461,11 @@ var Resource = new Class({
 });
 
 //
-//  Images Resource:
+// Images Resource:
+//
+//    Args:
+//      postTransformHook: Invoked after the resource is transformed but before it is returned.
+//        IE: Could be used for something like re-writing URLs to resources.
 //
 var Images = new Class({
 
@@ -470,6 +474,9 @@ var Images = new Class({
   initialize: function(path, options) {
     this.parent(path, options);
     log.info('Images.initialize: Initialized, path - %s, name - %, instance - %s', this.path, this.name, this.instName);
+
+    this.postTransformHook = options.postTransformHook || function(r) { return r; };
+
     //
     //  Image Service attrs -> short form attributes.
     //
@@ -785,7 +792,7 @@ var Images = new Class({
     var that = this;
     if (options && _.has(options, 'isInstRef') && options.isInstRef) {
       log.info('Images.transformRep: transforming instance to full form...');
-      return that._transformToFullFormRep(rep);
+      return that.postTransformHook(that._transformToFullFormRep(rep), rep);
     }
     else {
       if (_.isArray(rep)) {
@@ -796,7 +803,7 @@ var Images = new Class({
         var newRep = [];
         _.each(rep, 
                function(aRep) {
-                 var tRep = that._transformToShortFormRep(aRep);
+                 var tRep = that.postTransformHook(that._transformToShortFormRep(aRep), aRep);
                  if (tRep) {
                    newRep.push(tRep);
                  }
@@ -1074,14 +1081,17 @@ var Importers = new Class({
   initialize: function(path, options) {
     this.parent(path, options);
     log.info('Importers.initialize: Initialized, path - %s, name - %s, instance - %s', this.path, this.name, this.instName);
+    this.postTransformHook = options.postTransformHook || function(r) { return r; };
+    this.imagesPostTransformHook = options.imagesPostTransformHook || function(r) { return r; };
   },
 
   create: function(attr, options) {
     log.info('Importers.create: Payload - %s', JSON.stringify(attr));
     var that = this;
+    options = options || {};
     options.isInstRef = true;
     // we need an Images instance to run the 'static' method 'transformRep' further below
-    var IMAGES = new Images('',{}); 
+    var IMAGES = new Images('', {postTransformHook: this.imagesPostTransformHook}); 
     var importDir = (attr && _.has(attr, 'import_dir')) ? attr.import_dir : undefined;
     if (importDir) {
       try {
@@ -1089,9 +1099,11 @@ var Importers = new Class({
            recursionDepth: (_.has(options, 'query') && _.has(options.query, 'dive') && (options.query.dive === 'false')) ? 1 : 0
           ,saveOriginal: false
           ,retrieveSavedImage:true
-          ,desiredVariants: [{ name: 'thumbnail.jpg', format: 'jpg', width: 132, height: 132},
-                            { name: 'web.jpg', format: 'jpg', width: 640, height: 400}, 
-                            { name: 'full-small.jpg', format: 'jpg', width: 1280, height: 800}]
+          ,desiredVariants: [
+            { name: 'thumbnail.jpg', format: 'jpg', width: 132, height: 132},
+            // { name: 'web.jpg', format: 'jpg', width: 640, height: 400}, 
+            { name: 'full-small.jpg', format: 'jpg', width: 1280, height: 800}
+            ]
         };
         
         imageService.importBatchFs(
@@ -1111,11 +1123,65 @@ var Importers = new Class({
                 log.debug("event '%s' emitted at '%s', importBatch status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.status);
                 notifications.publish('/importers', importBatch.event.STARTED, that.transformRep(anEvent.data, {isInstRef: true}));
               });
-              
-              importBatch.on(importBatch.event.IMG_SAVED, function(anEvent) {
+
+              importBatch.once(importBatch.event.IMGS_CREATED, function(anEvent) {
+                log.debug("event '%s' emitted at '%s', importBatch status is: '%s', event data: '%j'", anEvent.type, anEvent.emitted_at, importBatch.status, anEvent.data);
+                notifications.publish('/importers', 
+                                      importBatch.event.IMGS_CREATED, 
+                                      { "id": "$" + importBatch.oid,
+                                        "doc_resource": "/images",
+                                        "doc": _.map(anEvent.data, function(image) {
+                                          return IMAGES.transformRep(image, {isInstRef: true});
+                                        })
+                                      });
+              });
+
+              importBatch.on(importBatch.event.IMG_CREATED, function(anEvent) {
                 log.debug("event '%s' emitted at '%s', importBatch status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.status);
                 notifications.publish('/importers', 
-                                      importBatch.event.IMG_SAVED, 
+                                      importBatch.event.IMG_CREATED, 
+                                      { "id": "$" + importBatch.oid,
+                                        "doc_resource": "/images",
+                                        "doc": IMAGES.transformRep(anEvent.data, {isInstRef: true}) });
+              });
+              
+              importBatch.on(importBatch.event.IMGS_VARIANT_CREATED, function(anEvent) {
+                log.debug("event '%s' emitted at '%s', importBatch status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.status);
+                notifications.publish('/importers', 
+                                      importBatch.event.IMGS_VARIANT_CREATED, 
+                                      { "id": "$" + importBatch.oid,
+                                        "doc_resource": "/images",
+                                        "doc": _.map(anEvent.data, function(image) {
+                                          return IMAGES.transformRep(image, {isInstRef: true});
+                                        })
+                                      });
+              });
+
+              importBatch.on(importBatch.event.IMG_VARIANT_CREATED, function(anEvent) {
+                log.debug("event '%s' emitted at '%s', importBatch status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.status);
+                notifications.publish('/importers', 
+                                      importBatch.event.IMG_VARIANT_CREATED, 
+                                      { "id": "$" + importBatch.oid,
+                                        "doc_resource": "/images",
+                                        "doc": IMAGES.transformRep(anEvent.data, {isInstRef: true}) });
+              });
+
+              importBatch.on(importBatch.event.IMGS_IMPORTED, function(anEvent) {
+                log.debug("event '%s' emitted at '%s', importBatch status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.status);
+                notifications.publish('/importers', 
+                                      importBatch.event.IMGS_IMPORTED, 
+                                      { "id": "$" + importBatch.oid,
+                                        "doc_resource": "/images",
+                                        "doc": _.map(anEvent.data, function(image) {
+                                          return IMAGES.transformRep(image, {isInstRef: true});
+                                        })
+                                      });
+              });
+
+              importBatch.on(importBatch.event.IMG_IMPORTED, function(anEvent) {
+                log.debug("event '%s' emitted at '%s', importBatch status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.status);
+                notifications.publish('/importers', 
+                                      importBatch.event.IMG_IMPORTED, 
                                       { "id": "$" + importBatch.oid,
                                         "doc_resource": "/images",
                                         "doc": IMAGES.transformRep(anEvent.data, {isInstRef: true}) });
@@ -1258,7 +1324,8 @@ var ImportersImages = new Class({
   //    options:
   //      pathPrefix: ie - /v0
   //      subResource: Importers where Importers has a sub-resource of Images.
-
+  //      postTransformHook: Invoked after the resource is transformed but before it is returned.
+  //        IE: Could be used for something like re-writing URLs to resources.
   //
   initialize: function(path, options) {
     this.parent(path, options);
@@ -1275,12 +1342,15 @@ var ImportersImages = new Class({
                             message: { value: 'MediaManager/lib/MediaManagerApiCore.ImportersImages.initialize: Importers Images subResource required.' } });
     }
     this.imagesResource = this.importersResource.subResource;
+
+    this.postTransformHook = options.postTransformHook || function(r) { return r; };
   },
 
   //
   //  index:
   //    Args:
-  //      req: The request, S.T. req.params[0] contains the importers instance ID.
+  //      options:
+  //        req: The request, S.T. req.params[0] contains the importers instance ID.
   //
   index: function(options) {
     if (options && _.has(options, 'req') && _.has(options.req, 'params')) {
@@ -1347,6 +1417,7 @@ var ImportersImages = new Class({
         newRep.images = [];
       }
     }
+    this.postTransformHook(newRep, rep);
     return newRep;
   }
 
