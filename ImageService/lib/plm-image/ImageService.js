@@ -425,10 +425,16 @@ var runView = function(designDoc, viewName, options) {
  *      attributes.
  *    callback: Invoked upon completion with following signature - 
  *
- *      callback(err, images),
+ *      callback(err, images, errors),
  *
- *        where images is an image doc. or array of image documents.
- *
+ *        where:
+ *          err: error if nothing useful happened.
+ *          images: is an image doc. or array of image documents successfully created.
+ *          errors: When err is undefined, this is an array of errors associated with individual images.
+ *            {
+ *              attrs: attrs for the image.
+ *              err: error for the image.
+ *            }
  */
 function create(imgAttrs, options, callback) {
 
@@ -460,20 +466,35 @@ function create(imgAttrs, options, callback) {
   }
 
   if (_.isArray(toCreate) && toCreate.length) {
+    var created = [];
+    var errors = [];
     async.eachSeries(toCreate, 
                      function(toC, innerCallback) {
                        parseImage(toC, 
                                   {verbose: false},
                                   function(err) {
                                     log.debug('create: parsed image, path - ' + toC.path);
-                                    innerCallback(err);
+                                    if (err) {
+                                      errors.push({
+                                        err: err,
+                                        attrs: toC
+                                      });
+                                    }
+                                    else {
+                                      created.push(toC);
+                                    }
+                                    innerCallback(null);
                                   });
                      },
                      function(err) {
                        if (err) {
+                         callback(err, []), errors;
+                       }
+                       else if (created.length === 0) {
+                         callback("No images were created!", [], errors);
                        }
                        else {
-                         var toStore = _.map(toCreate, function(toC) {
+                         var toStore = _.map(created, function(toC) {
                            var toS = toCouch(toC);
 
                            toS._id = toC.oid;
@@ -492,7 +513,7 @@ function create(imgAttrs, options, callback) {
                                    else {
                                      log.debug('create: bulk document create response body - ' + util.inspect(body));
                                      
-                                     if (!_.isArray(body) || (toCreate.length != body.length)) {
+                                     if (!_.isArray(body) || (created.length != body.length)) {
                                        callback && callback('Error in image document creation, images to created did not equal number created!');
                                      }
                                      else {
@@ -505,7 +526,7 @@ function create(imgAttrs, options, callback) {
                                                         priv.setCouchRev(tmp, cImg);
                                                         return tmp;
                                                       });
-                                                      callback(err, cImgs);
+                                                      callback(err, cImgs, errors);
                                                     });
                                      }
                                    }
@@ -793,7 +814,7 @@ function parseImage(imgOrPath, options, callback)
                                callback(err, jData);
                              }
                              catch(e) {
-                               log.debug('Formatted parsing JSON data conversion - ' + e + ', data - ' + data);
+                               log.error('Formatted parsing JSON data conversion - ' + e + ', data - ' + data);
                                callback('Invalid JSON returned while parsing image file - ' + imgPath);
                              }          
                            }
@@ -1450,7 +1471,28 @@ function importBatchFs(target_dir, callback, options)
                     // Create N images for the batch.
                     //
                     function(pass1Next) {
-                      create(task.imageAttrs, {parse: true}, pass1Next);
+                      create(task.imageAttrs, 
+                             {parse: true},
+                             function(err, created, errors) {
+                               if (errors) {
+                                 _.each(errors, function(error) {
+                                   imageStatus[error.attrs.id] = {
+                                     status: -1,
+                                     err: error.err,
+                                     image: error.attrs
+                                   };
+                                 });
+                               }
+                               if (created && created.length) {
+                                 pass1Next(null, created);
+                               }
+                               else if (err) {
+                                 pass1Next(err);
+                               }
+                               else {
+                                 pass1Next("No images were created!");
+                               }
+                             });
                     },
                     //
                     // Update the set of created images associated with the batch, and
@@ -1521,6 +1563,7 @@ function importBatchFs(target_dir, callback, options)
                    },
                    function(err) {
                      if (err) {
+                       taskHadError = true;
                        log.error('Error during pass 1 processing of import batch for batch images ' + begin + ' to ' + (end - 1) + '!');
                      }
                      else {
@@ -1597,7 +1640,6 @@ function importBatchFs(target_dir, callback, options)
                                                             if (err) {
                                                               overallStatus.status = -1;
                                                               overallStatus.err = err;
-                                                              importBatch.addErr(imgStatus.image.path, err);
                                                             }
                                                             else {
                                                               importBatch.addSuccess(savedImage);
@@ -1607,7 +1649,6 @@ function importBatchFs(target_dir, callback, options)
                                                         }
                                                         else {
                                                           log.error("Error while processing image at '%s': %s", imgStatus.image.path, err);
-                                                          importBatch.addErr(imgStatus.image.path, overallStatus.err);
                                                           innerCallback(null);
                                                         }
                                                       },
@@ -1672,10 +1713,16 @@ function importBatchFs(target_dir, callback, options)
       }
     ],
     function(err) {
+      _.each(imageStatus, function(imgStatus) {
+        if (imgStatus.status !== 0) {
+          importBatch.addErr(imgStatus.image.path, imgStatus.err);
+        }
+      });
       priv.markBatchComplete(importBatch);
       if (err) {
         if (importBatch) {
           var errMsg = util.format("Error while processing importBatchFs '%s': %s", importBatch.oid,err);
+          log.error(errMsg);
         }
       }
     }
