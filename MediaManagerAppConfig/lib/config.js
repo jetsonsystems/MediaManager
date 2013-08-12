@@ -69,6 +69,13 @@ var config = Object.create({}, {
     value: _config.services,
     writable: false
   },
+  modules: {
+    //
+    // DO NOT mess with this.
+    //
+    value: _config.modules,
+    writable: false
+  },
   storage: {
     //
     // DO NOT mess with this.

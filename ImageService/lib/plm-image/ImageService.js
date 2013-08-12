@@ -66,6 +66,12 @@ var config = {
   processingOptions : {
     genCheckSums: false,
     numJobs: 1  // number of image processing jobs to trigger in parallel during imports
+  },
+  //
+  // Mime types which will be allowed during import.
+  //
+  importMimeTypes : {
+    image: ['jpeg', 'png']
   }
 };
 
@@ -1332,22 +1338,29 @@ function convertImageViewToCollection(docs, options)
 /**
  * Batch imports a collection of images by recursing through a file system
  *
- * options:
- *   - recursionDepth: 0,    // by default performs full recursion, '1' would process only the files inside the target_dir
- *   - ignoreDotFiles: true, // by default ignore .dotfiles
- *   - all options that can be passed to ImageService.save() which will be applied to all images in
- *     the import batch
+ *  options:
+ *    - recursionDepth: 0,    // by default performs full recursion, '1' would process only the files inside the target_dir
+ *    - ignoreDotFiles: true, // by default ignore .dotfiles
+ *    - all options that can be passed to ImageService.save() which will be applied to all images in
+ *      the import batch
  *
- * callback is invoked with the initialized importBatch, and processing of the batch will be
- * triggered asynchronously. importBatchShow(oid) can be called to monitor the progress of the
- * importPatch's processing.
+ *  callback(err, importBatch): is invoked with the initialized importBatch, and processing of the batch will be
+ *    triggered asynchronously. importBatchShow(oid) can be called to monitor the progress of the
+ *    importPatch's processing.
+ *
+ *    err: Object containing -
+ *      code
+ *      message
+ *
+ *    See exports.errors below for a list of errors which are return.
  */
 function importBatchFs(target_dir, callback, options)
 {
   options = options || {};
   var smallestFirst = true;
   var db = priv.db();
-  var importBatch;
+  var importBatch = undefined;
+
   //
   // toProcessBatchSize: We process N images, then persist the N in bulk. Default to 10.
   //
@@ -1377,7 +1390,15 @@ function importBatchFs(target_dir, callback, options)
       function(aryImage, next) {
         if (aryImage.length === 0) {
           log.debug('No images to import.');
-          next("No images to import in '" + target_dir + "'");
+          
+          var err = _.clone(errors.NO_FILES_FOUND);
+          err.message = util.format(err.message, target_dir);
+
+          if (_.isFunction(callback)) {
+            callback(err);
+          }
+
+          next(err.message);
           return;
         }
 
@@ -1718,9 +1739,9 @@ function importBatchFs(target_dir, callback, options)
           importBatch.addErr(imgStatus.image.path, imgStatus.err);
         }
       });
-      priv.markBatchComplete(importBatch);
-      if (err) {
-        if (importBatch) {
+      if (importBatch) {
+        priv.markBatchComplete(importBatch);
+        if (err) {
           var errMsg = util.format("Error while processing importBatchFs '%s': %s", importBatch.oid,err);
           log.error(errMsg);
         }
@@ -2200,7 +2221,7 @@ function collectImagesInDir(target_dir, callback)
       // converts a string like 'image/jpg' to ['image', 'jpg']
       var mimeData = mimeType.split("/");
 
-      if (mimeData[0] === 'image') {
+      if (_.has(config.importMimeTypes, mimeData[0]) && (config.importMimeTypes[mimeData[0]].indexOf(mimeData[1]) > -1)) {
         aryImage.push({ path: file, format: mimeData[1] });
       }
       next();
@@ -3210,8 +3231,6 @@ exports.viewTrash = viewTrash;
  *
  *   showMetadata: false by default, set to true to enable display of Image.metadata_raw
  */
-
-
 function viewTrash(options, callback) {
 
   var opts = options || {};
@@ -3227,61 +3246,63 @@ function viewTrash(options, callback) {
   // couchdb specific view options
   var view_opts={ include_docs: true};
 
+  runView(IMG_DESIGN_DOC,
+          VIEW_TRASH,
+          {
+            toReturn: 'docs',
+            fetchDocs: true,
+            fetchDocsBatchSize: 100,
+            callback: function(err, docs) {
 
-  db.view(IMG_DESIGN_DOC, VIEW_TRASH, view_opts,
-    function(err, body) {
+              if (!err) {
+                log.debug('viewTrash.runView.callback: received ' + docs.length + ' documents!');
+                //remove duplicates
+                var resultDocs = _.uniq(docs, function (doc) {
+                  return doc.oid;
+                });
 
-      if (!err) {
-
-        //remove duplicates
-        var results = _.uniq(body.rows,function (doc) {
-          return doc.id;
-        });
-
-        //extract only the "doc" part
-        var resultDocs = _.pluck(results, "doc");
-
-
-        var aryImgOut = [];
-
-        async.forEachLimit(resultDocs,
-          1,
-          function (doc,next){
-            var anImage = mmStorage.docFactory('plm.Image', doc);
-            if(anImage.isOriginal()){//retrieve also the variants
-              show(doc.oid,null,function(err,image){
-                  if (err) { callback(err); }
-                  else {
-                    aryImgOut.push(image);
-                  }
-                  next();
-                }
-            )
+                async.eachSeries(resultDocs,
+                                 function (doc, next) {
+                                   var anImage = mmStorage.docFactory('plm.Image', doc);
+                                   if(anImage.isOriginal()) {
+                                     log.debug('viewTrash.runView.callback: retrieving doc w/id - ' + doc.oid);
+                                     show(doc.oid,
+                                          null,
+                                          function(err,image){
+                                            if (err) { 
+                                              log.error('viewTrash.runView.callback: error retrieving image w/id - ' + doc.oid);
+                                              callback(err); 
+                                            }
+                                            else {
+                                              log.debug('viewTrash.runView.callback: Pushing image to result set - %j', image);
+                                              aryImgOut.push(image);
+                                            }
+                                            next(null);
+                                          }
+                                         );
+                                   }
+                                   else{
+                                     //is a variant, do nothing since the variant is already nested in the variants attribute of an original
+                                     next();
+                                   }
+                                 },
+                                 function(err) {
+                                   if (err) {
+                                     callback(err);
+                                   }
+                                   else {
+                                     //all images were processed time to callback
+                                     callback(null, aryImgOut);
+                                   }
+                                 }
+                                );
+              } 
+              else {
+                callback(util.format("error in viewTrash with view options '%j' - err: %s - body: %j", view_opts, err, body));
+              }
             }
-            else{
-              //is a variant, do nothing since the variant is already nested in the variants attribute of an original
-              next();
-            }
-          }
-          ,
-          function(err) {
-            if (err) {
-              callback(err);
-            }else{
-              //all images were processed time to callback
-              callback(null, aryImgOut);
-            }
-          }
-        );
-
-      } else {
-        callback(util.format("error in viewTrash with view options '%j' - err: %s - body: %j", view_opts, err, body));
-      }
-    }
-  );
+          });
 } // end viewTrash
-
-
 
 exports.deleteImages = deleteImages;
 /**
@@ -3418,11 +3439,28 @@ function emptyTrash(callback){
 
 } // end emptyTrash
 
-// export all functions in pub map
-/*
- for (var func in pub) {
- if(_.isFunction(pub[func])) {
- exports[func] = pub[func];
- }
- }
- */
+//
+// Communicating errors:
+//
+
+var errorCodes = {
+  UNKNOWN_ERROR: -1,
+  NO_FILES_FOUND: 1
+};
+exports.errorCodes = errorCodes;
+
+var errors = {
+  UNKNOWN_ERROR: {
+    code: errorCodes.UNKNOWN_ERROR,
+    message: "Unknown error occurred."
+  },
+  NO_FILES_FOUND: {
+    code: errorCodes.NO_FILES_FOUND,
+    message: "No files found in directory %s"
+  }
+};
+
+exports.errors = errors;
+
+
+

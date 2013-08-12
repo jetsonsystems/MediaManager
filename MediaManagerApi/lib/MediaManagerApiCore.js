@@ -1111,10 +1111,17 @@ var Importers = new Class({
           function(err, importBatch) {
             var status = 200;
             if (err) { 
-              log.error('Importers.create: Error saving image (1) - %j', err);
+              log.error('Importers.create: Error importing image(s) - %j', err);
               status = 500;
-              options.errorCode = -1;
-              options.errorMessage = err;
+
+              if (err.code === imageService.errorCodes.NO_FILES_FOUND) {
+                options.errorCode = errorCodes.NO_FILES_FOUND;
+                options.errorMessage = util.format(errors.NO_FILES_FOUND.message, importDir);
+              }
+              else {
+                options.errorCode = errorCodes.UNKNOWN_ERROR;
+                options.errorMessage = err.message;
+              }
             }
             else {
               log.info('Importers.create: Saved images, batch - %j', importBatch);
@@ -1751,3 +1758,27 @@ function removePrefix(oids){
   log.error("------------- removePrefix: Not valid oids parameter -----------------");
 
 }
+
+//
+// Errors / error codes:
+//
+var errorCodes = {
+  UNKNOWN_ERROR: -1,
+  NO_FILES_FOUND: 1
+};
+exports.errorCodes = errorCodes;
+
+var errors = {
+  UNKNOWN_ERROR: {
+    code: errorCodes.UNKNOWN_ERROR,
+    message: "Unknown error occurred."
+  },
+
+  NO_FILES_FOUND: {
+    code: errorCodes.IMPORT_NO_FILES_FOUND,
+    message: "No files found in directory %s ."
+  }
+
+};
+
+exports.errors = errors;
