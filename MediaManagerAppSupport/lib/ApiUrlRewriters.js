@@ -11,9 +11,19 @@ var path = require('path');
 var log4js = require('log4js');
 var _ = require('underscore');
 
+var config = require('MediaManagerAppConfig');
+//
+// fileCache: Must have been instantiated previously.
+//
+var fileCacheAlias = config.storage["file-cache"].alias;
+var fileCache = require('MediaManagerStorage')().get('file-cache',
+                                                     { singleton: true,
+                                                       alias: fileCacheAlias
+                                                     });
+
 var logger = log4js.getLogger('plm.MediaManagerAppSupport');
-var tmp = __filename.split('/');
-var logPrefix = tmp[tmp.length-1].replace('.js', ': ');
+var moduleName = './' + __filename.split('/').slice(-2).join('/').replace('.js', '');
+var logPrefix = moduleName + ': ';
 
 var fileSystemRoot = '/file';
 
@@ -35,14 +45,42 @@ var fileSystemRoot = '/file';
 //
 var images = function(transformedRep, rawRep) {
 
-  var lp = logPrefix.replace('.js: ', '.image: ');
+  var lp = logPrefix.replace(': ', '.image: ');
 
-  if (_.has(transformedRep, 'variants') && _.isArray(transformedRep) && transformedRep.length) {
+  if (_.has(transformedRep, 'variants') && _.isArray(transformedRep.variants) && transformedRep.variants.length) {
 
     logger.debug(lp + 'Rep. has variants...');
 
     var largestVariant = undefined;
     _.each(transformedRep.variants, function(variant) {
+
+      var vPath = fileCache.getPath(variant.name,
+                                    rawRep.oid,
+                                    { type: 'full' });
+
+      if (vPath) {
+        variant.url = vPath;
+      }
+      else {
+        logger.debug(lp + 'About to request file cache put for image w / id - ' + rawRep.oid + ', variant name - ' + variant.name + ', variant url - ' + variant.url);
+        try {
+          fileCache.putFromUrl(variant.url,
+                               rawRep.oid,
+                               { type: 'full' },
+                               function(err, cachedPath) {
+                                 if (err) {
+                                   logger.error(lp + 'Error caching variant, image id - ' + rawRep.oid + ', variant name - ' + variant.name + ', error - ' + err);
+                                 }
+                                 else {
+                                   logger.debug(lp + 'Cached variant for image w/ id - ' + rawRep.oid + ', variant name - ' + variant.name + ', cached path - ' + cachedPath);
+                                 }
+                               });
+        }
+        catch (e) {
+          logger.error(lp + 'Error attempting put to file cache, error - ' + e);
+        }
+      }
+      
       if (largestVariant === undefined) {
         largestVariant = variant;
       }
@@ -72,7 +110,7 @@ module.exports = {
 
   importersImages: function(transformedRep, rawRep) {
 
-    var lp = logPrefix.replace('.js: ', '.importersImages: ');
+    var lp = logPrefix.replace(': ', '.importersImages: ');
 
     logger.debug(lp + 'Transforming importer w/ id - ' + transformedRep.id);
 
@@ -87,4 +125,3 @@ module.exports = {
   }
 
 };
-

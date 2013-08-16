@@ -127,9 +127,9 @@ Configuration for Google Drive Storage:
 
 #### Classes
 None
-##### Methods
+#### Methods
 None
-##### Attributes
+#### Attributes
 
   * *<b>uploadStats</b>*: Statistics related to the progress of uploads. Contains the following attributes:
     * numChanges: Number of new documents encountered by monitoring the changes feed.
@@ -137,7 +137,31 @@ None
     * numStarted: Number uploads started.
     * numSuccess: Number of upload successes.
     * numError: Number of upload errors.
-  
-  
+    
+### [OSXFileSystem](./lib/OSXFileSystem.js)
+```
+USAGE:
 
+  var osxfs = require('MediaManagerAppSupport/lib/OSXFileSystem');
+  
+```
+
+This module initializes the filesystem used by the application. Specifically, the following directories are initialized:
+
+  * *<b>/Users/\<username\>/Library/Application Support/\<Application Bundle Identifier\></b>*: An instance of the application invoked by a particular user will:
+    * read/write configuration data,
+    * write logs,
+    * read write other application specific data that needs to be persisted accross invokations and installations of new versions of the application.
+  * *<b>/Users/\<username\>/Library/Caches/\<Application Bundle Identifier\></b>*: Cached data, including:
+    * file: Cached files to be accessed on the local filesystem. For example, images stored as attachments in TouchDB are cached here via the [MediaManagerStorage/lib/file-cache](../MediaManagerStorage/lib/file-cache/README.md) module.
+
+The *<b>Application Bundle Identifier</b>* is obtained by accessing the *<b>CFBundleIdentifier</b>* property of the application bundle's Info.plist file. The location of the Applicaiton Bundle is obtained from the *<b>PLM_APP_BUNDLE_DIR</b>* environment variable. The *<b>PLM_APP_BUNDLER_DIR</b>* must be properly set to point to an application bundle.
+
+Refer to [MAC Developer Library / OSX Library Directory Details](http://developer.apple.com/library/mac/documentation//FileManagement/Conceptual/FileSystemProgrammingGuide/MacOSXDirectories/MacOSXDirectories.html#//apple_ref/doc/uid/TP40010672-CH10-SW1) for specifics on how OSX applications should leverage the *<b>Library Directory</b>*.
+
+
+#### References
+
+  * [MAC Developer Library / File System Programming Guide](http://developer.apple.com/library/mac/documentation//FileManagement/Conceptual/FileSystemProgrammingGuide/Introduction/Introduction.html)
+    * [MAC Developer Library / OSX Library Directory Details](http://developer.apple.com/library/mac/documentation//FileManagement/Conceptual/FileSystemProgrammingGuide/MacOSXDirectories/MacOSXDirectories.html#//apple_ref/doc/uid/TP40010672-CH10-SW1)
 

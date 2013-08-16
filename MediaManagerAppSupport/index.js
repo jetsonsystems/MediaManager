@@ -20,15 +20,28 @@
 //
 
 var path = require('path');
+var fs = require('fs');
+
 var _ = require('underscore');
 var log4js = require('log4js');
 var retry = require('retry');
+//
+// OSXFileSystem MUST be required before MediaManagerAppConfig!
+//
+var osxFs = require('./lib/OSXFileSystem');
 var Worker = require('webworker');
 var config = require('MediaManagerAppConfig');
 var storage = require('./lib/storage.js');
-var mmApi = require('MediaManagerApi/lib/MediaManagerApiCore')(config);
 var mmStorageModule = require('MediaManagerStorage');
-var mmStorage = mmStorageModule(config.db, {singleton: true}).get('touchdb');
+var mmStorageInst = mmStorageModule(config.db, {singleton: true});
+var mmStorage = mmStorageInst.get('touchdb');
+var fileCacheAlias = config.storage["file-cache"].alias;
+var mmStorageFileCache = mmStorageInst.get('file-cache',
+                                           { 
+                                             singleton: true,
+                                             alias: fileCacheAlias
+                                           });
+var mmApi = require('MediaManagerApi/lib/MediaManagerApiCore')(config);
 var MediaManagerRouter = require('./lib/MediaManagerRouter.js');
 var AppServWorkerMessages = require('./lib/AppServWorkerMessages.js');
 
@@ -64,6 +77,36 @@ var MediaManagerAppSupportModule = function(appjs, routes) {
   app.readyState = app.readyStates.INITIALIZING;
 
   app.mediaManagerRouter = new MediaManagerRouter(appjs, routes);
+
+  //
+  // Initialize the file cache.
+  //
+  app.fileCache = mmStorageFileCache;
+  //
+  // Ensure the file-cache alias has a link in ./assets/<alias> -> app.fileCache.rootDir
+  //
+  var aliasPath = path.join('./assets/', fileCacheAlias);
+
+  if (!fs.existsSync('assets')) {
+    new Error(logPrefix + 'Unable to locate assets directory!');
+  }
+
+  if (!fs.existsSync(aliasPath)) {
+    try {
+      fs.symlinkSync(app.fileCache.rootDir, aliasPath);
+    }
+    catch (e) {
+      log.error(logPrefix + 'File cache alias creation error, alias path - ' + aliasPath + ', file cache root dir - ' + app.fileCache.rootDir);
+      app.emit('fileCacheAliasCreateError');
+    }
+  }
+
+  var aliasStat = fs.lstatSync(aliasPath);
+
+  if (!aliasStat.isSymbolicLink()) {
+    log.error(logPrefix + 'File cache alias not a valid sym link, alias path - ' + aliasPath + ', file cache root dir - ' + app.fileCache.rootDir);
+    app.emit('fileCacheAliasTypeError');
+  }
 
   app.storage = {
     //

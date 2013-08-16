@@ -10,6 +10,7 @@
   "dependencies" : {
     "log4js"        : "0.5.x",
     "node-uuid"    : "~1.4.0",
+    "plist"        : "~0.4",
     "restify"      : "2",
     "retry" : "*",
     "underscore"   : "~1.4.2",

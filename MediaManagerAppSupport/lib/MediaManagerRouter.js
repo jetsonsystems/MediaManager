@@ -13,7 +13,7 @@ var Router = require('browserver-router');
 var resources = require('./ApiResources');
 var apiWorkers = require('./ApiWorkers');
 
-var staticRoutesPat = /^\/(file)|(css)|(js)|(imgs)|(fonts)|(html)\/*$/;
+var staticRoutesPat = /^\/(file)|(mm-file-cache)|(css)|(js)|(imgs)|(fonts)|(html)\/*$/;
 var handleWithAppJsRouter = function(req) {
   if (req.pathname.match(staticRoutesPat)) {
     return true;
