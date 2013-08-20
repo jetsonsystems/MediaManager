@@ -65,11 +65,14 @@ describe('ImageService Testing', function () {
 
       var saveOptions={retrieveSavedImage:true};
 
+      console.log('Before hook, about to do imageService.save...');
+
       // simple save
       imageService.save(
         path_to_images + '/clooney.png',
         saveOptions,
         function (err, result) {
+          console.log('Before hook, imageService.save callback, err - ' + err);
           if (err) {
             console.log(err);
             done(err);

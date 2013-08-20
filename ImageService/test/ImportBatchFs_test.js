@@ -64,7 +64,7 @@ describe('ImageService.importBatchFs Setup/Teardown', function () {
 
   }
 
-  function assertImageSaved(image) {
+  function assertImageImported(image) {
     image.class_name.should.equal('plm.Image');
     image.oid.should.not.be.empty;
     image.variants.length.should.equal(3);
@@ -107,10 +107,10 @@ describe('ImageService.importBatchFs Setup/Teardown', function () {
           });
 
           // add the image listener
-          importBatch.on(importBatch.event.IMG_SAVED, function(anEvent) {
+          importBatch.on(importBatch.event.IMG_IMPORTED, function(anEvent) {
             // console.log("event: %s", util.inspect(anEvent));
             console.log("event '%s' emitted at '%s', status is: '%s'", anEvent.type, anEvent.emitted_at, importBatch.getStatus());
-            assertImageSaved(anEvent.data);
+            assertImageImported(anEvent.data);
             img_saved_event_count += 1;
           });
 

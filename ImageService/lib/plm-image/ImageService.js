@@ -443,11 +443,8 @@ var runView = function(designDoc, viewName, options) {
  *            }
  */
 function create(imgAttrs, options, callback) {
-
-  // log.debug('create: imgAttrs - ' + util.inspect(imgAttrs));
-
-  options = (options && !_.isFunction(options))?options:{};
   callback = callback || ((options && _.isFunction(options))?options:undefined);
+  options = (options && !_.isFunction(options))?options:{};
 
   options.parse = (_.has(options, 'parse'))?options.parse:true;
 
@@ -561,11 +558,12 @@ function save(anImgPath, options, callback)
         persistMultiple(aryPersist, null, next);
       },
       function(aryResult, next) {
+        log.debug('save: saved ' + aryResult.length + ' images.');
         if(options && options.retrieveSavedImage){
-          log.debug("After save, retrieving image '%s' by oid '%s'", anImgPath, aryResult[0].oid);
+          log.debug(util.format("save: After save, retrieving image '%s' by oid '%s'", anImgPath, aryResult[0].oid));
           show(aryResult[0].oid, null,next);
-        }else
-        {
+        } else {
+          log.debug('save: no need to retrieve saved image.');
           next(null,aryResult[0]);
         }
       }
@@ -576,7 +574,7 @@ function save(anImgPath, options, callback)
         log.error(errMsg);
         if (_.isFunction(callback)) { callback(errMsg); }
       }
-      log.info("Saved image '%s': '%j'", theSavedImage.name, theSavedImage);
+      log.info(util.format("Saved image '%s': '%j'", theSavedImage.name, theSavedImage));
 
       if(options && options.retrieveSavedImage){
         callback(null, theSavedImage);
@@ -606,10 +604,8 @@ exports.save = save;
  */
 function parseAndTransform(imgOrPath, options, callback)
 {
-
-  options = (options && !_.isFunction(options))?options:{};
   callback = callback || ((options && _.isFunction(options))?options:undefined);
-
+  options = (options && !_.isFunction(options))?options:{};
   options.parse = (_.has(options, 'parse'))?options.parse:true;
 
   var image;
@@ -761,9 +757,8 @@ function transform(anImgMeta, variant, callback)
  */
 function parseImage(imgOrPath, options, callback)
 {
-
-  options = (options && !_.isFunction(options))?options:{verbose:false};
   callback = callback || ((options && _.isFunction(options))?options:function(){});
+  options = (options && !_.isFunction(options))?options:{verbose:false};
 
   if (!_.isFunction(callback)) throw "parseImage is not very useful if you don't provide a valid callback";
 
@@ -864,8 +859,9 @@ function parseImage(imgOrPath, options, callback)
  */
 function persistMultiple(aryPersist, aryResult, options, callback)
 {
+  callback = callback || ((options && _.isFunction(options)) ? options : function(){ log.debug('persistMultiple: default callback...');});
   options = (options && !_.isFunction(options))?options:{skipDoc:false};
-  callback = callback || ((options && _.isFunction(options))?options:function(){});
+  log.debug('persistMultiple: persisting ' + aryPersist.length + ' images.');
   // handle empty aryPersist
   if ( !(aryPersist instanceof Array) || aryPersist.length === 0)
   {
@@ -882,12 +878,13 @@ function persistMultiple(aryPersist, aryResult, options, callback)
   // of multiple invocations of this method
   if (!_.isArray(aryResult)) aryResult = [];
 
-  async.forEachSeries(aryPersist, iterator, function(err) {
+  async.eachSeries(aryPersist, iterator, function(err) {
     if (err) {
       var errMsg = util.format("Error happened while saving image and its variants: %s", err);
-      log.err(errMsg);
+      log.error('persistMultiple: ' + errMsg);
       callback(errMsg);
     } else {
+      log.debug('persistMultiple: done persisting...');
       callback(null, aryResult);
     }
   });
@@ -895,6 +892,7 @@ function persistMultiple(aryPersist, aryResult, options, callback)
 
   function iterator(element, next) {
     persist(element, options, function(err, image) {
+      log.debug('persistMultiple: pushing result, err - ' + err);
       aryResult.push( err ? err : image );
       next();
     });
@@ -923,8 +921,11 @@ function persistMultiple(aryPersist, aryResult, options, callback)
  */
 function persist(persistCommand, options, callback)
 {
-  options = (options && !_.isFunction(options))?options:{skipDoc:false};
   callback = callback || ((options && _.isFunction(options))?options:function(){});
+  options = (options && !_.isFunction(options))?options:{skipDoc:false};
+
+  log.debug('persist: arguments - ' + util.inspect(arguments) + ', options - ' + JSON.stringify(options) + ', callback - ' + util.inspect(callback));
+
   var
     db = nano(
       {
@@ -935,20 +936,23 @@ function persist(persistCommand, options, callback)
     ,imgData   = persistCommand.data
     ;
 
+  log.debug('persist: have DB, and image data - ' + JSON.stringify(imgData));
   async.waterfall(
     [
       function (next) {
         if (!options.skipDoc) {
-          log.trace("saving %j to db...", imgData);
+          log.debug(util.format("persist: saving %j to db...", imgData));
           db.insert(toCouch(imgData), 
                     imgData.oid, 
                     function(err, body, headers) {
-                      if (log.isTraceEnabled())log.trace("result from insert: %j", body );
+                      log.debug(util.format("persist: result from insert: %j, err - %s.", body, err ));
                       priv.setCouchRev(imgData, body);
+                      log.debug('persist: set rev - ' + imgData._storage.rev);
                       next(err);
                     });
         }
         else {
+          log.trace('persist: skipping doc.');
           next(null);
         }
       },
@@ -958,7 +962,8 @@ function persist(persistCommand, options, callback)
         if (_.isString(persistCommand.stream)) {
           var attachName = imgData.name;
 
-          if (log.isTraceEnabled()) { log.trace("streaming image bits for file '%s' from path '%s' to storage device", attachName, persistCommand.stream); }
+          log.debug(util.format("streaming image bits for file '%s' from path '%s' to storage device", attachName, persistCommand.stream));
+
           var imgStream = fs.createReadStream(persistCommand.stream);
 
           //log.trace("imgData: %j", util.inspect(imgData));
@@ -975,14 +980,16 @@ function persist(persistCommand, options, callback)
                 {rev: imgData._storage.rev}, next)
             );
           }
-          catch(e) { log.error("error while streaming: %j", e);}
+          catch(e) { log.error(util.format("error while streaming: %j", e));}
         } else {
+          log.debug('persist: No image bits to save...');
           callback(null, imgData);
           return;
         }
       },
 
       function(body, headers, next) {
+        log.debug('persist: saved image as attachment...');
 
         // clean-up work directory if this was a temp file generated in the workDir
         if ( persistCommand.isTemp && _.isString(persistCommand.stream) ) {
@@ -996,6 +1003,7 @@ function persist(persistCommand, options, callback)
       }
     ],
     function(err) {
+      log.debug('persist: completed, err - ' + err);
       callback(err, imgData);
     }
   );
