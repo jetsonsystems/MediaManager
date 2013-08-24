@@ -76,11 +76,10 @@ var config = {
 };
 
 //
-// Note any config is OK here now, as we don't use MediaManagerStore to actually talk
-// to the DB. In the future we should require invoking ImageService as a function passing a config,
-// where the returned instance will use that config.
+// Get a singleton instance of the storage module.
 //
-var mmStorage = require('MediaManagerStorage')(config.db, {singleton: false});
+var mmStorage = require('MediaManagerStorage')();
+var touchdb = mmStorage.get('touchdb');
 
 exports.config = config;
 
@@ -540,8 +539,6 @@ function create(imgAttrs, options, callback) {
     callback('No valid images to create!');
   }
 }
-
-exports.process = process;
 
 /**
  * The main method for saving and processing an image
@@ -2114,9 +2111,15 @@ exports.importBatchShow = importBatchShow;
 /**
  * Lists the 'N' most recent import batches
  *
+ * NOTE: this is replaced with importBatchIndex. Leaving here for debugging in case the new implementation
+ *  produces questionable results.
+ *
  * N: Number of batches to return. If undefined, all batches are returned.
  * options:
  *   includeImages: false by default, if true returns all images with variants that are part of the batch
+ *   filterNoImages: Do not return any import batches with no associated images. Default: true.
+ *   filterAllInTrash: Do not return any import batches where all images are in trash. Default: true.
+ *   filterNotStarted: Do not return any import batches where the corresponding import process has not yet begun. Default: true.
  */
 function importBatchFindRecent(N, options, callback) {
   var db = priv.db();
@@ -2124,53 +2127,215 @@ function importBatchFindRecent(N, options, callback) {
   var opts = _.isObject(options) ? options : {};
   var view = VIEW_BATCH_BY_CTIME;
 
+  var filterOnImages = _.has(options, 'filterNoImages') && _.has(options, 'filterAllInTrash') && _.has(options, 'filterNotStarted');
+
   var view_opts = {
     descending: true
     ,include_docs: true
   };
 
-  if (N !== undefined) {
+  //
+  // If not doing any filtering, set the limit.
+  //
+  if ((N !== undefined) && !filterOnImages) {
     view_opts.limit = N;
   }
 
   log.debug("Finding %s most recent importBatches with options %j", N, options);
   log.trace("Finding %s most recent importBatches using view '%s' with view_opts %j", N, view, view_opts);
 
-  db.view(IMG_DESIGN_DOC, view, view_opts,
-    function(err, body) {
-      if (err) {
-        var errMsg = util.format("error in importBatchFindRecent: %j", err);
-        log.error(errMsg);
-        callback(errMsg);
-      } else {
-        log.trace("view %s returned %s rows: %j", view, body.rows.length, body);
-        for (var i = 0; i < body.rows.length; i++) {
-          var doc = body.rows[i].doc;
-          if (doc.class_name === 'plm.ImportBatch') {
-            var importBatch = mmStorage.docFactory('plm.ImportBatch', doc);
-            priv.setCouchRev(importBatch, doc);
-            aryBatchOut.push(importBatch);
+  db.view(IMG_DESIGN_DOC, 
+          view, 
+          view_opts,
+          function(err, body) {
+            if (err) {
+              var errMsg = util.format("error in importBatchFindRecent: %j", err);
+              log.error(errMsg);
+              callback(errMsg);
+            } else {
+              log.trace("view %s returned %s rows: %j", view, body.rows.length, body);
+              for (var i = 0; i < body.rows.length; i++) {
+                var doc = body.rows[i].doc;
+                if (doc.class_name === 'plm.ImportBatch') {
+                  var importBatch = mmStorage.docFactory('plm.ImportBatch', doc);
+                  priv.setCouchRev(importBatch, doc);
+                  aryBatchOut.push(importBatch);
+                }
+              } // end for
+
+              var success = util.format("Successfully retrieved '%s' most recent batch imports: %j", N, aryBatchOut);
+
+              if (opts.includeImages || filterOnImages) {
+                importBatchRetrieveImages(aryBatchOut, options, function(err, out) {
+                  if (!err) {log.debug(success);}
+
+                  if (options.filterNotStarted) {
+                    var outTmp = out;
+
+                    out = _.filter(outTmp, function(imp) {
+                      return _.has(imp, 'started_at') && imp.started_at;
+                    });
+                  }
+                  
+                  if (options.filterAllInTrash) {
+                    var outTmp = out;
+                    out = [];
+                    _.each(outTmp, function(imp) {
+                      var images = _.filter(imp.images, function(image) {
+                        var include = true;
+
+                        if (image.in_trash) {
+                          include = false;
+                        }
+
+                        return include;
+                      });
+                      if (images.length) {
+                        imp.images = images;
+                        out.push(imp);
+                      }
+                    });
+                  }
+
+                  if (options.filterNoImages) {
+                    var outTmp = out;
+
+                    out = _.filter(outTmp, function(imp) {
+                      return imp.images.length > 0;
+                    });
+                  }
+
+                  if ((N !== undefined) && (out.images.length > N)) {
+                    out = out.slice(0, N);
+                  }
+                  
+                  callback(err,out);
+                });
+              } else {
+                log.debug(success);
+                callback(null, aryBatchOut);
+              }
+            }
           }
-        } // end for
+         );
 
-        var success = util.format("Successfully retrieved '%s' most recent batch imports: %j", N, aryBatchOut);
+}
 
-        if (opts.includeImages) {
-          importBatchRetrieveImages(aryBatchOut, options, function(err, out) {
-            if (!err) {log.debug(success);}
-            callback(err,out);
-          });
-        } else {
-          log.debug(success);
-          callback(null, aryBatchOut);
+/*
+ * importBatchIndex: Lists the 'N' most recent import batches
+ *
+ * NOTE: this is replaced with importBatchIndex. Leaving here for debugging in case the new implementation
+ *  produces questionable results.
+ *
+ * N: Number of batches to return. If undefined, all batches are returned.
+ * options:
+ *   includeImages: false by default, if true returns all images with variants that are part of the batch
+ *   filterNoImages: Do not return any import batches with no associated images. Default: true.
+ *   filterAllInTrash: Do not return any import batches where all images are in trash. Default: true.
+ *   filterNotStarted: Do not return any import batches where the corresponding import process has not yet begun. Default: true.
+ */
+function importBatchIndex(N, options, callback) {
+
+  var lp = 'importBatchIndex: ';
+
+  callback = callback || ((options && _.isFunction(options))?options:undefined);
+  options = (options && !_.isFunction(options))?options:{};
+
+  if (!_.has(options, 'includeImages')) {
+    options.includeImages = false;
+  }
+
+  if (!_.has(options, 'filterNoImages')) {
+    options.filterNoImages = true;
+  }
+  if (!_.has(options, 'filterAllInTrash')) {
+    options.filterAllInTrash = true;
+  }
+  if (!_.has(options, 'filterNotStarted')) {
+    options.filterNotStarted = true;
+  }
+
+  var filterOnImages = 
+    options.filterNoImages || 
+    options.filterAllInTrash || 
+    options.filterNotStarted;
+
+  var transform = function(batch, callback) {
+    if (options.includeImages || filterOnImages) {
+      importBatchShow(batch.oid,
+                      { includeImages: true },
+                      function(err, newBatch) {
+                        callback(err, newBatch);
+                      });
+    }
+    else {
+      callback(null, batch);
+    }
+  };
+
+  var filterFunc = function(doc) {
+
+    if (options.filterNotStarted) {
+      if (!_.has(doc, 'started_at') || !doc.started_at) {
+        log.debug(lp + 'Filtering import bactch w/ id - ' + doc.oid + ', reason - not started.');
+        return true;
+      }
+    }
+
+    if (options.filterAllInTrash) {
+      if (_.has(doc, 'images')) {
+        var nonTrash = _.find(doc.images, function(image) {
+          return !image.in_trash;
+        });
+
+        if (!nonTrash) {
+          log.debug(lp + 'Filtering import bactch w/ id - ' + doc.oid + ', reason - all in trash.');
+          return true;
         }
       }
     }
+
+    if (options.filterNoImages) {
+
+      var numImages = _.has(doc, 'images') ? doc.images.length : 0;
+
+      log.debug(lp + 'No image filter - ' + numImages);
+      
+      if (numImages === 0) {
+        log.debug(lp + 'Filtering import batch w / id - ' + doc.oid + ', reason - no images.');
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  var nToFetch = N ? N : undefined;
+  var dIt = new touchdb.DocIterator(
+    nToFetch, 
+    IMG_DESIGN_DOC, 
+    VIEW_BATCH_BY_CTIME,
+    {
+      transform: transform,
+      filterSync: filterFunc
+    }
   );
 
-}
-exports.importBatchFindRecent = importBatchFindRecent;
+  var docs = [];
 
+  dIt.next().then(
+    function(page) {
+      log.debug(lp + 'Got ' + page.length + ' batches...');
+      callback(null, page);
+    },
+    function(err) {
+      log.error(lp + 'error - ' + err);
+      callback(err);
+    });
+};
+
+exports.importBatchIndex = importBatchIndex;
+exports.importBatchFindRecent = importBatchIndex;
 
 /**
  * Given an array of import batches, retrieves the images and variants imported during that batch,

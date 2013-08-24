@@ -4,6 +4,8 @@
 
 var path = require('path');
 var config = require('MediaManagerAppConfig');
+var mmStorageModule = require('MediaManagerStorage');
+var mmStorageInst = mmStorageModule(config.db, {singleton: true});
 var mmApi = require('MediaManagerApi/lib/MediaManagerApiCore')(config);
 var apiVersion = config.services.restAPI.version;
 var pathPrefix = path.join(config.services.restAPI.pathPrefix, apiVersion);

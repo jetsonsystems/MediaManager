@@ -25,6 +25,8 @@ var pathPrefix = path.join(config.services.restAPI.pathPrefix, apiVersion);
 
 var assetManagerModule = require('MediaManagerAppSupport/lib/AssetManager.js');
 var AppServWorkerMessages = require('MediaManagerAppSupport/lib/AppServWorkerMessages.js');
+var mmStorageModule = require('MediaManagerStorage');
+var mmStorageInst = mmStorageModule(config.db, {singleton: true});
 var mmApi = require('MediaManagerApi/lib/MediaManagerApiCore')(config);
 
 logger.info(logPrefix + 'Starting services...');

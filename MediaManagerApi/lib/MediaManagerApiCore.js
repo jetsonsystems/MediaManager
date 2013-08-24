@@ -1231,20 +1231,39 @@ var Importers = new Class({
     options = options || {};
     var that = this;
     var numBatches = (_.has(options, 'query') && _.has(options.query, 'n')) ? options.query.n : undefined;
+
+    var opts = {
+      includeImages: false,
+      filterNoImages: true,
+      filterAllInTrash: true,
+      filterNotStarted: true
+    };
+
+    if (_.has(options, 'query')) {
+      if (_.has(options.query, 'filter_no_images')) {
+        opts.filterNoImages = options.query.filter_no_images;
+      }
+      if (_.has(options.query, 'filter_all_in_trash')) {
+        opts.filterAllInTrash = options.query.filter_all_in_trash;
+      }
+      if (_.has(options.query, 'filter_not_started')) {
+        opts.filterNotStarted = options.query.filter_not_started;
+      }
+    }
     
-    imageService.importBatchFindRecent(numBatches,
-                                       {},
-                                       function(err, result) {
-                                         var status = 200;
-                                         if (err) {
-                                           log.error('Importers.index: error from image service - %s', err);
-                                           status = 500;
-                                           options.errorCode = -1;
-                                           options.errorMessage = err;
-                                         }
-                                         log.info('Importers.index: invoking callback with status - %s, path- %s', status, that.path);
-                                         that.doCallbacks(status, result, options);
-                                       });
+    imageService.importBatchIndex(numBatches,
+                                  opts,
+                                  function(err, result) {
+                                    var status = 200;
+                                    if (err) {
+                                      log.error('Importers.index: error from image service - %s', err);
+                                      status = 500;
+                                      options.errorCode = -1;
+                                      options.errorMessage = err;
+                                    }
+                                    log.info('Importers.index: invoking callback with status - %s, path- %s', status, that.path);
+                                    that.doCallbacks(status, result, options);
+                                  });
     return that;
   },
 
