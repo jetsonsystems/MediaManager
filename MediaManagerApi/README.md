@@ -1,4 +1,6 @@
-MediaManagerApi
-============
+# PLM Media Manager - Web API
 
-Media Manager Api
+The PLM Media Manager leverages and exposes the following complimentary APIs:
+
+  * [PLM Media Manager - REST API]()
+  * [PLM Media Manager - Notifications API]()
