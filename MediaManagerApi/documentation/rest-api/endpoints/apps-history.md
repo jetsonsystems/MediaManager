@@ -21,7 +21,7 @@ Adds a new most recent item to the history of the specified type.
 
 ### Resource Representation in Request
 
-It is sufficient to only provide the **href** attribute of the representation in [Apps/History Resource Format](#apps-history-resource-format). If the **href** attribute is provided, any other provided attributes are overwriten by parsing the URL found in the *href* attribute. If the *href* attribute is **NOT** provided it is up to the client to provide a complete representation of the history item in order for it to be useful.
+It is sufficient to only provide the **href** attribute of the representation in [Apps/History Resource Format](../resource-formats.md#apps-history-resource-format). If the **href** attribute is provided, any other provided attributes are overwriten by parsing the URL found in the *href* attribute. If the *href* attribute is **NOT** provided it is up to the client to provide a complete representation of the history item in order for it to be useful.
 
 ### Example
 
