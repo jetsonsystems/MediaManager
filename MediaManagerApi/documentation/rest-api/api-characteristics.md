@@ -76,7 +76,8 @@ The following endpoint request parameters are shared by several API end-points. 
 
     * Allows for filtering of objects based upon their creation date, date/time the object was imported into PLM. Note, created should not be confused with the date an image might have originally been taken. See [Timestamps, Dates and Date Selectors in Queries](./api-characteristics.md#timestamps-dates-queries).
 
-### <a id="timestamps-dates-queries"></a>Timestamps, Dates and Date Selectors in Queries
+<a id="timestamps-dates-queries"></a>
+### Timestamps, Dates and Date Selectors in Queries
 
 A query parameter may require a value which is a timestamp, date, or a \<date selector\>. \<date selectors\> are used to select objects based upon an attribute which is a timestamp or date.
 

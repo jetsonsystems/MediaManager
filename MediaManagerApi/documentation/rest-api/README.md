@@ -25,7 +25,7 @@ The **PLM Media Manager - REST API** is a web based API which is RESTful in natu
     * [App Settings Resource Format](./resource-formats.md#app-settings-resource-format)
     * [Apps/History Resource Format](./resource-formats.md#apps-history-resource-format)
   * [API Endpoints](./endpoints/README.md)
-    * [Image Resource Endpoints](./images.md)
+    * [Image Resource Endpoints](./endpoints/images.md)
       * [Images - index](./endpoints/images.md#images-index)
       * [Images - show](./endpoints/images.md#images-show)
       * [Images - update](./endpoints/images.md#images-update)
