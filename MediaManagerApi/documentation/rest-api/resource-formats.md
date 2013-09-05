@@ -68,7 +68,8 @@ An [Image Resource](./endpoints/images.md) may be represented in a **full** form
   * variants: A list of variants of the original which are available. Each image variant is represent using the [Image Resource Format - Short Form](#image-resource-format-short-form) representation.
   * in_trash **(w)**: true if the image is in trash.
 
-## <a id="image-resource-format-short-form"></a>Image Resource Format - Short Form
+<a name="image-resource-format-short-form"></a>
+## Image Resource Format - Short Form
 
 An [Image Resource](./endpoints/images.md) may be represented in a **short** form which exposes fewer attributes. The [Image Resource Format - Short Form](#image-resource-format-short-form) representation is typically used when an API returns a collections of [Image Resources](./endpoints/images.md), such as [Images - index](./endpoints/images.md#images-index). The following attributes are exposed in the [Short Form](#image-resource-format-short-form) representation:
 
@@ -84,7 +85,8 @@ An [Image Resource](./endpoints/images.md) may be represented in a **short** for
   * variants: A list of variants of the original which are available. Each image variant is represent using the [Image Resource Format - Short Form](#image-resource-format-short-form) representation.
   * in_trash **(w)**: true if the image is in trash.
 
-## <a id="importer-resource-format"></a>Importer Resource Format
+<a name="importer-resource-format"></a>
+## Importer Resource Format
 
   * id: ID to reference the importer in subsequent polling.
   * import_dir: The directory used to import objects from.
@@ -102,7 +104,8 @@ An [Image Resource](./endpoints/images.md) may be represented in a **short** for
   * num_success: Number of successful imports.
   * num_error: Number of failed imports.
 
-## <a id="storage-sync-resource-format"></a>Storage/Synchronizer Resource Format
+<a name="storage-sync-resource-format"></a>
+## Storage/Synchronizer Resource Format
 
   * id: ID to reference the storage/synchronizer resource.
   * state: Overall state of the synchronization process.
@@ -131,7 +134,8 @@ An [Image Resource](./endpoints/images.md) may be represented in a **short** for
 
     * username: Username used for the purpose of authentication.
 
-## <a id="user-accounts-resource-format"></a>User/Linked-Accounts Resource Format
+<a name="user-accounts-resource-format"></a>
+## User/Linked-Accounts Resource Format
 
 ## App Settings Resource Format
 
@@ -145,7 +149,8 @@ An [App-Settings Resource](./endpoints/app-settings.md) contains the following a
 
     * database **(w)**: The name of the database. Defaults to **plm-media-manager**. This can be edited in case a different database instance is desired.
 
-## <a id="apps-history-resource-format"></a>Apps/History Resource Format
+<a name="apps-history-resource-format"></a>
+## Apps/History Resource Format
 
 An [Apps/History Resource](./endpoints/apps-history.md) describes a request made to the API in the context of a particular application. For example, the following request would return an Apps/History resource representation which describes the last search performed in the **photo manager** application:
 

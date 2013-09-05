@@ -76,7 +76,7 @@ The following endpoint request parameters are shared by several API end-points. 
 
     * Allows for filtering of objects based upon their creation date, date/time the object was imported into PLM. Note, created should not be confused with the date an image might have originally been taken. See [Timestamps, Dates and Date Selectors in Queries](./api-characteristics.md#timestamps-dates-queries).
 
-<a id="timestamps-dates-queries"></a>
+<a name="timestamps-dates-queries"></a>
 ### Timestamps, Dates and Date Selectors in Queries
 
 A query parameter may require a value which is a timestamp, date, or a \<date selector\>. \<date selectors\> are used to select objects based upon an attribute which is a timestamp or date.
@@ -152,7 +152,8 @@ The above, sets an image's **in_trash** attribute to true, thereby "moving the i
 
 ## HTTP Responses
 
-### <a id="http-responses-gen-characteristics"></a>HTTP Responses - General Characteristics
+<a name="http-responses-gen-characteristics"></a>
+### HTTP Responses - General Characteristics
 
 All responses will be of a content-type of **application/json**. HTTP responses convey success or failure of a request via an appropriate HTTP response status code.
 
@@ -188,7 +189,8 @@ Other fields may be provided if necessary. The status should be 1 (not zero). Th
     }
 ```
 
-### <a id="dates-timestamps-attribute-values"></a>Dates and Timestamps as Resource Attribute Values
+<a name="dates-timestamps-attribute-values"></a>
+### Dates and Timestamps as Resource Attribute Values
 
 The representation of a resource, may contain attributes which are a date or timestamp. For example, the **created_at** attribute (see [Common Resource Format Elements](./resource-formats.md#common-resource-format-elements)) describes when the object was created (imported into PLM), and is a timestamp.
 

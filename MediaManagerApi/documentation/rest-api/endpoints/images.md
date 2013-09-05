@@ -1,4 +1,4 @@
-# Image Resource Endpoints
+# Images Resource Endpoints
 
   * [Images - index](#images-index)
   * [Images - show](#images-show)
@@ -6,7 +6,8 @@
   * [Images - delete](#images-delete)
   * [Images - empty trash / delete all](#images-trash-delete)
 
-## <a id="images-index"></a>Images - index
+<a name="images-index"></a>
+## Images - index
 
 ```
     GET /images
@@ -60,7 +61,8 @@ Note, the **imported**, **created**, and **taken** parameters need not be mutual
     }
 ```
 
-## <a id="images-show"></a>Images - show
+<a name="images-show"></a>
+## Images - show
 
 ```
     GET /images/<image ID> (Completed)
@@ -76,7 +78,8 @@ Returns a single image as identified by its \<image ID\>. The image resource is 
     GET /images/$2aoelr2c3p90oae8ifao9e8xsnthdoeu4
 ```
 
-## <a id="images-update"></a>Images - update
+<a name="images-update"></a>
+## Images - update
 
 ```
   PUT /images/<image ID>?<writable attribute paramaters>
@@ -108,7 +111,8 @@ PUT /images/$46247ce7-eef1-4ec6-98b4-eb1ed75e5752?in_trash=false
 
 An empty payload is sent.
 
-## <a id="images-delete"></a>Images - delete
+<a name="images-delete"></a>
+## Images - delete
 
 ```
   DELETE /images/<image ID> (completed)
@@ -118,7 +122,8 @@ An empty payload is sent.
 
 Performs a hard-delete of an image, meaning that it will be deleted from storage and may not be recoverable.  Note that an image is deleted irrespective of whether or not it is in the Trash.  Make sure that you know what you are doing before invoking this method.
 
-## <a id="images-trash-delete"></a>Images - empty trash / delete all
+<a name="images-trash-delete"></a>
+## Images - empty trash / delete all
 
 ```
   DELETE /images[?trashState=in|out|any] (completed)
