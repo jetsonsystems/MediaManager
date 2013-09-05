@@ -32,7 +32,7 @@ The following elements are common to most resource formats:
   * import_root_dir: Root import directory which was used at the time the asset was imported.
   * created_at: Timestamp of when an object was created (or imported into PLM). See [Dates and Timestamps as Resource Attribute Values](./api-characteristics.md#dates-timestamps-attribute-values).
 
-<a id="image-resource-format-full-form"></a>
+<a name="image-resource-format-full-form"></a>
 ## Image Resource Format - Full Form
 
 An [Image Resource](./endpoints/images.md) may be represented in a **full** form which contains all available attributes of the resource. The following attributes are available:
