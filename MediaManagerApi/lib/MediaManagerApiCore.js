@@ -396,6 +396,8 @@ var Resource = new Class({
     }
     if (status === 200) {
       if (_.has(options, 'onSuccess') && options.onSuccess) {
+        var rb = this.createResponseBody(0, options);
+        log.info('Resource.doCallbacks: response body of - ' + JSON.stringify(rb));
         options.onSuccess(this.createResponseBody(0, options));
       }
     }
@@ -445,6 +447,40 @@ var Resource = new Class({
       }
     }
     return body;
+  },
+
+  //
+  //  httpResponseStatusCode: Generate an HTTP status code
+  //    based upon the status / error_code set in the response
+  //    body. The HTTP status should be completely computable
+  //    from (status, error_code). See errorCodes at the bottom of the module.
+  //
+  //    In general if responseBody.errorCode is:
+  //      errorCodes.UNKNOWN_ERROR -> 500
+  //      any other error codes -> 404
+  //      else -> 500
+  //
+  //    Args:
+  //      responseBody
+  //
+  httpResponseStatusCode: function(responseBody) {
+    var status = 500;
+
+    if (_.has(responseBody, 'status')) {
+      if (responseBody.status === 0) {
+        status = 200;
+      }
+      else if (_.has(responseBody, 'error_code')) {
+        var code = responseBody.error_code;
+
+        var error = _.find(errors, function(err) { return code === err.code; });
+
+        if (error) {
+          status = error.httpStatus;
+        }
+      }
+    }
+    return status;
   },
 
   //
@@ -532,8 +568,8 @@ var Images = new Class({
       var status = 200;
       if (err) {
         log.error('Images.index', 'error from image service - ' + err);
-        status = 500;
-        options.errorCode = -1;
+        status = errors[errors.UNKNOWN_ERROR].httpStatus;
+        options.errorCode = errorCodes.UNKNOWN_ERROR;
         options.errorMessage = err;
       }
       log.info('Images.index: invoking callback with status - %s, path - %s', status, that.path);
@@ -549,8 +585,8 @@ var Images = new Class({
       var status = 200;
       if (err) {
         log.info('Images.read: error from image service - %s', err);
-        status = 500;
-        options.errorCode = -1;
+        status = errors[errors.UNKNOWN_ERROR].httpStatus;
+        options.errorCode = errorCodes.UNKNOWN_ERROR;
         options.errorMessage = err;
       }
       // log.info('Images.read', 'got result of - ' + JSON.stringify(result));
@@ -581,8 +617,8 @@ var Images = new Class({
               imageService.sendToTrash([removePrefix(id)],function(err, theSentToTrashImages){
                 if (err) {
                   log.error('Images.update.imageService.sendToTrash: error from image service - %s', err);
-                  status = 500;
-                  options.errorCode = -1;
+                  status = errors[errors.UNKNOWN_ERROR].httpStatus;
+                  options.errorCode = errorCodes.UNKNOWN_ERROR;
                   options.errorMessage = err;
                 }else{
                   theImage = theSentToTrashImages[0];
@@ -594,8 +630,8 @@ var Images = new Class({
               imageService.restoreFromTrash([removePrefix(id)],function(err, theRestoredFromTrashImages){
                 if (err) {
                   log.error('Images.update.imageService.restoreFromTrash: error from image service - %s', err);
-                  status = 500;
-                  options.errorCode = -1;
+                  status = errors[errors.UNKNOWN_ERROR].httpStatus;
+                  options.errorCode = errorCodes.UNKNOWN_ERROR;
                   options.errorMessage = err;
                 }else{
                   theImage = theRestoredFromTrashImages[0];
@@ -620,8 +656,8 @@ var Images = new Class({
 
             if (err) {
               log.error('Images.update.show: error from image service - %s', err);
-              status = 500;
-              options.errorCode = -1;
+              status = errors[errors.UNKNOWN_ERROR].httpStatus;
+              options.errorCode = errorCodes.UNKNOWN_ERROR;
               options.errorMessage = err;
             }else{
              theImage=imgOut;
@@ -650,8 +686,8 @@ var Images = new Class({
           {"doc":theImage, "tried":0},  function (err, result) {
             if (err) {
               log.error('Images.update.saveOrUpdate: error from image service - %s', err);
-              status = 500;
-              options.errorCode = -1;
+              status = errors[errors.UNKNOWN_ERROR].httpStatus;
+              options.errorCode = errorCodes.UNKNOWN_ERROR;
               options.errorMessage = err;
             }
               next();
@@ -692,8 +728,8 @@ var Images = new Class({
         var status = 200;
         if (err) {
           log.error('Images.delete', 'error from image service - ' + err);
-          status = 500;
-          options.errorCode = -1;
+          status = errors[errors.UNKNOWN_ERROR].httpStatus;
+          options.errorCode = errorCodes.UNKNOWN_ERROR;
           options.errorMessage = err;
         }
 
@@ -716,8 +752,8 @@ var Images = new Class({
           var status = 200;
           if (err) {
             log.error('Images.delete', 'error from image service - ' + err);
-            status = 500;
-            options.errorCode = -1;
+            status = errors[errors.UNKNOWN_ERROR].httpStatus;
+            options.errorCode = errorCodes.UNKNOWN_ERROR;
             options.errorMessage = err;
           }
 
@@ -753,8 +789,8 @@ var Images = new Class({
           var status = 200;
           if (err) {
             log.error('Images.delete', 'error from image service - ' + err);
-            status = 500;
-            options.errorCode = -1;
+            status = errors[errors.UNKNOWN_ERROR].httpStatus;
+            options.errorCode = errorCodes.UNKNOWN_ERROR;
             options.errorMessage = err;
           }
 
@@ -766,8 +802,8 @@ var Images = new Class({
       }
 
     } else {
-      status = 400; //Bad Request
-      options.errorCode = -1;
+      status = errors[errors.BAD_REQUEST].httpStatus;
+      options.errorCode = errorCodes.BAD_REQUEST;
       options.errorMessage = 'Image.delete Bad request.';
       that.doCallbacks(status,
         options.attr,
@@ -912,8 +948,8 @@ var Tags = new Class({
         var status = 200;
         if (err) {
           log.error('Tags.index', 'error from image service - ' + err);
-          status = 500;
-          options.errorCode = -1;
+          status = errors[errors.UNKNOWN_ERROR].httpStatus;
+          options.errorCode = errorCodes.UNKNOWN_ERROR;
           options.errorMessage = err;
         }
         log.info('Tags.index: invoking callback with status - %s, path - %s', status, that.path);
@@ -930,8 +966,8 @@ var Tags = new Class({
         var status = 200;
         if (err) {
           log.error('Tags.index', 'error from image service - ' + err);
-          status = 500;
-          options.errorCode = -1;
+          status = errors[errors.UNKNOWN_ERROR].httpStatus;
+          options.errorCode = errorCodes.UNKNOWN_ERROR;
           options.errorMessage = err;
         }
         log.info('Tags.index: invoking callback with status - %s, path - %s', status, that.path);
@@ -967,8 +1003,8 @@ var Tagger = new Class({
       var status = 200;
       if (err) {
         log.error('Tagger.index', 'error from image service - ' + err);
-        status = 500;
-        options.errorCode = -1;
+        status = errors[errors.UNKNOWN_ERROR].httpStatus;
+        options.errorCode = errorCodes.UNKNOWN_ERROR;
         options.errorMessage = err;
       }
       log.info('Tagger.index: invoking callback with status - %s, path - %s', status, that.path);
@@ -997,8 +1033,8 @@ var Tagger = new Class({
             var status = 200;
             if (err) {
               log.error('Tagger.add: Error in imageService.tagsAdd - %j', err);
-              status = 500;
-              options.errorCode = -1;
+              status = errors[errors.UNKNOWN_ERROR].httpStatus;
+              options.errorCode = errorCodes.UNKNOWN_ERROR;
               options.errorMessage = err;
             }
             else {
@@ -1019,8 +1055,8 @@ var Tagger = new Class({
             var status = 200;
             if (err) {
               log.error('Tagger.replace: Error in imageService.tagsReplace - %j', err);
-              status = 500;
-              options.errorCode = -1;
+              status = errors[errors.UNKNOWN_ERROR].httpStatus;
+              options.errorCode = errorCodes.UNKNOWN_ERROR;
               options.errorMessage = err;
             }
             else {
@@ -1042,8 +1078,8 @@ var Tagger = new Class({
             var status = 200;
             if (err) {
               log.error('Tagger.remove: Error in imageService.tagsRemove - %j', err);
-              status = 500;
-              options.errorCode = -1;
+              status = errors[errors.UNKNOWN_ERROR].httpStatus;
+              options.errorCode = errorCodes.UNKNOWN_ERROR;
               options.errorMessage = err;
             }
             else {
@@ -1057,8 +1093,8 @@ var Tagger = new Class({
 
     }
     else {
-      status = 400; //Bad Request
-      options.errorCode = -1;
+      status = errors[errors.BAD_REQUEST].httpStatus;
+      options.errorCode = errorCodes.BAD_REQUEST;
       options.errorMessage = 'add or replace MUST be specified in the payload.';
       that.doCallbacks(status,
         options.attr,
@@ -1207,8 +1243,8 @@ var Importers = new Class({
       }
       catch (err) {
         log.error('Importers.create: Error saving image (2) - %s', err);
-        status = 500;
-        options.errorCode = -1;
+        status = errors[errors.UNKNOWN_ERROR].httpStatus;
+        options.errorCode = errorCodes.UNKNOWN_ERROR;
         options.errorMessage = err;
         that.doCallbacks(status,
                          {},
@@ -1216,8 +1252,8 @@ var Importers = new Class({
       }
     }
     else {
-      status = 500;
-      options.errorCode = -1;
+      status = errors[errors.BAD_REQUEST].httpStatus;
+      options.errorCode = errorCodes.BAD_REQUEST;
       options.errorMessage = 'import_dir MUST be specified in the payload.';
       that.doCallbacks(status,
                        options.attr,
@@ -1257,8 +1293,8 @@ var Importers = new Class({
                                     var status = 200;
                                     if (err) {
                                       log.error('Importers.index: error from image service - %s', err);
-                                      status = 500;
-                                      options.errorCode = -1;
+                                      status = errors[errors.UNKNOWN_ERROR].httpStatus;
+                                      options.errorCode = errorCodes.UNKNOWN_ERROR;
                                       options.errorMessage = err;
                                     }
                                     log.info('Importers.index: invoking callback with status - %s, path- %s', status, that.path);
@@ -1276,8 +1312,8 @@ var Importers = new Class({
                                    var status = 200;
                                    if (err) {
                                      log.error('Importers.show: error from image service - %s', err);
-                                     status = 500;
-                                     options.errorCode = -1;
+                                     status = errors[errors.UNKNOWN_ERROR].httpStatus;
+                                     options.errorCode = errorCodes.UNKNOWN_ERROR;
                                      options.errorMessage = err;
                                    }
                                    log.info('Importers.show: invoking callback with status - %s, path - %s', status, that.path);
@@ -1286,6 +1322,76 @@ var Importers = new Class({
                                    that.doCallbacks(status, result, callbackOptions);
                                  });
     return this;
+  },
+
+  update: function(id, attr, options) {
+    var that = this;
+
+    log.info('Importers.update: updating for path - %s, id - %s, w/ attr - %j', this.path, id, attr);
+
+    var isRep = this.reverseTransformRep(id, attr);
+
+    log.debug('Importers.update: image service rep - ' + JSON.stringify(isRep));
+
+    imageService.importBatchUpdate(isRep,
+                                   {},
+                                   function(err, result) {
+                                     var status = 200;
+                                     var callbackOptions = options ? _.clone(options) : {};
+                                     if (err) {
+                                       log.error('Importers.update: error from image service - %s', util.inspect(err));
+                                       var error = getErrorFromImageService(err);
+                                       status = error.httpStatus;                                       
+                                       callbackOptions.errorCode = error.code;
+                                       callbackOptions.errorMessage = error.message;
+                                     }
+                                     callbackOptions['isInstRef'] = true;
+                                     that.doCallbacks(status, result, callbackOptions);
+                                   });
+
+    log.debug('Importers.update: image service invoked...');
+
+    return this;
+  },
+
+  //
+  //  reverseTransformRep: back to image service representation.
+  //
+  reverseTransformRep: function(id, rep) {
+
+    var attrMap = {
+      "id": "oid",
+      "app_id": "app_id",
+      "import_dir": "path",
+      "state": "status",
+      "created_at": "created_at",
+      "started_at": "started_at",
+      "completed_at": "completed_at",
+      "num_to_import": "num_to_import",
+      "num_imported": "num_imported",
+      "num_success": "num_success",
+      "num_error": "num_error"
+    };
+
+    var isRep = {};
+
+    _.each(rep, function(value, attr) {
+      if (_.has(attrMap, attr)) {
+        isRep[attrMap[attr]] = value;
+      }
+    });
+
+    if (_.has(isRep, 'app_id')) {
+      isRep.app_id = isRep.app_id.replace('$', '');
+    }
+
+    isRep.oid = id ? id.replace('$', '') : attr.id.replace('$', '');
+
+    if (_.has(isRep, 'status')) {
+      isRep.status = isRep.status.toUpperCase();
+    }
+
+    return isRep;
   },
 
   //
@@ -1326,6 +1432,7 @@ var Importers = new Class({
     newRep.id = _.has(rep, 'oid') ? '$' + rep.oid : undefined;
     newRep.app_id = _.has(rep, 'app_id') ? '$' + rep.app_id : undefined;
     newRep.import_dir = _.has(rep, 'path') ? rep.path : '';
+    newRep.state = rep.status.toLowerCase();
     newRep.created_at = rep.created_at;
     newRep.started_at = rep.started_at;
     newRep.completed_at  = rep.completed_at;
@@ -1408,8 +1515,8 @@ var ImportersImages = new Class({
                                    var status = 200;
                                    if (err) {
                                      log.error('ImportersImages.index: error from image service - %s', err);
-                                     status = 500;
-                                     options.errorCode = -1;
+                                     status = errors[errors.UNKNOWN_ERROR].httpStatus;
+                                     options.errorCode = errorCodes.UNKNOWN_ERROR;
                                      options.errorMessage = err;
                                    }
                                    log.info('ImportersImages.index: invoking callback with status - %s, path - %s', status, that.path);
@@ -1486,14 +1593,14 @@ var StorageSynchronizers = new Class({
     }
     catch (err) {
       log.error('StorageSynchronizers.create: Caught error - %s', err);
-      options.errorCode = -1;
+      var status = errors[errors.UNKNOWN_ERROR].httpStatus;
+      options.errorCode = errorCodes.UNKNOWN_ERROR;
       options.errorMessage = err.message;
       try {
-
-        that.doCallbacks(500, synchronizer, options);
+        that.doCallbacks(status, synchronizer, options);
       }
       catch (err) {
-        that.doCallbacks(500, undefined, options);
+        that.doCallbacks(status, undefined, options);
       }
     }
   },
@@ -1691,13 +1798,14 @@ var StorageChangesFeed = new Class({
     }
     catch (err) {
       log.error('StorageChangesFeed.create: Caught error - %s', err);
-      options.errorCode = -1;
+      var status = errors[errors.UNKNOWN_ERROR].httpStatus;
+      options.errorCode = errorCodes.UNKNOWN_ERROR;
       options.errorMessage = err.message;
       try {
-        that.doCallbacks(500, changesFeed, options);
+        that.doCallbacks(status, changesFeed, options);
       }
       catch (err) {
-        that.doCallbacks(500, undefined, options);
+        that.doCallbacks(status, undefined, options);
       }      
     }
   }
@@ -1783,21 +1891,68 @@ function removePrefix(oids){
 //
 var errorCodes = {
   UNKNOWN_ERROR: -1,
-  NO_FILES_FOUND: 1
+  NO_FILES_FOUND: 1,
+  CONFLICT: 2,
+  ATTRIBUTE_VALIDATION_FAILURE: 3,
+  NOT_IMPLEMENTED: 4,
+  BAD_REQUEST: 5
 };
 exports.errorCodes = errorCodes;
 
 var errors = {
   UNKNOWN_ERROR: {
     code: errorCodes.UNKNOWN_ERROR,
+    httpStatus: 500,
     message: "Unknown error occurred."
   },
 
   NO_FILES_FOUND: {
     code: errorCodes.IMPORT_NO_FILES_FOUND,
+    httpStatus: 404,
     message: "No files found in directory %s ."
+  },
+
+  CONFLICT: {
+    code: errorCodes.CONFLICT,
+    httpStatus: 409,
+    message: "Entity conflict, a revision of the entity has been generated with attribute values which would conflict with new values being set."
+  },
+
+  ATTRIBUTE_VALIDATION_FAILURE: {
+    code: errorCodes.ATTRIBUTE_VALIDATION_FAILURE,
+    httpStatus: 404,
+    message: "Attributes being set have failed validation."
+  },
+
+  NOT_IMPLEMENTED: {
+    code: errorCodes.NOT_IMPLEMENTED,
+    httpStatus: 404,
+    message: "Request not yet supported."
+  },
+
+  BAD_REQUEST: {
+    code: errorCodes.BAD_REQUEST,
+    httpStatus: 400,
+    message: "Invalid request, please consult the API documentation."
   }
 
 };
+
+function getErrorFromImageService(err) {
+  var error = errors.UNKNOWN_ERROR;
+  if (err.code === imageService.errorCodes.NO_FILES_FOUND) {
+    error = errors.NO_FILES_FOUND;
+  }
+  else if (err.code === imageService.errorCodes.CONFLICT) {
+    error = errors.CONFLICT;
+  }
+  else if (err.code === imageService.errorCodes.ATTRIBUTE_VALIDATION_FAILURE) {
+    error = errors.ATTRIBUTE_VALIDATION_FAILURE;
+  }
+  else if (err.code === imageService.errorCodes.NOT_IMPLEMENTED) {
+    error = errors.NOT_IMPLEMENTED;
+  }
+  return error;
+}
 
 exports.errors = errors;

@@ -183,7 +183,7 @@ var MediaManagerRouter = function(appjs, routes) {
   this.genOnError = function(resource, req, res) {
     return function(responseBody) {
       logger.error('index.js: Handling - ' + req.method + ' ' + resource.path + ', response payload - ' + JSON.stringify(responseBody));
-      res.send(responseBody.status,
+      res.send(resource.httpResponseStatusCode(responseBody),
                'application/json',
                JSON.stringify(responseBody));
     };

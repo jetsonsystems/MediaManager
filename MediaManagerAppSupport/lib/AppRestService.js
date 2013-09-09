@@ -14,7 +14,7 @@ var restify = require('restify');
 var logger = log4js.getLogger('plm.MediaManagerAppSupport');
 var tmp = __filename.split('/');
 var fname = tmp[tmp.length-1];
-var logPrefix = fname.replace('.js', ': ');
+var moduleName = fname.replace('.js', '');
 
 var config = require('MediaManagerAppConfig');
 var apiResources = require('MediaManagerAppSupport/lib/ApiResources');
@@ -22,7 +22,7 @@ var apiWorkers = require('MediaManagerAppSupport/lib/ApiWorkers');
 
 var serverPort = config.services.restAPI.port;
 
-logger.info(logPrefix + '__info__ Starting REST service, host - ' + config.services.restAPI.host + ', port - ' + serverPort);
+logger.info(moduleName + ': __info__ Starting REST service, host - ' + config.services.restAPI.host + ', port - ' + serverPort);
 
 var server = restify.createServer({name: serverName,
                                    version: version});
@@ -34,10 +34,12 @@ server.use(restify.bodyParser({ mapParams: false }));
 //
 var Router = function() {
 
+  var logPrefix = moduleName + '.Router: ';
+
   this.initialize = function() {
     var that = this;
 
-    var lp = fname.replace('.js', '.Router.initialize: ');
+    var lp = logPrefix.replace(': ', '.initialize: ');
 
     logger.debug(lp + '__info__ Initializing...');
     _.each(_.values(apiResources), function(resource) {
@@ -54,7 +56,6 @@ var Router = function() {
 
       server.opts(pat,
                   function(req, res, next) {
-                    // console.log(lp + '__request__ req - ' + util.inspect(req));
                     res.header('Access-Control-Allow-Origin', 'http://appjs');
                     res.header('Access-Control-Allow-Methods', "POST, GET, OPTIONS");
                     res.header('Access-Control-Allow-Headers', 'Content-Type');
@@ -90,7 +91,7 @@ var Router = function() {
       logger.debug(lp + '__info__ Router configuration; index, request path to match - ' + pat);
       server.get(pat,
                  function(req, res, next) {
-                   logger.info(lp + '__request__ req - ' + util.inspect(req));
+                   logger.info(lp + '__request__ method - ' + req.method + ', url - ' + req.url);
                    var options = {
                      req: that._reqOption(req),
                      onSuccess: that.genOnSuccess(resource, req, res),
@@ -113,7 +114,6 @@ var Router = function() {
       pat = resource.requestPath('read');
       server.opts(pat,
                   function(req, res, next) {
-                    // console.log(lp + '__request__ req - ' + util.inspect(req));
                     res.header('Access-Control-Allow-Origin', 'http://appjs');
                     res.header('Access-Control-Allow-Methods', "GET, PUT, DELETE, OPTIONS");
                     res.header('Access-Control-Allow-Headers', 'Content-Type');
@@ -127,7 +127,6 @@ var Router = function() {
       logger.debug(lp + '__info__ Router configuration; read, request path to match - ' + pat);
       server.get(pat,
                  function(req, res, next) {
-                   // console.log(lp + '__request__ id - ' + req.params[0] + ', req - ' + util.inspect(req));
                    res.header('Access-Control-Allow-Origin', 'http://appjs');
                    res.header('Access-Control-Allow-Methods', "POST, GET, PUT, OPTIONS");
                    apiWorkers.doRequest(resource, 'GET',
@@ -144,7 +143,7 @@ var Router = function() {
       logger.debug(lp + '__info__ Router configuration; update, request path to match - ' + pat);
       server.put(pat,
                  function(req, res, next) {
-                   // console.log(lp + '__request__ id - ' + req.params[0] + ', req - ' + util.inspect(req));
+                   logger.debug(lp + '__request__ id - ' + req.params[0] + ', method - ' + req.method + ', url - ' + req.url);
                    res.header('Access-Control-Allow-Origin', 'http://appjs');
                    res.header('Access-Control-Allow-Methods', "PUT");
                    var options = {
@@ -170,7 +169,6 @@ var Router = function() {
       logger.debug(lp + '__info__ Router configuration; delete, request path to match - ' + pat);
       server.del(pat,
                  function(req, res, next) {
-                   // console.log(lp + '__request__ id - ' + req.params[0] + ', req - ' + util.inspect(req));
                    res.header('Access-Control-Allow-Origin', 'http://appjs');
                    res.header('Access-Control-Allow-Methods', "DELETE");
                    var options = {
@@ -190,22 +188,18 @@ var Router = function() {
 
   this.genOnSuccess = function(resource, req, res) {
     return function(responseBody) {
-      // console.log('index.js: Handling - ' + req.method + ' ' + req.url + ', response payload of length - ' + JSON.stringify(responseBody).length);
-      logger.info({event: '__resposne__',
-                   status: 0});
+      var lp = logPrefix.replace(': ', '.genOnSuccess.function: ');
+      logger.debug('Help!');
+      logger.info(lp + '__response__ status - 0, request - ' + req.method + ' ' + req.url + ', response payload of length - ' + JSON.stringify(responseBody).length);
       res.json(200, responseBody);
     };
   };
 
   this.genOnError = function(resource, req, res) {
     return function(responseBody) {
-      // console.log('index.js: Handling - ' + req.method + ' ' + resource.path + ', response payload - ' + JSON.stringify(responseBody));
-      var fields = {event: '__response__',
-                    status: 1,
-                    error_code: _.has(responseBody, 'error_code')? responseBody.error_code : -1,
-                    error_message: _.has(responseBody, 'error_message')? responseBody.error_message : ""};
-      logger.info(fields);
-      res.json(500, responseBody);
+      var lp = logPrefix.replace(': ', '.genOnError.function: ');
+      logger.info(lp + '__response__ status - 1, request - ' + req.method + ' ' + req.url + ', response payload - ' + JSON.stringify(responseBody))
+      res.json(resource.httpResponseStatusCode(responseBody), responseBody);
     };
   };
 
@@ -224,11 +218,11 @@ var Router = function() {
 var router = new Router();
 
 server.listen(serverPort, function() {
-  logger.info(logPrefix + '__start__ ' + serverName + ', listening on port - ' + serverPort);
+  logger.info(moduleName + ': __start__ ' + serverName + ', listening on port - ' + serverPort);
 });
 
 exports.shutdown = function() {
-  logger.info(logPrefix + '__shutdown__ ' + serverName + ', shutting down...');
+  logger.info(moduleName + ': __shutdown__ ' + serverName + ', shutting down...');
   apiWorkers.shutdown();
   server.close();
 };

@@ -33,6 +33,8 @@
 //    importBatchFs(importDir, options, callback): Creates an import batch from images 
 //      found on the filesystem.
 //    importBatchShow(oid, options, callback): Retrieve an import batch.
+//    importBatchUpdate(oid, options, callback): Update an import batch. Note, only the
+//      'state' attribute may be modified.
 //    importBatchFindRecent(N, options, callback): Retrieve N of the most recent import batches.
 //
 'use strict';
@@ -125,16 +127,56 @@ var
 // a hashmap, keyed by oid, that caches importBatch objects while they are being processed
 priv.batch_in_process = {};
 
+priv.getBatchInProcess = function(oid) {
+  var b = undefined;
+  if (_.has(priv.batch_in_process, oid)) {
+    b = priv.batch_in_process[oid];
+  }
+  return b;
+};
+
 priv.markBatchInit = function (anImportBatch) {
   priv.batch_in_process[anImportBatch.oid] = anImportBatch;
   anImportBatch.setStatus(anImportBatch.BATCH_INIT);
 };
 
-/*
- priv.markBatchStarted = function (anImportBatch) {
- anImportBatch.setStartedAt(new Date());
- };
- */
+priv.markBatchAbortRequested = function(anImportBatch) {
+  if (_.isObject(anImportBatch)) {
+    if (_.has(priv.batch_in_process, anImportBatch.oid)) {
+      priv.batch_in_process[anImportBatch.oid].setStatus(anImportBatch.BATCH_ABORT_REQUESTED);
+    }
+    anImportBatch.setStatus(anImportBatch.BATCH_ABORT_REQUESTED);
+  }
+}
+
+priv.markBatchAborting = function(anImportBatch) {
+  if (_.isObject(anImportBatch)) {
+    if (_.has(priv.batch_in_process, anImportBatch.oid)) {
+      priv.batch_in_process[anImportBatch.oid].setStatus(anImportBatch.BATCH_ABORTING);
+    }
+    anImportBatch.setStatus(anImportBatch.BATCH_ABORTING);
+  }
+}
+
+priv.markBatchAborted = function(anImportBatch) {
+  if (_.isObject(anImportBatch)) {
+    if (anImportBatch.status === anImportBatch.BATCH_ABORTING) {
+      if (_.has(priv.batch_in_process, anImportBatch.oid)) {
+        delete priv.batch_in_process[anImportBatch.oid];
+      }
+      //
+      // This will set the batch as aborted!
+      //
+      anImportBatch.setCompletedAt(new Date());
+    }
+    else {
+      log.warn('Batch status is NOT BATCH-ABORTING, can\'t mark as ABORTED, batch - %j!', anImportBatch);
+    }
+  }
+  else {
+    log.warn("Illegal Argument in markBatchComplete: '%s'", anImportBatch);
+  }
+}
 
 priv.markBatchComplete = function (anImportBatch)
 {
@@ -1361,6 +1403,8 @@ function convertImageViewToCollection(docs, options)
  */
 function importBatchFs(target_dir, callback, options)
 {
+  var lp = 'importBatchFs: ';
+
   options = options || {};
   var smallestFirst = true;
   var db = priv.db();
@@ -1383,6 +1427,8 @@ function importBatchFs(target_dir, callback, options)
   //    }
   //
   var imageStatus = {};
+
+  var finalSaveAttempted = false;
 
   async.waterfall(
     [
@@ -1428,7 +1474,7 @@ function importBatchFs(target_dir, callback, options)
       //
       function (body, headers, next) {
         priv.setCouchRev(importBatch, body);
-        log.debug("Saved importBatch record to db before initial image generation:  id '%s' -  rev '%s'", importBatch.oid, importBatch._storage.rev);
+        log.debug(lp + "Saved importBatch record to db before initial image generation:  id '%s' -  rev '%s'", importBatch.oid, importBatch._storage.rev);
 
         priv.markBatchInit(importBatch);
 
@@ -1451,6 +1497,12 @@ function importBatchFs(target_dir, callback, options)
       //    
       //
       function(next) {
+
+        if (importBatch.status === importBatch.BATCH_ABORT_REQUESTED) {
+          log.debug(lp + 'Batch abort requested, skipping initial batch processing...');
+          priv.markBatchAborting(importBatch);
+          next(undefined, []);
+        }
 
         var imageAttrs = [];
 
@@ -1489,6 +1541,15 @@ function importBatchFs(target_dir, callback, options)
             function(task, taskCallback) {
               if (taskHadError) {
                 taskCallback('Aborting pass 1 image processing due to previous processing error.');
+              }
+              else if (importBatch.status === importBatch.BATCH_ABORT_REQUESTED) {
+                log.debug(lp + 'Batch abort requested, aborting pass 1 of batch processing...');
+                priv.markBatchAborting(importBatch);
+                taskCallback('Aborting pass 1 as batch abort request detected!');
+              }
+              else if (importBatch.status === importBatch.BATCH_ABORTING) {
+                log.debug(lp + 'Batch processing aborting, skipping initial batch processing...');
+                taskCallback('Aborting pass 1 as batch status is ABORTING!');
               }
               else {
                 async.waterfall(
@@ -1604,10 +1665,35 @@ function importBatchFs(target_dir, callback, options)
       },
 
       //
+      // Save the batch after initial processing.
+      //
+      function(images, next) {
+        db.insert(importBatch, importBatch.oid, function(err, body, headers) {
+          if (err) {
+            log.error(lp + 'Error saving batch after pass 1, err - ' + err);
+            next('Error saving batch after pass 1 processing.');
+          }
+          else {
+            priv.setCouchRev(importBatch, body);
+            next(undefined, images);
+          }
+        });
+      },
+
+      //
       // Pass 2 thru batch images:
       //  - invoke processBatchImages on any remaining image variants.
       //
       function(images, next) {
+        if (importBatch.status === importBatch.BATCH_ABORT_REQUESTED) {
+          log.debug(lp + 'Batch processing aborting, skipping pass 2 of batch processing...');
+          priv.markBatchAborting(importBatch);
+          next(undefined);
+        }
+        else if (importBatch.status === importBatch.BATCH_ABORTING) {
+          log.debug(lp + 'Batch abort requested, aborting pass 2 of batch processing...');
+          next(undefined);
+        }
         if (images && images.length) {
           //
           // Create the remaining image variants, setting up the processing options.
@@ -1636,6 +1722,15 @@ function importBatchFs(target_dir, callback, options)
             function(task, taskCallback) {
               if (taskHadError) {
                 taskCallback('Aborting pass 2 image processing due to previous processing errors for batch images ' + task.begin + ' to ' + (task.end-1) + '!');
+              }
+              else if (importBatch.status === importBatch.BATCH_ABORT_REQUESTED) {
+                log.debug(lp + 'Batch abort requested, aborting pass 2 of batch processing...');
+                priv.markBatchAborting(importBatch);
+                taskCallback('Aborting pass 2 as batch abort request detected!');
+              }
+              else if (importBatch.status === importBatch.BATCH_ABORTING) {
+                log.debug(lp + 'Batch processing aborting, aborting pass 2 of batch procesing...');
+                taskCallback('Aborting pass 2 as batch status is ABORTING!');
               }
               else {
                 log.info('Starting pass 2 importBatch processing for path - ' + importBatch.path + ', for batch images ' + task.begin + ' to ' + (task.end-1) + '...');
@@ -1718,24 +1813,6 @@ function importBatchFs(target_dir, callback, options)
         else {
           next();
         }
-      },
-      //
-      // Done with pass 1 / 2. Save the batch.
-      //
-      function(next) {
-        log.debug('Saving batch, name - ' + importBatch.oid + ', rev - ' + importBatch._storage.rev);
-
-        var db = priv.db();
-        db.insert(importBatch, importBatch.oid, function(err, body, headers) {
-          if (err) {
-            log.error("Error while saving import batch '%s': %s", importBatch.path, err);
-          } else {
-            if (log.isTraceEnabled()) { log.trace("result of batch save: %j", body); }
-            priv.setCouchRev(importBatch, body); // just in case
-            log.info("Successfully saved import batch '%s': %j", importBatch.path, importBatch);
-          }
-          next(err);
-        });
       }
     ],
     function(err) {
@@ -1748,8 +1825,22 @@ function importBatchFs(target_dir, callback, options)
         priv.markBatchComplete(importBatch);
         if (err) {
           var errMsg = util.format("Error while processing importBatchFs '%s': %s", importBatch.oid,err);
-          log.error(errMsg);
+          log.error(lp + errMsg);
         }
+        //
+        // Save the batch, regardless of errors...
+        //
+        log.debug(lp + 'Saving batch, name - ' + importBatch.oid + ', rev - ' + importBatch._storage.rev);
+
+        db.insert(importBatch, importBatch.oid, function(err, body, headers) {
+          if (err) {
+            log.error(lp + "Error while saving import batch '%s': %s", importBatch.path, err);
+          } else {
+            if (log.isTraceEnabled()) { log.trace(lp + "result of batch save: %j", body); }
+            priv.setCouchRev(importBatch, body); // just in case
+            log.info(lp + "Successfully saved import batch '%s': %j", importBatch.path, importBatch);
+          }
+        });
       }
     }
   );
@@ -2107,6 +2198,147 @@ function importBatchShow(oid, options, callback) {
 }
 exports.importBatchShow = importBatchShow;
 
+/*
+ *
+ * importBatchUpdate(attr, options, callback): Update an import batch. Note, only the
+ *  'status' attribute may be modified. First a 'show' of the batch is performed, and
+ *  the current version of the import batch is fetched. Then, the attributes supplied
+ *  via the 'attr' paramater are compared with the latest. If any differ other than
+ *  'status' attribute, the callback is invoked with a value of errors.CONFLICT. If only
+ *  the 'status' attribute has changed, and is being updated from a value of 'started'
+ *  to 'abort-requested', the import batched is updated and persisted. If an attempt
+ *  to update the 'status' attribute in some other manner is being made, then 
+ *  the callback will be invoked with errors.ATTRIBUTE_VALIDATION_FAILURE.
+ *
+ *  Args:
+ *    attr: Attributes of the batch. Must at least contain 'oid'
+ *    options: none
+ *    callback(err, batch): Invoked with err or on success with the updated batch.
+ */
+function importBatchUpdate(attr, options, callback) {
+  var lp = 'importBatchUpdate: ';
+
+  log.debug(lp + 'Updating with attributes - ' + JSON.stringify(attr));
+  if (!_.has(attr, 'oid') || !_.has(attr, 'status')) {
+    callback(errors.ATTRIBUTE_VALIDATION_FAILURE);
+  }
+  else {
+    //
+    // 1. Do a show to get the batch.
+    // 2. Check for conflict in any attr values with what was fetched in 1.
+    //   - Ensure only writable attributes differ.
+    //   - If status is being updated, ensure it is going from STARTED -> ABORT-REQUESTED
+    // 3. Update writable attributes.
+    // 4. Persist back batch.
+    //
+    var writable = [ 'status' ];
+
+
+    async.waterfall(
+      [
+        //
+        // 1. Get the current state of the batch.
+        //
+        function(next) {
+          var currBatch = priv.getBatchInProcess(attr.oid);
+
+          if (currBatch) {
+            log.debug(lp + 'Retrieve in process batch - ' + util.inspect(currBatch));
+            next(null, currBatch);
+          }
+          else {
+            importBatchShow(attr.oid,
+                            { includeImages: false },
+                            function(err, batch) {
+                              if (err) {
+                                next(errors.UNKNOWN_ERROR);
+                              }
+                              else {
+                                currBatch = mmStorage.docFactory('plm.ImportBatch', batch);
+                                next(null, currBatch);
+                              }
+                            });
+          }
+        },
+        //
+        // 2. Data validation.
+        //
+        function(currBatch, next) {
+          var batchKeys = _.keys(currBatch);
+          var notWritable = _.difference(batchKeys, writable);
+
+          var haveError = false;
+
+          _.each(notWritable, function(nw) {
+            if (_.has(attr, nw) && (attr[nw] !== currBatch[nw])) {
+              log.debug(lp + 'validation error, attr[' + nw + '] !== batch[' + nw + '], setting - ' + attr[nw] + ', current - ' + currBatch[nw]);
+              haveError = true;
+            }
+          });
+          if (!haveError && (currBatch.status !== attr.status) && (currBatch.status === 'STARTED') && (attr.status !== 'ABORT-REQUESTED')) {
+            log.debug(lp + 'validation error, batch status - ' + currBatch.status + ', setting status to - ' + attr.status);
+            haveError = true;
+          }
+          if (!haveError && (currBatch.status !== attr.status) && (currBatch.status !== 'STARTED') && (attr.status === 'ABORT-REQUESTED')) {
+            log.debug(lp + 'validation error, batch status - ' + currBatch.status + ', setting status to - ' + attr.status);
+            haveError = true;
+          }
+          if (haveError) {
+            next(errors.ATTRIBUTE_VALIDATION_FAILURE);
+          }
+          else {
+            log.debug(lp + 'Update request satisfied validation...');
+            next(null, currBatch);
+          }
+        },
+        //
+        // 3. update writable attributes.
+        //
+        function(currBatch, next) {
+          log.debug(lp + 'Ready to update batch attributes, batch - ' + util.inspect(currBatch));
+          if (_.has(attr, 'status') && (currBatch.status !== attr.status) && (attr.status === currBatch.BATCH_ABORT_REQUESTED)) {
+            log.debug(lp + 'Changing batch status to abort-requested...');
+            priv.markBatchAbortRequested(currBatch);
+          }
+          _.each(writable, function(wAttr) {
+            if (_.has(attr, wAttr)) {
+              currBatch[wAttr] = attr[wAttr];
+            }
+          });
+
+          next(null, currBatch);
+        },
+        //
+        // 4. persist.
+        //
+        function(currBatch, next) {
+          var db = priv.db();
+          db.insert(currBatch, currBatch.oid, function(err, body, headers) {
+            if (err) {
+              log.error(lp + "Error while saving importBatch, oid - %s, err - %s", currBatch.oid, err);
+              next(errors.UNKNOWN_ERROR, currBatch);
+            } else {
+              if (log.isTraceEnabled()) { log.trace(lp + "result of importBatch save: %j", body); }
+              priv.setCouchRev(currBatch, body); // just in case
+              log.info(lp + "Successfully saved importBatch, oid - %s, batch - %j, body - %j", currBatch.oid, currBatch, body);
+              next(null, currBatch);
+            }
+          });          
+        }
+      ],
+      function(err, result) {
+        if (err) {
+          log.error(lp + 'Error updating batch, error - ' + util.inspect(err));
+        }
+        else {
+          log.debug(lp + 'Successfully updated batch - ' + JSON.stringify(result));
+        }
+        callback(err, result);
+      }
+    );
+  }
+};
+exports.importBatchUpdate = importBatchUpdate;
 
 /**
  * Lists the 'N' most recent import batches
@@ -3618,7 +3850,10 @@ function emptyTrash(callback){
 
 var errorCodes = {
   UNKNOWN_ERROR: -1,
-  NO_FILES_FOUND: 1
+  NO_FILES_FOUND: 1,
+  CONFLICT: 2,
+  ATTRIBUTE_VALIDATION_FAILURE: 3,
+  NOT_IMPLEMENTED: 4
 };
 exports.errorCodes = errorCodes;
 
@@ -3630,10 +3865,19 @@ var errors = {
   NO_FILES_FOUND: {
     code: errorCodes.NO_FILES_FOUND,
     message: "No files found in directory %s"
+  },
+  CONFLICT: {
+    code: errorCodes.CONFLICT,
+    message: "Entity conflict, a revision of the entity has been generated with attribute values which would conflict with new values being set."
+  },
+  ATTRIBUTE_VALIDATION_FAILURE: {
+    code: errorCodes.ATTRIBUTE_VALIDATION_FAILURE,
+    message: "Attributes being set have failed validation."
+  },
+  NOT_IMPLEMENTED: {
+    code: errorCodes.NOT_IMPLEMENTED,
+    message: "Feature not implemented."
   }
 };
 
 exports.errors = errors;
-
-
-
