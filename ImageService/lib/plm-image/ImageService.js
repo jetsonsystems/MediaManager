@@ -178,6 +178,15 @@ priv.markBatchAborted = function(anImportBatch) {
   }
 }
 
+priv.markBatchError = function(anImportBatch) {
+  if (_.isObject(anImportBatch)) {
+    if (_.has(priv.batch_in_process, anImportBatch.oid)) {
+      priv.batch_in_process[anImportBatch.oid].setStatus(anImportBatch.BATCH_ERROR);
+    }
+    anImportBatch.setStatus(anImportBatch.BATCH_ERROR);
+  }
+}
+
 priv.markBatchComplete = function (anImportBatch)
 {
   if (_.isObject(anImportBatch)) {
@@ -532,7 +541,7 @@ function create(imgAttrs, options, callback) {
                      },
                      function(err) {
                        if (err) {
-                         callback(err, []), errors;
+                         callback(err, [], errors);
                        }
                        else if (created.length === 0) {
                          callback("No images were created!", [], errors);
@@ -713,9 +722,14 @@ function parseAndTransform(imgOrPath, options, callback)
         };
 
         async.forEachSeries( variants, iterator, function(err) {
-          if (err) callback(err);
-          log.info("Done generating %s variants for image '%s'", variants.length, imgPath);
-          callback(null, aryPersist);
+          if (err) {
+            log.error('Error generating variants for image - ' + imgPath + ', error - ' + err);
+            callback(err);
+          }
+          else {
+            log.info("Done generating %s variants for image '%s'", variants.length, imgPath);
+            callback(null, aryPersist);
+          }
         });
       }
     }
@@ -822,73 +836,101 @@ function parseImage(imgOrPath, options, callback)
     // log.debug('parseImage: Parsing image - ' + util.inspect(imageMeta));
   }
 
-  var gmImg   = gm(fs.createReadStream(imgPath));
+  var cbCalled = false;
+  var rs = fs.createReadStream(imgPath);
 
-  step(
-    function () {
-      // the 'bufferStream: true' parm is critical, as it buffers the file in memory
-      // and makes it possible to stream the bits repeatedly
-      if (options.verbose) {
-        log.debug("Verbose parsing of image file '%s'", imgPath);
-        gmImg.identify({bufferStream: true},this);
-      }
-      else {
-        var doIdentify = function(callback) {
-          //
-          // Do the equivalent of:
-          //
-          //  gm identify -format '{"format": %m, "size": {"width": %w, "height": %h}, "Geometry": "%wx%h", Filesize: %b}' '/Users/marekjulian/Projects/PLM/MediaManager/TestData/Test5/L1000932.jpg'
-          //  {"format": JPEG, "size": {"width": 3468, "height": 5212}, "Geometry": "3468x5212", Filesize: 9.9M}
-          //
-          log.debug("Formatted parsing of image file '%s'", imgPath);
-          var format = '{"format": "%m", "size": {"width": %w, "height": %h}, "Geometry": "%wx%h", "Filesize": "%b"}';
-          gmImg.identify({format: format, bufferStream: true},
-                         function(err, data) {
-                           if (err) {
-                             log.debug('Formatted parsing error of image file, error - ' + err);
-                             callback(err);
-                           }
-                           else {
-                             try {
-                               var jData = JSON.parse(data);
-                               callback(err, jData);
-                             }
-                             catch(e) {
-                               log.error('Formatted parsing JSON data conversion - ' + e + ', data - ' + data);
-                               callback('Invalid JSON returned while parsing image file - ' + imgPath);
-                             }          
-                           }
-                         });
-        };
-        doIdentify(this);
-      }
-    },
-
-    function (err, data) {
-      if (err) { if (_.isFunction(callback)) callback(err); return; }
-      log.debug("creating metadata for file '%s'", imgPath);
-      imageMeta.readFromGraphicsMagick(data);
-      gmImg.stream(this);
-    },
-
-    function (err, anImgStream, anErrStream) {
-      log.debug("calculating checksum for file '%s'", imgPath);
-      if (config.processingOptions.genCheckSums) {
-        cs.gen(anImgStream, this);
-      }
-      else {
-        this();
-      }
-    },
-
-    function (aString) {
-      log.debug("checksum for file '%s' is: %s", imgPath, aString);
-      imageMeta.checksum = aString;
-      // log.trace("checksumed image: " + JSON.stringify(imageMeta,null,"  "));
-      // gmImg.stream(this);
-      callback(null, imageMeta, imgPath);
+  rs.once('error', function(e) {
+    log.error('Error creating read stream for image - ' + imgPath);
+    if (cbCalled === false) {
+      cbCalled = true;
+      callback(e);
     }
-  );
+  });
+
+  rs.once('open', function() {
+    var gmImg   = gm(rs);
+
+    step(
+      function () {
+        // the 'bufferStream: true' parm is critical, as it buffers the file in memory
+        // and makes it possible to stream the bits repeatedly
+        if (options.verbose) {
+          log.debug("Verbose parsing of image file '%s'", imgPath);
+          gmImg.identify({bufferStream: true},this);
+        }
+        else {
+          var doIdentify = function(innerCallback) {
+            //
+            // Do the equivalent of:
+            //
+            //  gm identify -format '{"format": %m, "size": {"width": %w, "height": %h}, "Geometry": "%wx%h", Filesize: %b}' '/Users/marekjulian/Projects/PLM/MediaManager/TestData/Test5/L1000932.jpg'
+            //  {"format": JPEG, "size": {"width": 3468, "height": 5212}, "Geometry": "3468x5212", Filesize: 9.9M}
+            //
+            log.debug("Formatted parsing of image file '%s'", imgPath);
+            var format = '{"format": "%m", "size": {"width": %w, "height": %h}, "Geometry": "%wx%h", "Filesize": "%b"}';
+            gmImg.identify({format: format, bufferStream: true},
+                           function(err, data) {
+                             if (err) {
+                               log.debug('Formatted parsing error of image file, error - ' + err);
+                               innerCallback(err);
+                             }
+                             else {
+                               try {
+                                 var jData = JSON.parse(data);
+                                 innerCallback(err, jData);
+                               }
+                               catch(e) {
+                                 log.error('Formatted parsing JSON data conversion - ' + e + ', data - ' + data);
+                                 innerCallback('Invalid JSON returned while parsing image file - ' + imgPath);
+                               }          
+                             }
+                           });
+          };
+          try {
+            doIdentify(this);
+          }
+          catch (e) {
+            var msg = 'Unknown error parsing image file - ' + imgPath;
+            log.error(msg);
+            if (cbCalled === false) {
+              cbCalled = true;
+              callback(msg);
+            }
+          }
+        }
+      },
+
+      function (err, data) {
+        if (err) { 
+          if (_.isFunction(callback) && (cbCalled === false)) {
+            cbCalled = true;
+            callback(err); 
+            return; 
+          }
+        }
+        log.debug("creating metadata for file '%s'", imgPath);
+        imageMeta.readFromGraphicsMagick(data);
+        gmImg.stream(this);
+      },
+      
+      function (err, anImgStream, anErrStream) {
+        log.debug("calculating checksum for file '%s'", imgPath);
+        if (config.processingOptions.genCheckSums) {
+          cs.gen(anImgStream, this);
+        }
+        else {
+          this();
+        }
+      },
+
+      function (aString) {
+        log.debug("checksum for file '%s' is: %s", imgPath, aString);
+        imageMeta.checksum = aString;
+        cbCalled = true;
+        callback(null, imageMeta, imgPath);
+      }
+    );
+  });
 }
 
 /**
@@ -1497,170 +1539,187 @@ function importBatchFs(target_dir, callback, options)
       //    
       //
       function(next) {
-
-        if (importBatch.status === importBatch.BATCH_ABORT_REQUESTED) {
-          log.debug(lp + 'Batch abort requested, skipping initial batch processing...');
-          priv.markBatchAborting(importBatch);
-          next(undefined, []);
-        }
-
-        var imageAttrs = [];
-
-        _.each(importBatch.images_to_import, function(imageToImport) {
-          imageAttrs.push({ path: imageToImport.path,
-                            format: imageToImport.format,
-                            batch_id: importBatch.oid
-                          });
-        });
-
-        if (imageAttrs.length > 0) {
-
-          var taskHadError = false;
-
-          //
-          // Pass 1 processBatchImages options, create them once for all batches queued.
-          //
-          var processOptions = _.clone(options);
-          processOptions.parse = false;
-          if (smallestFirst) {
-            processOptions.desiredVariants = options && _.has(options, 'desiredVariants') && _.isArray(options.desiredVariants) ?
-              [ _.reduce(options.desiredVariants, function(memo, v) { return !memo ? v : (((v.width * v.height) < (memo.width * memo.height)) ? v : memo); }) ] : [];
-          }
-          else {
-            processOptions.desiredVariants = options && _.has(options, 'desiredVariants') && _.isArray(options.desiredVariants) ?
-              [ _.reduce(options.desiredVariants, function(memo, v) { return !memo ? v : (((v.width * v.height) > (memo.width * memo.height)) ? v : memo); }) ] : [];
+        try {
+          if (importBatch.status === importBatch.BATCH_ABORT_REQUESTED) {
+            log.debug(lp + 'Batch abort requested, skipping initial batch processing...');
+            priv.markBatchAborting(importBatch);
+            next(undefined, []);
           }
 
-          //
-          // Q batches to do with concurrency 1.
-          //
-          //  task:
-          //    imageAttrs: array of image attributes in the batch.
-          //
-          var q = async.queue(
-            function(task, taskCallback) {
-              if (taskHadError) {
-                taskCallback('Aborting pass 1 image processing due to previous processing error.');
-              }
-              else if (importBatch.status === importBatch.BATCH_ABORT_REQUESTED) {
-                log.debug(lp + 'Batch abort requested, aborting pass 1 of batch processing...');
-                priv.markBatchAborting(importBatch);
-                taskCallback('Aborting pass 1 as batch abort request detected!');
-              }
-              else if (importBatch.status === importBatch.BATCH_ABORTING) {
-                log.debug(lp + 'Batch processing aborting, skipping initial batch processing...');
-                taskCallback('Aborting pass 1 as batch status is ABORTING!');
-              }
-              else {
-                async.waterfall(
-                  [
-                    //
-                    // Create N images for the batch.
-                    //
-                    function(pass1Next) {
-                      create(task.imageAttrs, 
-                             {parse: true},
-                             function(err, created, errors) {
-                               if (errors) {
-                                 _.each(errors, function(error) {
-                                   imageStatus[error.attrs.id] = {
-                                     status: -1,
-                                     err: error.err,
-                                     image: error.attrs
-                                   };
-                                 });
-                               }
-                               if (created && created.length) {
-                                 pass1Next(null, created);
-                               }
-                               else if (err) {
-                                 pass1Next(err);
-                               }
-                               else {
-                                 pass1Next("No images were created!");
-                               }
-                             });
-                    },
-                    //
-                    // Update the set of created images associated with the batch, and
-                    // start processing them.
-                    //
-                    function(createdImages, pass1Next) {
-                      log.info("importBatchFs: Successfully created " + createdImages.length + ' batch images found in dir - ' + importBatch.path + ', for batch images ' + task.begin + ' to ' + (task.end-1) + '...');
+          var imageAttrs = [];
 
-                      _.each(createdImages,
-                             function(img) {
-                               imageStatus[img.oid] = {
-                                 status: 0,
-                                 err: undefined,
-                                 image: img
-                               };
-                             });
-                      
-                      importBatch.addCreated(createdImages);
-                      
-                      log.info('Starting pass 1 import batch processing for path - ' + importBatch.path + ', for batch images ' + task.begin + ' to ' + (task.end-1) + '...');
+          _.each(importBatch.images_to_import, function(imageToImport) {
+            imageAttrs.push({ path: imageToImport.path,
+                              format: imageToImport.format,
+                              batch_id: importBatch.oid
+                            });
+          });
 
-                      //
-                      // And continue processing the created images BUT only create the smallest (largest) variant (see processOptions above).
-                      //
-                      processOptions.images = createdImages;
-                      processBatchImages(importBatch, processOptions, function(err, processed) {
-                        log.info('Pass 1 import batch processing for path - ' + importBatch.path + ', for batch images ' + task.begin + ' to ' + (task.end-1) + 'completed, processed - ' + processed.length + ' ...');
-                        _.each(processed, function(imgStatus) {
-                          if (imgStatus.status !== 0) {
-                            imageStatus[imgStatus.image.oid].status = imgStatus.status;
-                            imageStatus[imgStatus.image.oid].err = imgStatus.err;
-                          }
-                          imageStatus[imgStatus.image.oid].image = imgStatus.image;
-                        });
-                        log.info('Pass 1 import batch processing for path - ' + importBatch.path + ', for batch images ' + task.begin + ' to ' + (task.end-1) + 'completed, updated image status...');
-                        pass1Next(err);
-                      });
-                    }
-                  ],
-                  function(err) {
-                    if (err) {
-                      taskHadError = true;
-                    }
-                    taskCallback(err);
-                  });
-              }
-            }, 1);
+          if (imageAttrs.length > 0) {
+            
+            var taskHadError = false;
 
-          q.drain = function() { 
-            log.info('Pass 1 processing of import batch completed...');
-            if (taskHadError) {
-              next('Errors during pass 1 import batch processing...');
+            //
+            // Pass 1 processBatchImages options, create them once for all batches queued.
+            //
+            var processOptions = _.clone(options);
+            processOptions.parse = false;
+            if (smallestFirst) {
+              processOptions.desiredVariants = options && _.has(options, 'desiredVariants') && _.isArray(options.desiredVariants) ?
+                [ _.reduce(options.desiredVariants, function(memo, v) { return !memo ? v : (((v.width * v.height) < (memo.width * memo.height)) ? v : memo); }) ] : [];
             }
             else {
-              next(undefined, importBatch.images);
+              processOptions.desiredVariants = options && _.has(options, 'desiredVariants') && _.isArray(options.desiredVariants) ?
+                [ _.reduce(options.desiredVariants, function(memo, v) { return !memo ? v : (((v.width * v.height) > (memo.width * memo.height)) ? v : memo); }) ] : [];
             }
-          };
 
-          var end;
+            //
+            // Q batches to do with concurrency 1.
+            //
+            //  task:
+            //    imageAttrs: array of image attributes in the batch.
+            //
+            var q = async.queue(
+              function(task, taskCallback) {
+                log.info('Pass 1 task started, begin - ' + task.begin + ', end - ' + task.end + '...');
+                if (taskHadError) {
+                  taskCallback('Aborting pass 1 image processing due to previous processing error.');
+                }
+                else if (importBatch.status === importBatch.BATCH_ABORT_REQUESTED) {
+                  log.debug(lp + 'Batch abort requested, aborting pass 1 of batch processing...');
+                  priv.markBatchAborting(importBatch);
+                  taskCallback('Aborting pass 1 as batch abort request detected!');
+                }
+                else if (importBatch.status === importBatch.BATCH_ABORTING) {
+                  log.debug(lp + 'Batch processing aborting, skipping initial batch processing...');
+                  taskCallback('Aborting pass 1 as batch status is ABORTING!');
+                }
+                else {
+                  async.waterfall(
+                    [
+                      //
+                      // Create N images for the batch.
+                      //
+                      function(pass1Next) {
+                        create(task.imageAttrs, 
+                               {parse: true},
+                               function(err, created, errors) {
+                                 var numCreated = created ? created.length : 0;
+                                 var numErrors = errors ? errors.length : 0;
+                                 log.info('Pass 1 create callback invoked, begin - ' + task.begin + ', end - ' + task.end + ', created - ' + numCreated + ', errors - ' + numErrors + ', err - ' + err);
+                                 if (errors) {
+                                   _.each(errors, function(error) {
+                                     imageStatus[error.attrs.id] = {
+                                       status: -1,
+                                       err: error.err,
+                                       image: error.attrs
+                                     };
+                                   });
+                                 }
+                                 if (created && created.length) {
+                                   pass1Next(null, created);
+                                 }
+                                 else if (err) {
+                                   pass1Next(err);
+                                 }
+                                 else {
+                                   pass1Next("No images were created!");
+                                 }
+                               });
+                      },
+                      //
+                      // Update the set of created images associated with the batch, and
+                      // start processing them.
+                      //
+                      function(createdImages, pass1Next) {
+                        log.info("importBatchFs: Successfully created " + createdImages.length + ' batch images found in dir - ' + importBatch.path + ', for batch images ' + task.begin + ' to ' + (task.end-1) + '...');
+                        
+                        _.each(createdImages,
+                               function(img) {
+                                 imageStatus[img.oid] = {
+                                   status: 0,
+                                   err: undefined,
+                                   image: img
+                                 };
+                               });
+                        
+                        importBatch.addCreated(createdImages);
+                        
+                        log.info('Starting pass 1 import batch processing for path - ' + importBatch.path + ', for batch images ' + task.begin + ' to ' + (task.end-1) + '...');
+                        
+                        //
+                        // And continue processing the created images BUT only create the smallest (largest) variant (see processOptions above).
+                        //
+                        processOptions.images = createdImages;
+                        processBatchImages(importBatch, processOptions, function(err, processed) {
+                          log.info('Pass 1 import batch processing for path - ' + importBatch.path + ', for batch images ' + task.begin + ' to ' + (task.end-1) + 'completed, processed - ' + processed.length + ' ...');
+                          _.each(processed, function(imgStatus) {
+                            if (imgStatus.status !== 0) {
+                              imageStatus[imgStatus.image.oid].status = imgStatus.status;
+                              imageStatus[imgStatus.image.oid].err = imgStatus.err;
+                            }
+                            imageStatus[imgStatus.image.oid].image = imgStatus.image;
+                          });
+                          log.info('Pass 1 import batch processing for path - ' + importBatch.path + ', for batch images ' + task.begin + ' to ' + (task.end-1) + 'completed, updated image status...');
+                          pass1Next(err);
+                        });
+                      }
+                    ],
+                    function(err) {
+                      if (err) {
+                        taskHadError = true;
+                      }
+                      taskCallback(err);
+                    });
+                }
+              }, 1);
 
-          for (var batchNum = 1, begin = 0; begin < imageAttrs.length; ++batchNum, begin = begin + toProcessBatchSize) {
-            end = ((begin + toProcessBatchSize) < imageAttrs.length) ? begin + toProcessBatchSize : imageAttrs.length;
+            q.drain = function() { 
+              log.info('Pass 1 processing of import batch completed...');
+              if (taskHadError) {
+                priv.markBatchError(importBatch);
+                next('Errors during pass 1 import batch processing...');
+              }
+              else {
+                next(undefined, importBatch.images);
+              }
+            };
 
-            q.push({ imageAttrs: imageAttrs.slice(begin, end),
-                     batchNum: batchNum,
-                     begin: begin,
-                     end: end
-                   },
-                   function(err) {
-                     if (err) {
-                       taskHadError = true;
-                       log.error('Error during pass 1 processing of import batch for batch images ' + begin + ' to ' + (end - 1) + '!');
-                     }
-                     else {
-                       log.info('Pass 1 processing of import batch successful for batch images ' + begin + ' to ' + (end - 1) + '...');
-                     }
-                   });
+            var end;
+
+            for (var batchNum = 1, begin = 0; begin < imageAttrs.length; ++batchNum, begin = begin + toProcessBatchSize) {
+              end = ((begin + toProcessBatchSize) < imageAttrs.length) ? begin + toProcessBatchSize : imageAttrs.length;
+
+              var genTaskCallback = function(begin, end) {
+                return function(err) {
+                  if (err) {
+                    taskHadError = true;
+                    log.error('Error during pass 1 processing of import batch for batch images ' + begin + ' to ' + (end - 1) + '!');
+                  }
+                  else {
+                    log.info('Pass 1 processing of import batch successful for batch images ' + begin + ' to ' + (end - 1) + '...');
+                  }
+                };
+              };
+
+              log.info('Pass 1, queuing batch images ' + begin + ' to ' + (end - 1) + '...');
+              
+              q.push({ imageAttrs: imageAttrs.slice(begin, end),
+                       batchNum: batchNum,
+                       begin: begin,
+                       end: end
+                     },
+                     genTaskCallback(begin, end));
+            }
+          }
+          else {
+            next(undefined, []);
           }
         }
-        else {
-          next(undefined, []);
+        catch (e) {
+          log.error('Pass 1 processing of import batch error, error - ' + e);
+          priv.markBatchError(importBatch);
+          next(e ? e : 'Pass 1 processing of import batch, unknown error...');
         }
       },
 
@@ -1785,6 +1844,7 @@ function importBatchFs(target_dir, callback, options)
           q.drain = function() {
             log.info('Pass 2 processing of import batch completed...');
             if (taskHadError) {
+              priv.markBatchError(importBatch);
               next('Errors during pass 2 import batch processing...');
             }
             else {

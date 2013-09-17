@@ -49,8 +49,6 @@ var images = function(transformedRep, rawRep) {
 
   if (_.has(transformedRep, 'variants') && _.isArray(transformedRep.variants) && transformedRep.variants.length) {
 
-    logger.debug(lp + 'Rep. has variants...');
-
     var largestVariant = undefined;
     _.each(transformedRep.variants, function(variant) {
 
@@ -94,7 +92,6 @@ var images = function(transformedRep, rawRep) {
   }
   else {
     transformedRep.url = path.join(fileSystemRoot, rawRep.path);
-    logger.debug(lp + 'Rep. has NO variants, url set to - ' + transformedRep.url);
   }
 
   return transformedRep;
