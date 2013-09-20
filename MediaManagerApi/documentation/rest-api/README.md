@@ -14,6 +14,8 @@ The **PLM Media Manager - REST API** is a web based API which is RESTful in natu
     * [HTTP Responses](./api-characteristics.md#http-responses)
       * [HTTP Responses - General Characteristics](./api-characteristics.md#http-responses-gen-characteristics)
       * [Dates and Timestamps as Resource Attribute Values](./api-characteristics.md#dates-timestamps-attribute-values)
+  * [Guides](./guides/README.md)
+    * [Pagination](./guides/pagination.md)
   * [API Resource Formats](./resource-formats.md)
     * [Common Resource Format Elements](./resource-formats.md#common-resource-format-elements)
     * [Image Resource Format - Full Form](./resource-formats.md#image-resource-format-full-form)

@@ -19,19 +19,17 @@ Creates a new image *importer* which triggers import of files in the PLM Media M
 
 ### Parameters
 
-  * dive: Defaults to *true* and causes the import process to explore all sub-directories of import_dir. If *false* is specified, then only files within *import_dir* are considered.
+  * **dive=\<boolean\>**: Defaults to *true* and causes the import process to explore all sub-directories of import_dir. If *false* is specified, then only files within *import_dir* are considered.
 
 ### Request Payload
 
-<pre>
+```
   {
     import_dir: <path on local filesystem to import files from>
   }
-</pre>.
+```
 
-Note, the following with respect to the attributes in the above payload:
-
-  * import_dir: Defines the directory to import from, and possibly sub-directories. The attribute is required.
+**import_dir** defines the directory to import from, and possibly sub-directories. The attribute is required.
 
 ### Response Payload
 

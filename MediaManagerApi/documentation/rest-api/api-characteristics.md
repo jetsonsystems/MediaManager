@@ -76,6 +76,10 @@ The following endpoint request parameters are shared by several API end-points. 
 
     * Allows for filtering of objects based upon their creation date, date/time the object was imported into PLM. Note, created should not be confused with the date an image might have originally been taken. See [Timestamps, Dates and Date Selectors in Queries](./api-characteristics.md#timestamps-dates-queries).
 
+  * cursor=\<pagination cursor\>
+  
+    * **Cursor** used to page through collections. See [Pagination](./guides/pagination.md).
+
 <a name="timestamps-dates-queries"></a>
 ### Timestamps, Dates and Date Selectors in Queries
 
