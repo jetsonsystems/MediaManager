@@ -1,8 +1,9 @@
 'use strict';
 
-var async  = require("async")
-	, config = require("config").db
-  , dbMan  = require('./databaseManager.js')
+var async  = require("async");
+var config = require("config").db;
+var dbMan  = require('./databaseManager.js');
+var mmStorage = require('MediaManagerStorage')(config)
   , imageService = require('../lib/plm-image/ImageService')
   , log4js = require('log4js')
   , nano = require('nano')

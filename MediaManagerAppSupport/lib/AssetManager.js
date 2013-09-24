@@ -150,7 +150,14 @@ module.exports = function assetManagerModule(config, dbUpdateSeq, options) {
   });
 
   changesFeed.listen();
-  gdriveUploader.start();
+  try {
+    logger.info(logPrefix + 'Starting gdrive uploads...');
+    gdriveUploader.start();
+    logger.info(logPrefix + 'Successfully started gdrive uploads!');
+  }
+  catch (e) {
+    logger.error(logPrefix + 'Failed to start gdrive uploads, error - ' + e);
+  }
 
   return {
     numPending: function() {

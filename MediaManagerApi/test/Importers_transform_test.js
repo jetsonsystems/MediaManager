@@ -4,12 +4,10 @@ var
   should  = require('should')
   ,config = require('config')
   ,expect = require('chai').expect
-  ,fs     = require('fs')
-  ,ImportBatch = require('ImageService/lib/plm-image/ImportBatch')
-  ,Importers = require('../lib/MediaManagerApiCore')(config, {singleton: false}).Importers
-  ,util   = require('util')
-;
-
+  ,fs     = require('fs');
+var mmStorage  = require('MediaManagerStorage')({}, {singleton: false});
+var Importers = require('../lib/MediaManagerApiCore')(config, {singleton: false}).Importers;
+var util   = require('util');
 
 describe('Importers', function () {
 
@@ -21,12 +19,10 @@ describe('Importers', function () {
     ,importers   = new Importers(PATH, {instName: INST_NAME, pathPrefix: URL_VERSION})
   ;
 
-  var
-    IMPORT_DIR = '/some/image/dir'
-    ,OID  = 'xxx-yyy-zzz'
-    ,IMAGES_TO_IMPORT = [ IMPORT_DIR + '/image1.jpg', IMPORT_DIR + '/image2.jpg']
-    ,batchImport = new ImportBatch({path: IMPORT_DIR, oid: OID, images_to_import: IMAGES_TO_IMPORT})
-  ;
+  var IMPORT_DIR = '/some/image/dir';
+  var OID  = 'xxx-yyy-zzz';
+  var IMAGES_TO_IMPORT = [ IMPORT_DIR + '/image1.jpg', IMPORT_DIR + '/image2.jpg'];
+  var batchImport = mmStorage.docFactory('plm.ImportBatch', {path: IMPORT_DIR, oid: OID, images_to_import: IMAGES_TO_IMPORT});
 
   it("should have proper values at initialization", function ()
   {

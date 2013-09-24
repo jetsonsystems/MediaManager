@@ -1,7 +1,7 @@
 {
   "name": "MediaManagerApi",
   "description": "Media Manager API",
-  "version": "0.0.1",
+  "version": "0.0.22",
   "author": "Marek J. Ryniejski <marek@jetsonsys.com>",
   "bin": {
     "media_manager_api_server": "media_manager_api_server.js"

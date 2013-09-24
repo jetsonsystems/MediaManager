@@ -1,7 +1,7 @@
 {
   "name": "MediaManagerAppSupport",
   "description": "Media Manager APP Support, foundational layer which provides the essential elements for the APP to run.",
-  "version": "0.0.1",
+  "version": "0.0.22",
   "author": "Marek J. Ryniejski <marek@jetsonsys.com>",
   "bin": {
     "media_manager_app_server": "media_manager_app_server.js",

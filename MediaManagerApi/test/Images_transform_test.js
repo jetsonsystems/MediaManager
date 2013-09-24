@@ -4,10 +4,10 @@ var
   should  = require('should')
   ,config = require('config')
   ,expect = require('chai').expect
-  ,fs     = require('fs')
-  ,Image  = require('ImageService/lib/plm-image/Image')
-  ,Images = require('../lib/MediaManagerApiCore')(config).Images
-  ,util   = require('util')
+  ,fs     = require('fs');
+var mmStorage  = require('MediaManagerStorage')(config.db);
+var Images = require('../lib/MediaManagerApiCore')(config).Images;
+var util   = require('util');
 ;
 
 /** utility function that is used in several tests below */
@@ -39,7 +39,7 @@ describe('Images', function () {
     ,IMG_PATH = '/some/path/to/' + IMG_NAME
     ,IMG_OID  = 'aaa-bbb-ccc'
     ,IMG_METADATA = JSON.parse(fs.readFileSync('./test/resources/json/gm_jpg_metadata.json'))
-    ,image = new Image({path: IMG_PATH, oid: IMG_OID})
+    ,image = mmStorage.docFactory('plm.Image', {path: IMG_PATH, oid: IMG_OID})
   ;
 
   image.readFromGraphicsMagick(IMG_METADATA);

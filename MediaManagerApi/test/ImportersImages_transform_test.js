@@ -4,10 +4,9 @@ var
   should  = require('should')
   ,config = require('config')
   ,expect = require('chai').expect
-  ,fs     = require('fs')
-  ,ImportBatch = require('ImageService/lib/plm-image/ImportBatch')
-  ,Image       = require('ImageService/lib/plm-image/Image')
-  ,mmApi      = require('../lib/MediaManagerApiCore')(config, {singleton: false})
+  ,fs     = require('fs');
+var mmStorage  = require('MediaManagerStorage')(config.db);
+var mmApi      = require('../lib/MediaManagerApiCore')(config)
   ,Images      = mmApi.Images
   ,Importers   = mmApi.Importers
   ,ImportersImages = mmApi.ImportersImages
@@ -58,11 +57,11 @@ describe('Importers', function () {
   var
     TEST_DIR = './test/resources/json'
     ,IMPORT_DIR = '/some/image/dir'
-    ,OID  = 'xxx-yyy-zzz'
-    ,importBatch = new ImportBatch({path: IMPORT_DIR, oid: OID})
-    ,img1 = new Image({path: IMPORT_DIR + '/img1.jpg', oid: OID + '-1', batch_id: OID})
-    ,img2 = new Image({path: IMPORT_DIR + '/img2.png', oid: OID + '-2', batch_id: OID})
-  ;
+    ,OID  = 'xxx-yyy-zzz';
+
+  var importBatch = mmStorage.docFactory('plm.ImportBatch', {path: IMPORT_DIR, oid: OID});
+  var img1 = mmStorage.docFactory('plm.Image', {path: IMPORT_DIR + '/img1.jpg', oid: OID + '-1', batch_id: OID});
+  var img2 = mmStorage.docFactory('plm.Image', {path: IMPORT_DIR + '/img2.png', oid: OID + '-2', batch_id: OID});
 
   img1.readFromGraphicsMagick(JSON.parse(fs.readFileSync(TEST_DIR + '/gm_jpg_metadata.json')));
   img2.readFromGraphicsMagick(JSON.parse(fs.readFileSync(TEST_DIR + '/gm_png_metadata.json')));

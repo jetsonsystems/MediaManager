@@ -7,12 +7,15 @@ var
   ,util = require('util')
 ;
 
-var
-  config = require('config')
-  ,dbMan = require('./databaseManager.js')
-  ,imageService = require('ImageService')
-  ,Importers = require('../lib/MediaManagerApiCore')(config, {singleton: false}).Importers
-  ,WebSocket = require('../lib/NotificationsWsLike')
+var config = require('config');
+
+console.log('Importerts_test: config - ' + util.inspect(config));
+
+var dbMan = require('./databaseManager.js');
+var mmStorage = require('MediaManagerStorage')(config.db);
+var imageService = require('ImageService');
+var Importers = require('../lib/MediaManagerApiCore')(config, {singleton: false}).Importers;
+var WebSocket = require('../lib/NotificationsWsLike');
 ;
 
 var 
@@ -75,7 +78,7 @@ describe('Importers Resource', function () {
 
     var counter = {
       started:0
-      ,img_saved:0
+      ,img_imported:0
       ,img_error:0
     };
 
@@ -96,8 +99,8 @@ describe('Importers Resource', function () {
           case "import.started":
             counter.started++;
             break;
-          case "import.image.saved":
-            counter.img_saved++;
+          case "import.image.imported":
+            counter.img_imported++;
             break;
           case "import.image.error":
             counter.img_error++;
@@ -105,7 +108,7 @@ describe('Importers Resource', function () {
           case "import.completed":
             console.log("Received notification of import completion");
             counter.started.should.be.equal(1);
-            counter.img_saved.should.be.equal(4);
+            counter.img_imported.should.be.equal(4);
             counter.img_error.should.be.equal(0);
             // give the db a chance to save the importBatch record above before destroying the db
             setTimeout(done, 500);

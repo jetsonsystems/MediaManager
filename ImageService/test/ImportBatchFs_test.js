@@ -2,7 +2,8 @@
 
 var async = require("async")
 	,config = require("config").db
-  ,dbMan = require('./databaseManager.js')
+  ,dbMan = require('./databaseManager.js');
+var mmStorage = require('MediaManagerStorage')(config)
   ,imageService = require('../lib/plm-image/ImageService')
   ,log4js = require('log4js')
   ,nano = require('nano')

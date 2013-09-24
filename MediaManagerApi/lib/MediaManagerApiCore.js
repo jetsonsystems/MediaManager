@@ -37,10 +37,11 @@
 
 var _ = require('underscore');
 require('mootools');
-var imageService = require('ImageService');
+var imageService = undefined;
 var imageServicePackage = require('ImageService/package.json');
-var log4js = require('log4js')
-,util  = require('util');
+var log4js = require('log4js');
+var qs = require('querystring');
+var util  = require('util');
 var async = require('async');
 
 var log = log4js.getLogger('plm.MediaManagerApi');
@@ -50,6 +51,7 @@ var log = log4js.getLogger('plm.MediaManagerApi');
 // it until we have a proper configuration.
 //
 var storageModule = require('MediaManagerStorage');
+var storageModuleInst = undefined;
 var storage = null;
 
 var notifications = require('./Notifications');
@@ -166,6 +168,14 @@ var init = function(config, options) {
     useConfig.db.database = 'plm-media-manager';
   }
 
+  //
+  // This is a hack, since we need to get a storageModule singleton
+  // prior to requiring the ImageService. We should change ImageService
+  // to a function invokation with config.
+  //
+  storageModuleInst = storageModule(config.db, {singleton: options.singleton});
+  imageService = require('ImageService');
+
   if (_.has(useConfig.db, 'local')) {
     if (_.has(useConfig.db.local, 'host')) {
       imageService.config.db.host = useConfig.db.local.host;
@@ -180,7 +190,7 @@ var init = function(config, options) {
   if (_.has(useConfig, 'app')) {
     imageService.config.app = useConfig.app;
   }
-  storage = storageModule(useConfig.db, options).get('touchdb');
+  storage = storageModuleInst.get('touchdb');
 };
 
 /*
@@ -443,7 +453,15 @@ var Resource = new Class({
         resName = _.has(options, 'isInstRef') && options.isInstRef ? this.instName : this.name;
       }
       if (resName) {
-        body[resName] = this.transformRep(options.rep, options);
+        var rep = this.transformRep(options.rep, options);
+
+        if (_.has(rep, resName) && _.has(rep, 'paging')) {
+          body[resName] = rep[resName];
+          body["paging"] = rep["paging"];
+        }
+        else {
+          body[resName] = rep;
+        }
       }
     }
     return body;
@@ -1263,10 +1281,10 @@ var Importers = new Class({
   },
 
   index: function(options) {
-    log.info('Importers.index: Indexing for path - %s', this.path);
+    var lp = 'Importers.index: ';
+    log.info(lp + 'Indexing for path - %s', this.path);
     options = options || {};
     var that = this;
-    var numBatches = (_.has(options, 'query') && _.has(options.query, 'n')) ? options.query.n : undefined;
 
     var opts = {
       includeImages: false,
@@ -1286,20 +1304,46 @@ var Importers = new Class({
         opts.filterNotStarted = options.query.filter_not_started;
       }
     }
-    
-    imageService.importBatchIndex(numBatches,
-                                  opts,
-                                  function(err, result) {
-                                    var status = 200;
-                                    if (err) {
-                                      log.error('Importers.index: error from image service - %s', err);
-                                      status = errors[errors.UNKNOWN_ERROR].httpStatus;
-                                      options.errorCode = errorCodes.UNKNOWN_ERROR;
-                                      options.errorMessage = err;
-                                    }
-                                    log.info('Importers.index: invoking callback with status - %s, path- %s', status, that.path);
-                                    that.doCallbacks(status, result, options);
-                                  });
+
+    if (_.has(options, 'query') && _.has(options.query, 'cursor')) {
+      if (_.has(options.query, 'page_size')) {
+        opts.pageSize = options.query.page_size;
+      }
+      if (_.has(options.query, 'page_to')) {
+        opts.pageTo = options.page_to;
+      }
+      log.debug(lp + 'Index w/ pagination requested, cursor ' + options.query.cursor + ', query - ' + util.inspect(options.query));
+      var cursor = JSON.parse(options.query.cursor);
+      imageService.Importers.pagedIndex(cursor,
+                                        opts,
+                                        function(err, result) {
+                                          var status = 200;
+                                          if (err) {
+                                            log.error('Importers.index: error from image service - %s', err);
+                                            status = errors[errors.UNKNOWN_ERROR].httpStatus;
+                                            options.errorCode = errorCodes.UNKNOWN_ERROR;
+                                            options.errorMessage = err;
+                                          }
+                                          log.info('Importers.index: invoking callback with status - %s, path- %s', status, that.path);
+                                          that.doCallbacks(status, result, options);
+                                        });
+    }
+    else {
+      var numBatches = (_.has(options, 'query') && _.has(options.query, 'n')) ? options.query.n : undefined;    
+      imageService.Importers.index(numBatches,
+                                   opts,
+                                   function(err, result) {
+                                     var status = 200;
+                                     if (err) {
+                                       log.error('Importers.index: error from image service - %s', err);
+                                       status = errors[errors.UNKNOWN_ERROR].httpStatus;
+                                       options.errorCode = errorCodes.UNKNOWN_ERROR;
+                                       options.errorMessage = err;
+                                     }
+                                     log.info('Importers.index: invoking callback with status - %s, path- %s', status, that.path);
+                                     that.doCallbacks(status, result, options);
+                                   });
+    }
     return that;
   },
 
@@ -1407,8 +1451,10 @@ var Importers = new Class({
     log.info('Importers.transformRep: Doing transform, path - %s', this.path);
     var that = this;
     if (options && _.has(options, 'isInstRef') && options.isInstRef) {
-      log.info('Importers.transformRep: transforming instance to full form...');
-      return this._transformOne(rep);
+      log.debug('Importers.transformRep: transforming instance to full form, rep - ' + util.inspect(rep));
+      var newRep = this._transformOne(rep);
+      log.debug('Importers.transformRep: transformed rep - ' + util.inspect(newRep));
+      return newRep;
     }
     else {
       if (_.isArray(rep)) {
@@ -1422,6 +1468,63 @@ var Importers = new Class({
                  }
                });
         return newRep;
+      }
+      else if (_.has(rep, 'items') && _.has(rep, 'cursors')) {
+        //
+        // Paged response, rep will look like:
+        //
+        //  { 
+        //    items: [
+        //      { cursor: [Object], doc: [Object] },
+        //      { cursor: [Object], doc: [Object] },
+        //      .
+        //      .
+        //      { cursor: [Object], doc: [Object] }
+        //    ],
+        //    cursors: {
+        //      start: { key: [Object], id: 'ef3782e5-9c30-467a-a937-683afb833601' },
+        //      end: { key: [Object], id: 'ef5430cc-a593-463d-81de-c013852956ae' },
+        //      previous: undefined,
+        //      next: { key: [Object], id: '76f7cbfa-474f-421c-8159-7b0fe13d3a8e' }
+        //    }
+        //  }
+        //
+        var newRep = {};
+
+        newRep.importers = [];
+        _.each(rep.items, 
+               function(item) {
+                 var tRep = that._transformOne(item.doc);
+                 if (tRep) {
+                   newRep.items.push(tRep);
+                 }
+               });
+        var cursors = {};
+        var paging = {
+          cursors: cursors,
+          page_size: newRep.importers.length
+        };
+        newRep.paging = paging;
+        if (rep.items && rep.items.length) {
+          cursors.start = qs.escape(JSON.stringify(rep.items[0].cursor));
+          cursors.end = qs.escape(JSON.stringify(rep.items[rep.items.length-1].cursor));
+          if (_.has(rep.cursors, 'next')) {
+            if (_.isObject(rep.cursors.next)) {
+              cursors.next = qs.escape(JSON.stringify(rep.cursors.next));
+            }
+            else {
+              cursors.next = -1;
+            }
+          }
+          if (_.has(rep.cursors, 'previous')) {
+            if (_.isObject(rep.cursors.previous)) {
+              cursors.previous = qs.escape(JSON.stringify(rep.cursors.previous));
+            }
+            else {
+              cursors.previous = -1;
+            }
+          }
+        }
       }
     }
     return rep;
