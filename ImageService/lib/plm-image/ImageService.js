@@ -2072,6 +2072,7 @@ var Importers = (function() {
       // No cursor, or cursor and no pageTo option -> use .at() to get the first page, or page at the cursor.
       //
       var c = touchdb.isCursor(cursor) ? cursor : undefined;
+      log.debug(lp + 'Retrieving at cursor - ' + util.inspect(c) + ', is cursor - ' + touchdb.isCursor(cursor) + ', page to - ' + options.pageTo);
       var pAt = dPager.at(c).then(
         function(page) {
           log.debug(lp + 'Got first page, ' + page.items.length + ' imports...');
@@ -2084,13 +2085,10 @@ var Importers = (function() {
     }
     else if (touchdb.isCursor(cursor) && options.pageTo) {
       if ((options.pageTo === 'previous') || (options.pageTo === 'next')) {
-        log.error(lp + 'Invalid method invokation, options.pageTo must be either "previous" or "next"!');
-        callback(errors.INVALID_METHOD_ARGUMENT);
-      }
-      else {
+        log.debug(lp + 'Paging to - ' + options.pageTo);
         var m = (options.pageTo === 'previous') ? dPager.previous : dPager.next;
 
-        var p = m.apply(dPager, cursor).then(
+        var p = m.call(dPager, cursor).then(
           function(page) {
             log.debug(lp + 'Got ' + options.pageTo + ' page, ' + page.items.length + ' imports...');
             callback(null, page);
@@ -2099,6 +2097,10 @@ var Importers = (function() {
             log.error(lp + 'error - ' + err);
             callback(errors.UNKNOWN_ERROR);
           });
+      }
+      else {
+        log.error(lp + 'Invalid method invokation, options.pageTo must be either "previous" or "next"!');
+        callback(errors.INVALID_METHOD_ARGUMENT);
       }
     }
     else {

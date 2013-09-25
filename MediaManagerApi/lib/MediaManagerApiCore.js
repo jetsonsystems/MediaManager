@@ -1307,13 +1307,20 @@ var Importers = new Class({
 
     if (_.has(options, 'query') && _.has(options.query, 'cursor')) {
       if (_.has(options.query, 'page_size')) {
-        opts.pageSize = options.query.page_size;
+        opts.pageSize = parseInt(options.query.page_size);
       }
       if (_.has(options.query, 'page_to')) {
-        opts.pageTo = options.page_to;
+        opts.pageTo = options.query.page_to;
       }
       log.debug(lp + 'Index w/ pagination requested, cursor ' + options.query.cursor + ', query - ' + util.inspect(options.query));
-      var cursor = JSON.parse(options.query.cursor);
+      var cursor = undefined;
+      try {
+        cursor = JSON.parse(options.query.cursor);
+      }
+      catch (e) {
+        log.debug(lp + 'Non-JSON, e - ' + e + ', cursor - ' + options.query.cursor);
+        cursor = -1;
+      }
       imageService.Importers.pagedIndex(cursor,
                                         opts,
                                         function(err, result) {
@@ -1448,7 +1455,8 @@ var Importers = new Class({
   //        * isInstRef: If true, we are referencing an instance.
   //
   transformRep: function(rep, options) {
-    log.info('Importers.transformRep: Doing transform, path - %s', this.path);
+    var lp = 'Importers.transformRep: ';
+    log.info(lp + 'Doing transform, path - %s', this.path);
     var that = this;
     if (options && _.has(options, 'isInstRef') && options.isInstRef) {
       log.debug('Importers.transformRep: transforming instance to full form, rep - ' + util.inspect(rep));
@@ -1491,12 +1499,14 @@ var Importers = new Class({
         //
         var newRep = {};
 
+        log.debug(lp + 'Rep. w/ pagination, items - ' + util.inspect(rep.items) + ', cursors - ' + util.inspect(rep.cursors));
+
         newRep.importers = [];
         _.each(rep.items, 
                function(item) {
                  var tRep = that._transformOne(item.doc);
                  if (tRep) {
-                   newRep.items.push(tRep);
+                   newRep.importers.push(tRep);
                  }
                });
         var cursors = {};
@@ -1525,6 +1535,7 @@ var Importers = new Class({
             }
           }
         }
+        return newRep;
       }
     }
     return rep;
