@@ -51,13 +51,17 @@ onmessage = function(e) {
     var options = request.options || {};
 
     options.onSuccess = function(responseBody) {
+      logger.debug(lp + 'Request successful!');
       postMessage(ApiWorkerMessages.createRestResponseMsg(request.requestId, 0, responseBody));
+      logger.debug(lp + 'Posted responses!');
     };
 
     options.onError = function(responseBody) {
+      logger.debug(lp + 'Request error!');
       postMessage(ApiWorkerMessages.createRestResponseMsg(request.requestId,
                                                           responseBody.status,
                                                           responseBody));
+      logger.debug(lp + 'Request error, posted response!');
     };
 
     resource.doRequest(request.method, options);

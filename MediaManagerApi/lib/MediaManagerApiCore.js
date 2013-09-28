@@ -407,8 +407,8 @@ var Resource = new Class({
     if (status === 200) {
       if (_.has(options, 'onSuccess') && options.onSuccess) {
         var rb = this.createResponseBody(0, options);
-        log.info('Resource.doCallbacks: response body of - ' + JSON.stringify(rb));
-        options.onSuccess(this.createResponseBody(0, options));
+        log.trace('Resource.doCallbacks: response body of - ' + JSON.stringify(rb));
+        options.onSuccess(rb);
       }
     }
     else if (_.has(options, 'onError') && options.onError) {
@@ -453,14 +453,23 @@ var Resource = new Class({
         resName = _.has(options, 'isInstRef') && options.isInstRef ? this.instName : this.name;
       }
       if (resName) {
-        var rep = this.transformRep(options.rep, options);
+        try {
+          var rep = this.transformRep(options.rep, options);
 
-        if (_.has(rep, resName) && _.has(rep, 'paging')) {
-          body[resName] = rep[resName];
-          body["paging"] = rep["paging"];
+          if (_.has(rep, resName) && _.has(rep, 'paging')) {
+            body[resName] = rep[resName];
+            body["paging"] = rep["paging"];
+          }
+          else {
+            body[resName] = rep;
+          }
+          log.debug('createResponseBody: rep transformed!');
         }
-        else {
-          body[resName] = rep;
+        catch (e) {
+          log.error('createResponseBody: Error transforming rep!');
+          body.status = 1;
+          body.error_code = errorCodes.UNKNOWN_ERROR;
+          body.error_message = errors.UNKNOWN_ERROR.message;
         }
       }
     }
@@ -846,7 +855,13 @@ var Images = new Class({
     var that = this;
     if (options && _.has(options, 'isInstRef') && options.isInstRef) {
       log.info('Images.transformRep: transforming instance to full form...');
-      return that.postTransformHook(that._transformToFullFormRep(rep), rep);
+      try {
+        return that.postTransformHook(that._transformToFullFormRep(rep), rep);
+      }
+      catch (e) {
+        log.error('Images.transformRep: Error during transformation - ' + e);
+        return {};
+      }
     }
     else {
       if (_.isArray(rep)) {
@@ -857,9 +872,14 @@ var Images = new Class({
         var newRep = [];
         _.each(rep, 
                function(aRep) {
-                 var tRep = that.postTransformHook(that._transformToShortFormRep(aRep), aRep);
-                 if (tRep) {
-                   newRep.push(tRep);
+                 try {
+                   var tRep = that.postTransformHook(that._transformToShortFormRep(aRep), aRep);
+                   if (tRep) {
+                     newRep.push(tRep);
+                   }
+                 }
+                 catch (e) {
+                   log.error('Images.transformRep: Error during transformation - ' + e);
                  }
                });
         return newRep;
@@ -880,64 +900,69 @@ var Images = new Class({
   },
 
   _transformAttrs: function(newRep, rep, attrs) {
-    var logMsg = 'Transforming ';
-    if (_.has(rep, 'oid')) {
-      logMsg = logMsg + 'resource w/ id - ' + rep.oid;
-    }
-    if (_.has(rep, 'path')) {
-      logMsg = logMsg + ', path - ' + rep.path;
-    }
-    if (_.has(rep, 'name')) {
-      logMsg = logMsg + ', name - ' + rep.name;
-    }
-    log.debug('Images._transformAttrs', logMsg);
-    log.trace('Images._transformAttrs', 'processing attributes - ' + JSON.stringify(_.keys(attrs)));
-    log.trace('Images._transformAttrs', 'rep has attributes - ' + JSON.stringify(_.keys(rep)));
-    var that = this;
-    _.each(_.keys(attrs), 
-           function(attr) {
-             if (attrs[attr] === 'id') {
-               //
-               //  Object IDs begin with '$' followed by the object ID itself.
-               //
-               newRep['id'] = _.has(rep, attr) ? '$' + rep[attr] : undefined;
-             }
-             else if (attrs[attr] === 'app_id') {
-               //
-               //  Likewise, object IDs begin with '$' followed by the object ID itself.
-               //
-               newRep['app_id'] = _.has(rep, attr) ? '$' + rep[attr] : undefined;
-             }
-             else if (attrs[attr] === 'importer_id') {
-               //
-               //  Likewise...
-               //
-               newRep['importer_id'] = _.has(rep, attr) ? '$' + rep[attr] : undefined;
-             }
-             else if (attr === 'variants') {
-               if (_.has(rep, 'variants')) {
-                 var variants = [];
-                 newRep[attrs.variants] = variants;
-                 _.each(rep.variants, 
-                        function(variant) {
-                          variants.push(that._transformToShortFormRep(variant));
-                        });
+    try {
+      var logMsg = 'Transforming ';
+      if (_.has(rep, 'oid')) {
+        logMsg = logMsg + 'resource w/ id - ' + rep.oid;
+      }
+      if (_.has(rep, 'path')) {
+        logMsg = logMsg + ', path - ' + rep.path;
+      }
+      if (_.has(rep, 'name')) {
+        logMsg = logMsg + ', name - ' + rep.name;
+      }
+      log.debug('Images._transformAttrs', logMsg);
+      log.trace('Images._transformAttrs', 'processing attributes - ' + JSON.stringify(_.keys(attrs)));
+      log.trace('Images._transformAttrs', 'rep has attributes - ' + JSON.stringify(_.keys(rep)));
+      var that = this;
+      _.each(_.keys(attrs), 
+             function(attr) {
+               if (attrs[attr] === 'id') {
+                 //
+                 //  Object IDs begin with '$' followed by the object ID itself.
+                 //
+                 newRep['id'] = _.has(rep, attr) ? '$' + rep[attr] : undefined;
                }
-             }
-             else {
-               newRep[attrs[attr]] = _.has(rep, attr) ? rep[attr] : undefined;
-             }
-           });
-    //
-    //  The following should go away eventually as the ImageService 
-    //  matures.
-    //
-    if ((!_.has(newRep, 'id') || (newRep.id === undefined)) && _.has(rep, '_id')) {
-      newRep['id'] = '$' + rep._id;
+               else if (attrs[attr] === 'app_id') {
+                 //
+                 //  Likewise, object IDs begin with '$' followed by the object ID itself.
+                 //
+                 newRep['app_id'] = _.has(rep, attr) ? '$' + rep[attr] : undefined;
+               }
+               else if (attrs[attr] === 'importer_id') {
+                 //
+                 //  Likewise...
+                 //
+                 newRep['importer_id'] = _.has(rep, attr) ? '$' + rep[attr] : undefined;
+               }
+               else if (attr === 'variants') {
+                 if (_.has(rep, 'variants')) {
+                   var variants = [];
+                   newRep[attrs.variants] = variants;
+                   _.each(rep.variants, 
+                          function(variant) {
+                            variants.push(that._transformToShortFormRep(variant));
+                          });
+                 }
+               }
+               else {
+                 newRep[attrs[attr]] = _.has(rep, attr) ? rep[attr] : undefined;
+               }
+             });
+      //
+      //  The following should go away eventually as the ImageService 
+      //  matures.
+      //
+      if ((!_.has(newRep, 'id') || (newRep.id === undefined)) && _.has(rep, '_id')) {
+        newRep['id'] = '$' + rep._id;
+      }
+      if ((!_.has(newRep, 'name') || (newRep.name === undefined)) && _.has(rep, 'path')) {
+        newRep['name'] = '$' + _.last(rep.path.split('/'));
+        log.info('Images._transformAttrs: updated name attribute to - %s', newRep['name']);
+      }
     }
-    if ((!_.has(newRep, 'name') || (newRep.name === undefined)) && _.has(rep, 'path')) {
-      newRep['name'] = '$' + _.last(rep.path.split('/'));
-      log.info('Images._transformAttrs: updated name attribute to - %s', newRep['name']);
+    catch (e) {
+      log.error('Images._transformAttrs: error - ' + e);
     }
     return newRep;
   }

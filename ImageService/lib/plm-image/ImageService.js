@@ -73,7 +73,6 @@ var
   ,uuid  = require('node-uuid')
   ;
 
-
 var config = {
   db: {
     host: "localhost",
@@ -403,219 +402,6 @@ exports.Images = Images;
 exports.show = Images.show;
 exports.save = Images.save;
 exports.findVersion = Images.findVersion;
-
-//
-// Some helpers:
-//  bulkDocFetch: Fetch a bunch of documents given a list of doc IDs.
-//  fetchDocs: Fetch documents, optionally in batches.
-//  runView: Run a view, and optionally including documents when running
-//    the view, or separately fetching the documents.
-//
-
-//
-// bulkDocFetch: Fetchs a set of documents.
-//  Args:
-//    docIds: Array of document IDs.
-//    callback: Invoked as callbac(err, docs), where docs is an array of
-//      the fetched documents.
-//
-//  Returns: The fetched docs in an array.
-//
-//  Essentially, does the equivalent of:
-//
-//    curl -d '{"keys":["bar","baz"]}' -X POST http://127.0.0.1:5984/foo/_all_docs?include_docs=true
-//
-var bulkDocFetch = function(docIds, callback) {
-  if (docIds && _.isArray(docIds) && (docIds.length > 0)) {
-    var db = priv.db();
-    db.fetch({keys: docIds},
-             {},
-             function(err, body) {
-               if (err) {
-                 callback && callback('Error occurred fetching documents, error - ' + err);
-               }
-               else if (_.has(body, 'rows')) {
-                 if (_.isArray(body.rows) && body.rows.length > 0) {
-                   // log.debug('bulkDocFetch: Fetched ' + body.rows.length + ' documents, first doc - ' + util.inspect(body.rows[0].doc));
-                   var docs = _.pluck(body.rows, "doc");
-                   callback && callback(null, docs);
-                 }
-                 else {
-                   callback && callback('No documents were fetched.');
-                 }
-               }
-             });
-  }
-  else {
-    callback && callback('No documents were requested.');
-  }
-};
-
-//
-// fetchDocs: Fetch documents, optionally in batches.
-//
-//  Args:
-//    docIds: Document IDs.
-//    options:
-//      batchSize: Batchsize to use. By default ALL documents will be fetched.
-//      callback: callback(err, docs)
-//
-var fetchDocs = function(docIds, options) {
-  options = options || {};
-  if (!options.batchSize) {
-    options.batchSize = docIds.length;
-  }
-  var callback = options.callback || undefined;
-  var docs = [];
-  var start = 0;
-  async.whilst(
-    function() { return start < docIds.length; },
-    function(innerCallback) {
-      var end = (start+options.batchSize<docIds.length)?start+options.batchSize:docIds.length;
-      log.debug('fetchDocs: Fetching [' + start + ', ' + end + '].');
-      var docIdsToFetch = docIds.slice(start, end);
-      start = end;
-      bulkDocFetch(docIdsToFetch, 
-                   function(err, docsFetched) {
-                     if (!err && docsFetched) {
-                       log.debug('fetchDocs: Adding ' + docsFetched.length + ' documents to result set...');
-                       docs.push.apply(docs, docsFetched);
-                       log.debug('fetchDocs: Total documents fetched - ' + docs.length);
-                     }
-                     innerCallback(err);
-                   });
-    },
-    function(err) {
-      log.debug('fetchDocs: Finished fetching documents, fetched - ' + docs.length);
-      callback && callback(err, docs);
-    }
-  );
-};
-
-//
-// runView: Run a view, and optionally including documents when running
-//  the view, or separately fetching the documents.
-//
-//  Args:
-//    designDoc
-//    viewName
-//    options:
-//      toReturn: What should be returned:
-//
-//        'ids': document ids
-//        'docs': documents should be returned.
-//
-//        default: 'ids'
-//
-//      viewOptions: Options to pass to the view, ie: startkey, etc.
-//      fetchDocs: When toReturn is 'docs', fetch the docs separately. include_docs = true is NOT passed to the view.
-//      fetchDocsBatchSize: When fetchDocs is specified, optionally specify a batchsize.
-//      callback:
-//
-var runView = function(designDoc, viewName, options) {
-  // log.debug('runView: design doc. - ' + designDoc + ', view name - ' + viewName + ', options ' + util.inspect(options));
-  options = options || {};
-
-  if (!options.toReturn) {
-    options.toReturn = 'ids';
-  }
-  
-  var callback = options.callback || undefined;
-
-  if (!callback) {
-    log.debug('runView: no callback!');
-  }
-
-  var viewOptions = options.viewOptions || {};
-
-  if (options.toReturn === 'ids') {
-    viewOptions.include_docs = false;
-  }
-  else {
-    if (options.fetchDocs) {
-      viewOptions.include_docs = false;
-    }
-    else {
-      viewOptions.include_docs = true;
-    }
-  }
-
-  async.waterfall(
-    [
-      function(waterfallCallback) {
-        var db = priv.db();
-        var tmpResult = db.view(
-          designDoc, 
-          viewName, 
-          viewOptions, 
-          function(err, body) { 
-            if (err) {
-              var errMsg = 'Using nano.view: error - ' + err;
-              log.debug('runView: error - ' + errMsg);
-              waterfallCallback(errMsg, []);
-            }
-            else {
-              var docsOrIds = [];
-              log.debug('runView: Using nano.view: got response, typeof body - ' + typeof(body) + '.');
-              if (_.has(body, 'rows')) {
-                log.debug('runView: View matched ' + _.size(body.rows) + ' documents.');
-              
-                if (_.size(body.rows)) {
-                  if ((options.toReturn === 'docs') && viewOptions.include_docs) {
-                    docsOrIds = _.pluck(body.rows, "doc");
-                    log.debug('runView: Got ' + docsOrIds.length + ' documents...');
-                  }
-                  else {
-                    docsOrIds = _.pluck(body.rows, "id");
-                    log.debug('runView: Got ' + docsOrIds.length + ' document ids...');
-                  }
-                }
-              }
-              else {
-                log.debug('runView: Using nano.view: View returned no rows!');
-              }
-              waterfallCallback(null, docsOrIds);
-            }
-          }
-        );
-      },
-      function(docsOrIds, waterfallCallback) {
-        if (options.toReturn === 'ids') {
-          waterfallCallback(null, docsOrIds);
-        }
-        else if (options.fetchDocs) {
-          var fetchDocsOpts = {
-            callback: function(err, docs) {
-              waterfallCallback(err, docs);
-            }
-          };
-          if (options.fetchDocsBatchSize) {
-            fetchDocsOpts.batchSize = options.fetchDocsBatchSize;
-          }
-          fetchDocs(docsOrIds,
-                    fetchDocsOpts);
-        }
-        else {
-          waterfallCallback(null, docsOrIds);
-        }
-      }
-    ],
-    function(err, result) {
-      if (err) {
-        log.debug('runView: Error processing results, error - ' + err);
-        callback && callback(err);
-      }
-      else {
-        if (result.length) {
-          log.debug('runView: View returned a result of ' + result.length + ' items.');
-        }
-        else {
-          log.debug('runView: No documents!');
-        }
-        callback && callback(null, result);
-      }
-    });
-};
 
 /*
  * create: Create a set of images given an initial set of attributes.
@@ -1190,9 +976,6 @@ function persist(persistCommand, options, callback)
 
 } // end persist
 
-
-
-
 /**
  * Main image finder method
  *
@@ -1302,57 +1085,87 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
     }
   }
 
-  log.debug("findByCreationTime opts: " + JSON.stringify(opts));
+  log.debug('findByCreationTime opts: ' + JSON.stringify(opts) + ', using view - ' + view);
 
-  var db = priv.db();
+  var iterOpts = {
+    pageSize: 100,
+    callback: function(err, docs) {
+      if (!err) {
+        if (docs.length <= 0) {
+          log.warn('findByCreationTime: Unable to find any images.');
+          callback(null, []);
+        }
+        else {
+          log.debug('findByCreationTime: Retrieved ' + _.size(docs) + ' image documents.');
+          
+          var aryImgOut = convert_couch_body_to_array_of_images(opts,docs);
+  
+          log.debug('findByCreationTime: Returning ' + aryImgOut.length + ' images.');
 
-  log.debug("findByCreationTime: connected to db...");
-
-  // couchdb specific view options
-  var view_opts = {
-    startkey: []
-    ,include_docs: true
+          callback(null, aryImgOut);
+        }
+      }
+      else {
+        log.error('findByCreationTime: Error retrieving images, error - ' + err);
+        callback("error in findByCreationTime with options '" + JSON.stringify(opts) + "': " + err + ".");
+      }
+    }
   };
 
   if (_.isArray(criteria)) {
-    view_opts.startkey = priv.date_to_array(criteria[0]);
-    view_opts.endkey   = priv.date_to_array(criteria[1]);
-  } else if ( _.isString(criteria) ) {
-    // TODO handle the case when only a single date is passed
-  } else {
-    // throw "Invalid Argument Exception: findByCreationTime does not understand options.created argument:: '" + criteria + "'";
+    iterOpts.startKey = priv.date_to_array(criteria[0]);
+    iterOptsw.endKey  = priv.date_to_array(criteria[1]);
   }
 
-  log.trace("Finding images and their variants using view '%s' with view_opts %j", view, view_opts);
+  iterateOverView(IMG_DESIGN_DOC, view, iterOpts);
 
-  runView(IMG_DESIGN_DOC,
-          view,
-          {
-            toReturn: 'docs',
-            fetchDocs: true,
-            fetchDocsBatchSize: 100,
-            callback: function(err, docs) {
-              if (!err) {
-                if (docs.length <= 0) {
-                  log.warn('findByCreationTime: Unable to find any images.');
-                  callback(null, []);
-                }
-                else {
-                  log.debug('findByCreationTime: Retrieved ' + _.size(docs) + ' image documents.');
+  // var db = priv.db();
 
-                  var aryImgOut = convert_couch_body_to_array_of_images(opts,docs);
+  // log.debug("findByCreationTime: connected to db...");
 
-                  log.debug('findByCreationTime: Returning ' + aryImgOut.length + ' images.');
+  // couchdb specific view options
+  //  var view_opts = {
+  //    startkey: []
+  // ,include_docs: true
+  // };
 
-                  callback(null, aryImgOut);
-                }
-              }
-              else {
-                log.error('findByCreationTime: Error retrieving images, error - ' + err);
-                callback("error in findByCreationTime with options '" + JSON.stringify(opts) + "': " + err + ".");
-              }
-            }
-          });
+  // if (_.isArray(criteria)) {
+  // view_opts.startkey = priv.date_to_array(criteria[0]);
+  // view_opts.endkey   = priv.date_to_array(criteria[1]);
+  // } else if ( _.isString(criteria) ) {
+  // TODO handle the case when only a single date is passed
+  // } else {
+  // throw "Invalid Argument Exception: findByCreationTime does not understand options.created argument:: '" + criteria + "'";
+  // }
+
+  // runView(IMG_DESIGN_DOC,
+  // view,
+  // {
+  // toReturn: 'docs',
+  // fetchDocs: true,
+  // fetchDocsBatchSize: 100,
+  // callback: function(err, docs) {
+  // if (!err) {
+  // if (docs.length <= 0) {
+  // log.warn('findByCreationTime: Unable to find any images.');
+  // callback(null, []);
+  // }
+  // else {
+  // log.debug('findByCreationTime: Retrieved ' + _.size(docs) + ' image documents.');
+  // 
+  // var aryImgOut = convert_couch_body_to_array_of_images(opts,docs);
+  
+  // log.debug('findByCreationTime: Returning ' + aryImgOut.length + ' images.');
+
+  // callback(null, aryImgOut);
+  // }
+  // }
+  // else {
+  // log.error('findByCreationTime: Error retrieving images, error - ' + err);
+  // callback("error in findByCreationTime with options '" + JSON.stringify(opts) + "': " + err + ".");
+  // }
+  // }
+  // });
 }; // end findByCreationTime
 
 /*
@@ -3852,6 +3665,284 @@ function emptyTrash(callback){
   );
 
 } // end emptyTrash
+
+//
+// Some helpers:
+//  bulkDocFetch: Fetch a bunch of documents given a list of doc IDs.
+//  fetchDocs: Fetch documents, optionally in batches.
+//  runView: Run a view, and optionally including documents when running
+//    the view, or separately fetching the documents.
+//  iterateOverView: iterate over a view fetching documents.
+//
+
+//
+// bulkDocFetch: Fetchs a set of documents.
+//  Args:
+//    docIds: Array of document IDs.
+//    callback: Invoked as callbac(err, docs), where docs is an array of
+//      the fetched documents.
+//
+//  Returns: The fetched docs in an array.
+//
+//  Essentially, does the equivalent of:
+//
+//    curl -d '{"keys":["bar","baz"]}' -X POST http://127.0.0.1:5984/foo/_all_docs?include_docs=true
+//
+var bulkDocFetch = function(docIds, callback) {
+  if (docIds && _.isArray(docIds) && (docIds.length > 0)) {
+    var db = priv.db();
+    db.fetch({keys: docIds},
+             {},
+             function(err, body) {
+               if (err) {
+                 callback && callback('Error occurred fetching documents, error - ' + err);
+               }
+               else if (_.has(body, 'rows')) {
+                 if (_.isArray(body.rows) && body.rows.length > 0) {
+                   // log.debug('bulkDocFetch: Fetched ' + body.rows.length + ' documents, first doc - ' + util.inspect(body.rows[0].doc));
+                   var docs = _.pluck(body.rows, "doc");
+                   callback && callback(null, docs);
+                 }
+                 else {
+                   callback && callback('No documents were fetched.');
+                 }
+               }
+             });
+  }
+  else {
+    callback && callback('No documents were requested.');
+  }
+};
+
+//
+// fetchDocs: Fetch documents, optionally in batches.
+//
+//  Args:
+//    docIds: Document IDs.
+//    options:
+//      batchSize: Batchsize to use. By default ALL documents will be fetched.
+//      callback: callback(err, docs)
+//
+var fetchDocs = function(docIds, options) {
+  options = options || {};
+  if (!options.batchSize) {
+    options.batchSize = docIds.length;
+  }
+  var callback = options.callback || undefined;
+  var docs = [];
+  var start = 0;
+  async.whilst(
+    function() { return start < docIds.length; },
+    function(innerCallback) {
+      var end = (start+options.batchSize<docIds.length)?start+options.batchSize:docIds.length;
+      log.debug('fetchDocs: Fetching [' + start + ', ' + end + '].');
+      var docIdsToFetch = docIds.slice(start, end);
+      start = end;
+      bulkDocFetch(docIdsToFetch, 
+                   function(err, docsFetched) {
+                     if (!err && docsFetched) {
+                       log.debug('fetchDocs: Adding ' + docsFetched.length + ' documents to result set...');
+                       docs.push.apply(docs, docsFetched);
+                       log.debug('fetchDocs: Total documents fetched - ' + docs.length);
+                     }
+                     innerCallback(err);
+                   });
+    },
+    function(err) {
+      log.debug('fetchDocs: Finished fetching documents, fetched - ' + docs.length);
+      callback && callback(err, docs);
+    }
+  );
+};
+
+//
+// runView: Run a view, and optionally including documents when running
+//  the view, or separately fetching the documents.
+//
+//  Args:
+//    designDoc
+//    viewName
+//    options:
+//      toReturn: What should be returned:
+//
+//        'ids': document ids
+//        'docs': documents should be returned.
+//
+//        default: 'ids'
+//
+//      viewOptions: Options to pass to the view, ie: startkey, etc.
+//      fetchDocs: When toReturn is 'docs', fetch the docs separately. include_docs = true is NOT passed to the view.
+//      fetchDocsBatchSize: When fetchDocs is specified, optionally specify a batchsize.
+//      callback:
+//
+function runView(designDoc, viewName, options) {
+  // log.debug('runView: design doc. - ' + designDoc + ', view name - ' + viewName + ', options ' + util.inspect(options));
+  options = options || {};
+
+  if (!options.toReturn) {
+    options.toReturn = 'ids';
+  }
+  
+  var callback = options.callback || undefined;
+
+  if (!callback) {
+    log.debug('runView: no callback!');
+  }
+
+  var viewOptions = options.viewOptions || {};
+
+  if (options.toReturn === 'ids') {
+    viewOptions.include_docs = false;
+  }
+  else {
+    if (options.fetchDocs) {
+      viewOptions.include_docs = false;
+    }
+    else {
+      viewOptions.include_docs = true;
+    }
+  }
+
+  async.waterfall(
+    [
+      function(waterfallCallback) {
+        var db = priv.db();
+        var tmpResult = db.view(
+          designDoc, 
+          viewName, 
+          viewOptions, 
+          function(err, body) { 
+            if (err) {
+              var errMsg = 'Using nano.view: error - ' + err;
+              log.debug('runView: error - ' + errMsg);
+              waterfallCallback(errMsg, []);
+            }
+            else {
+              var docsOrIds = [];
+              log.debug('runView: Using nano.view: got response, typeof body - ' + typeof(body) + '.');
+              if (_.has(body, 'rows')) {
+                log.debug('runView: View matched ' + _.size(body.rows) + ' documents.');
+              
+                if (_.size(body.rows)) {
+                  if ((options.toReturn === 'docs') && viewOptions.include_docs) {
+                    docsOrIds = _.pluck(body.rows, "doc");
+                    log.debug('runView: Got ' + docsOrIds.length + ' documents...');
+                  }
+                  else {
+                    docsOrIds = _.pluck(body.rows, "id");
+                    log.debug('runView: Got ' + docsOrIds.length + ' document ids...');
+                  }
+                }
+              }
+              else {
+                log.debug('runView: Using nano.view: View returned no rows!');
+                if (_.isString(body)) {
+                  log.error('runView: View return string body - ' + body);
+                }
+              }
+              waterfallCallback(null, docsOrIds);
+            }
+          }
+        );
+      },
+      function(docsOrIds, waterfallCallback) {
+        if (options.toReturn === 'ids') {
+          waterfallCallback(null, docsOrIds);
+        }
+        else if (options.fetchDocs) {
+          var fetchDocsOpts = {
+            callback: function(err, docs) {
+              waterfallCallback(err, docs);
+            }
+          };
+          if (options.fetchDocsBatchSize) {
+            fetchDocsOpts.batchSize = options.fetchDocsBatchSize;
+          }
+          fetchDocs(docsOrIds,
+                    fetchDocsOpts);
+        }
+        else {
+          waterfallCallback(null, docsOrIds);
+        }
+      }
+    ],
+    function(err, result) {
+      if (err) {
+        log.debug('runView: Error processing results, error - ' + err);
+        callback && callback(err);
+      }
+      else {
+        if (result.length) {
+          log.debug('runView: View returned a result of ' + result.length + ' items.');
+        }
+        else {
+          log.debug('runView: No documents!');
+        }
+        callback && callback(null, result);
+      }
+    });
+}
+
+//
+// iterateOverView: iterate over a view fetching documents.
+//
+//  Args:
+//    designDoc
+//    viewName
+//    options:
+//      pageSize: page size during iteration. Default is 100.
+//      startKey: key to start paging at.
+//      startKeyDocId: doc id associated with start key.
+//      direction: 'ascending' | 'descending', default is 'ascending'.
+//      returnRows: Return couchdb rows which include 'id', 'key', and 'doc' fields.        
+//      callback:
+//
+function iterateOverView(designDoc, viewName, options) {
+
+  var lp = 'iterateOverView: ';
+
+  var options = options || {};
+  var callback = options.callback || undefined;
+
+  var pageSize = options.pageSize ? options.pageSize : 100;
+  var dIt = new touchdb.DocIterator(
+    pageSize,
+    IMG_DESIGN_DOC,
+    VIEW_BY_CTIME_UNTAGGED);
+
+  var docs = [];
+
+  function iterate() {
+    dIt.next().then(
+      function(page) {
+        log.debug(lp + 'Got ' + page.length + ' items...');
+        if (page.length >	0) {
+          docs = docs.concat(page);
+        }
+        return page;
+      },
+      function(err) {
+        console.log('error - ' + err);
+        throw err;
+      }).then(
+        function(page) {
+          iterate();
+        },
+        function(err) {
+          if (callback) {
+            if (err.name === 'StopIteration') {
+              log.debug(lp + 'iterated over ' + docs.length + ' items...');
+              callback(null, docs);
+            }
+            else {
+              callback(err);
+            }
+          }
+        });
+  }
+
+  iterate();
+}
 
 //
 // Communicating errors:
