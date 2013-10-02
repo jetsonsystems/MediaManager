@@ -466,7 +466,7 @@ var Resource = new Class({
           log.debug('createResponseBody: rep transformed!');
         }
         catch (e) {
-          log.error('createResponseBody: Error transforming rep!');
+          log.error('createResponseBody: Error transforming rep, error - ' + e);
           body.status = 1;
           body.error_code = errorCodes.UNKNOWN_ERROR;
           body.error_message = errors.UNKNOWN_ERROR.message;
@@ -1568,17 +1568,23 @@ var Importers = new Class({
 
   _transformOne: function(rep) {
     var newRep = {};
-    newRep.id = _.has(rep, 'oid') ? '$' + rep.oid : undefined;
-    newRep.app_id = _.has(rep, 'app_id') ? '$' + rep.app_id : undefined;
-    newRep.import_dir = _.has(rep, 'path') ? rep.path : '';
-    newRep.state = rep.status.toLowerCase();
-    newRep.created_at = rep.created_at;
-    newRep.started_at = rep.started_at;
-    newRep.completed_at  = rep.completed_at;
-    newRep.num_to_import = rep.getNumToImport();
-    newRep.num_imported  = rep.getNumAttempted();
-    newRep.num_success   = rep.getNumSuccess();
-    newRep.num_error     = rep.getNumError();
+    try {
+      newRep.id = _.has(rep, 'oid') ? '$' + rep.oid : undefined;
+      newRep.app_id = _.has(rep, 'app_id') ? '$' + rep.app_id : undefined;
+      newRep.import_dir = _.has(rep, 'path') ? rep.path : '';
+      newRep.state = rep.status.toLowerCase();
+      newRep.created_at = rep.created_at;
+      newRep.started_at = rep.started_at;
+      newRep.completed_at  = rep.completed_at;
+      newRep.num_to_import = rep.getNumToImport();
+      newRep.num_imported  = rep.getNumAttempted();
+      newRep.num_success   = rep.getNumSuccess();
+      newRep.num_error     = rep.getNumError();
+    }
+    catch (e) {
+      log.error('Importers._transformOne: error transforming rep, error - ' + e + ', rep - ' + util.inspect(rep));
+      throw e;
+    }
     return newRep;
   }
 

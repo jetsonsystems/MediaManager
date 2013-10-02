@@ -2392,7 +2392,6 @@ var Importers = (function() {
       }
 
       if (filterNoImages) {
-        
         var numImages = _.has(doc, 'images') ? doc.images.length : 0;
 
         log.debug(lp + 'No image filter - ' + numImages);
