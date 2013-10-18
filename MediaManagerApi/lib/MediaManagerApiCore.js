@@ -1315,7 +1315,8 @@ var Importers = new Class({
       includeImages: false,
       filterNoImages: true,
       filterAllInTrash: true,
-      filterNotStarted: true
+      filterNotStarted: true,
+      filterNotCompleted: true
     };
 
     if (_.has(options, 'query')) {
@@ -1327,6 +1328,9 @@ var Importers = new Class({
       }
       if (_.has(options.query, 'filter_not_started')) {
         opts.filterNotStarted = options.query.filter_not_started;
+      }
+      if (_.has(options.query, 'filter_not_completed')) {
+        opts.filterNotCompleted = options.query.filter_not_completed;
       }
     }
 
@@ -1351,7 +1355,7 @@ var Importers = new Class({
                                         function(err, result) {
                                           var status = 200;
                                           if (err) {
-                                            log.error('Importers.index: error from image service - %s', err);
+                                            log.error('Importers.index: error from image service, err - ', util.inspect(err));
                                             status = errors[errors.UNKNOWN_ERROR].httpStatus;
                                             options.errorCode = errorCodes.UNKNOWN_ERROR;
                                             options.errorMessage = err;
@@ -1382,21 +1386,21 @@ var Importers = new Class({
   read: function(id, options) {
     log.info('Importers.read, Reading for path - %s, id - %s', this.path, id);
     var that = this;
-    imageService.importBatchShow(removePrefix(id),
-                                 { includeImages: false },
-                                 function(err, result) {
-                                   var status = 200;
-                                   if (err) {
-                                     log.error('Importers.show: error from image service - %s', err);
-                                     status = errors[errors.UNKNOWN_ERROR].httpStatus;
-                                     options.errorCode = errorCodes.UNKNOWN_ERROR;
-                                     options.errorMessage = err;
-                                   }
-                                   log.info('Importers.show: invoking callback with status - %s, path - %s', status, that.path);
-                                   var callbackOptions = options ? _.clone(options) : {};
-                                   callbackOptions['isInstRef'] = true;
-                                   that.doCallbacks(status, result, callbackOptions);
-                                 });
+    imageService.Importers.show(removePrefix(id),
+                                { includeImages: false },
+                                function(err, result) {
+                                  var status = 200;
+                                  if (err) {
+                                    log.error('Importers.show: error from image service - %s', err);
+                                    status = errors[errors.UNKNOWN_ERROR].httpStatus;
+                                    options.errorCode = errorCodes.UNKNOWN_ERROR;
+                                    options.errorMessage = err;
+                                  }
+                                  log.info('Importers.show: invoking callback with status - %s, path - %s', status, that.path);
+                                  var callbackOptions = options ? _.clone(options) : {};
+                                  callbackOptions['isInstRef'] = true;
+                                  that.doCallbacks(status, result, callbackOptions);
+                                });
     return this;
   },
 
@@ -1654,22 +1658,22 @@ var ImportersImages = new Class({
 
     }
 
-    imageService.importBatchShow(removePrefix(batchId),
-                                  imagesFilter,
-                                 function(err, result) {
-                                   var status = 200;
-                                   if (err) {
-                                     log.error('ImportersImages.index: error from image service - %s', err);
-                                     status = errors[errors.UNKNOWN_ERROR].httpStatus;
-                                     options.errorCode = errorCodes.UNKNOWN_ERROR;
-                                     options.errorMessage = err;
-                                   }
-                                   log.info('ImportersImages.index: invoking callback with status - %s, path - %s', status, that.path);
-                                   var callbackOptions = options ? _.clone(options) : {};
-                                   callbackOptions['isInstRef'] = true;
-                                   callbackOptions['resourceName'] = 'importer';
-                                   that.doCallbacks(status, result, callbackOptions);
-                                 });
+    imageService.Importers.show(removePrefix(batchId),
+                                imagesFilter,
+                                function(err, result) {
+                                  var status = 200;
+                                  if (err) {
+                                    log.error('ImportersImages.index: error from image service - %s', err);
+                                    status = errors[errors.UNKNOWN_ERROR].httpStatus;
+                                    options.errorCode = errorCodes.UNKNOWN_ERROR;
+                                    options.errorMessage = err;
+                                  }
+                                  log.info('ImportersImages.index: invoking callback with status - %s, path - %s', status, that.path);
+                                  var callbackOptions = options ? _.clone(options) : {};
+                                  callbackOptions['isInstRef'] = true;
+                                  callbackOptions['resourceName'] = 'importer';
+                                  that.doCallbacks(status, result, callbackOptions);
+                                });
     return this;
   },
 

@@ -1114,58 +1114,11 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
 
   if (_.isArray(criteria)) {
     iterOpts.startKey = priv.date_to_array(criteria[0]);
-    iterOptsw.endKey  = priv.date_to_array(criteria[1]);
+    iterOpts.endKey  = priv.date_to_array(criteria[1]);
   }
 
   iterateOverView(IMG_DESIGN_DOC, view, iterOpts);
 
-  // var db = priv.db();
-
-  // log.debug("findByCreationTime: connected to db...");
-
-  // couchdb specific view options
-  //  var view_opts = {
-  //    startkey: []
-  // ,include_docs: true
-  // };
-
-  // if (_.isArray(criteria)) {
-  // view_opts.startkey = priv.date_to_array(criteria[0]);
-  // view_opts.endkey   = priv.date_to_array(criteria[1]);
-  // } else if ( _.isString(criteria) ) {
-  // TODO handle the case when only a single date is passed
-  // } else {
-  // throw "Invalid Argument Exception: findByCreationTime does not understand options.created argument:: '" + criteria + "'";
-  // }
-
-  // runView(IMG_DESIGN_DOC,
-  // view,
-  // {
-  // toReturn: 'docs',
-  // fetchDocs: true,
-  // fetchDocsBatchSize: 100,
-  // callback: function(err, docs) {
-  // if (!err) {
-  // if (docs.length <= 0) {
-  // log.warn('findByCreationTime: Unable to find any images.');
-  // callback(null, []);
-  // }
-  // else {
-  // log.debug('findByCreationTime: Retrieved ' + _.size(docs) + ' image documents.');
-  // 
-  // var aryImgOut = convert_couch_body_to_array_of_images(opts,docs);
-  
-  // log.debug('findByCreationTime: Returning ' + aryImgOut.length + ' images.');
-
-  // callback(null, aryImgOut);
-  // }
-  // }
-  // else {
-  // log.error('findByCreationTime: Error retrieving images, error - ' + err);
-  // callback("error in findByCreationTime with options '" + JSON.stringify(opts) + "': " + err + ".");
-  // }
-  // }
-  // });
 }; // end findByCreationTime
 
 /*
@@ -1760,6 +1713,7 @@ var Importers = (function() {
    *   filterNoImages: Do not return any import batches with no associated images. Default: true.
    *   filterAllInTrash: Do not return any import batches where all images are in trash. Default: true.
    *   filterNotStarted: Do not return any import batches where the corresponding import process has not yet begun. Default: true.
+   *   filterNotCompleted: Return only imports where the import process has completed.
    */
   function index(N, options, callback) {
 
@@ -1781,15 +1735,17 @@ var Importers = (function() {
     if (!_.has(options, 'filterNotStarted')) {
       options.filterNotStarted = true;
     }
+    if (!_.has(options, 'filterNotCompleted')) {
+      options.filterNotCompleted = true;
+    }
 
     var filterOnImages = 
       options.filterNoImages || 
-      options.filterAllInTrash || 
-      options.filterNotStarted;
+      options.filterAllInTrash;
 
-    var transform = genTransformOnIndex(options.includeImages || filterOnImages);
+    var transform = genTransformOnIndex(options.includeImages, filterOnImages);
 
-    var filterFunc = genFilterOnIndex(lp, options.filterNotStarted, options.filterAllInTrash, options.filterNoImages);
+    var filterFunc = genFilterOnIndex(lp, options.filterNotStarted, options.filterNotCompleted, options.filterAllInTrash, options.filterNoImages);
 
     var nToFetch = N ? N : undefined;
     var dIt = new touchdb.DocIterator(
@@ -1857,15 +1813,17 @@ var Importers = (function() {
     if (!_.has(options, 'filterNotStarted')) {
       options.filterNotStarted = true;
     }
+    if (!_.has(options, 'filterNotCompleted')) {
+      options.filterNotCompleted = true;
+    }
 
     var filterOnImages = 
       options.filterNoImages || 
-      options.filterAllInTrash || 
-      options.filterNotStarted;
+      options.filterAllInTrash;
 
-    var transform = genTransformOnIndex(options.includeImages || filterOnImages);
+    var transform = genTransformOnIndex(options.includeImages, filterOnImages);
 
-    var filterFunc = genFilterOnIndex(lp, options.filterNotStarted, options.filterAllInTrash, options.filterNoImages);
+    var filterFunc = genFilterOnIndex(lp, options.filterNotStarted, options.filterNotCompleted, options.filterAllInTrash, options.filterNoImages);
 
     var dPager = new touchdb.DocPager(
       options.pageSize, 
@@ -1951,80 +1909,76 @@ var Importers = (function() {
 
     var view = VIEW_BATCH_BY_OID_W_IMAGE;
 
-    // view keys have the format:
-    // batchOid,
-    // imageOid (or "0" for a batch record)
-    // 0 = batch, 1 = original, 2 = variant
-    var view_opts = {
-      //startkey: [oid,null,0,0]
-      //,endkey:  [oid,{},2,0]
-      startkey: [oid,null]
-      ,endkey:  [oid,{}]
-      ,include_docs: true
-    };
-
-    log.debug("retrieving importBatch with oid '%s' using view '%s' with view_opts %j ...", oid, view, view_opts);
-
-    db.view(IMG_DESIGN_DOC, view, view_opts,
-            function(err, body) {
-              if (err) {
-                var errMsg = util.format("error in importBatchShow(%s): %j", oid, err);
-                log.error(errMsg);
-                callback(errMsg);
-              }
-              else
-              {
-                log.trace("view %s returned %s rows: %j", view, body.rows.length,body);
+    var iterOpts = {
+      pageSize: 100,
+      startKey: [oid, null],
+      endKey: [oid, {}],
+      returnRows: true,
+      callback: function(err, rows) {
+        if (err) {
+          var errMsg = util.format("error in importBatchShow(%s): %j", oid, err);
+          log.error(errMsg);
+          callback(errMsg);
+        }
+        else
+        {
+          log.trace("view %s returned %s rows.", view, rows.length);
                 
-                if (body.rows.length <= 0) {
-                  log.warn("Could not find an importBatch with oid '%s'", oid);
-                } else {
-                  var doc = body.rows[0].doc;
-                  if (doc.class_name !== 'plm.ImportBatch') {
-                    throw util.format("Invalid view returned in importBatchShow by view '%s'", view);
-                  }
+          if (rows.length <= 0) {
+            log.warn("Could not find an importBatch with oid '%s'", oid);
+          } else {
+            var doc = rows[0].doc;
+            if (doc.class_name !== 'plm.ImportBatch') {
+              throw util.format("Invalid view returned in importBatchShow by view '%s'", view);
+            }
                   
-                  batchOut = mmStorage.docFactory('plm.ImportBatch', doc);
+            batchOut = mmStorage.docFactory('plm.ImportBatch', doc);
 
-                  if (opts.includeImages) {
-                    //by default include images out of trash
-                    var imagesTrashState = "out";
+            if (opts.includeImages) {
+              //by default include images out of trash
+              var imagesTrashState = "out";
                     
-                    if(opts.imagesTrashState){
-                      imagesTrashState = opts.imagesTrashState;
-                    }
+              if(opts.imagesTrashState){
+                imagesTrashState = opts.imagesTrashState;
+              }
 
-                    var images = convertImageViewToCollection(body.rows);
-                    var filteredImages = [];
-                    //filter images by trash state
-                    if(imagesTrashState==="out"){
-                      for (var i = 0; i < images.length; i++) {
-                        if(images[i].inTrash()===false){
-                          filteredImages.push(images[i]);
-                        }
-                      }
-                      
-                    }else if(imagesTrashState==="in"){
-                      for (var i = 0; i < images.length; i++) {
-                        if(images[i].inTrash()===true){
-                          filteredImages.push(images[i]);
-                        }
-                      }
-
-                    }else if(imagesTrashState==="any"){// any (all images of importbatch)
-                      filteredImages=images;
-                    }
-                    batchOut.images = filteredImages;
-                    
-                    log.info("Retrieved importBatch with oid '%s' and %s images: %j", oid, batchOut.images.length, batchOut);
-                  } else {
-                    log.info("Retrieved importBatch with oid '%s' and includeImages = false: %j", oid, batchOut);
+              var images = convertImageViewToCollection(rows);
+              var filteredImages = [];
+              //filter images by trash state
+              if(imagesTrashState==="out"){
+                for (var i = 0; i < images.length; i++) {
+                  if(images[i].inTrash()===false){
+                    filteredImages.push(images[i]);
                   }
                 }
-                callback(null, batchOut);
+              }else if(imagesTrashState==="in"){
+                for (var i = 0; i < images.length; i++) {
+                  if(images[i].inTrash()===true){
+                    filteredImages.push(images[i]);
+                  }
+                }
               }
+              else if(imagesTrashState==="any") {
+                // any (all images of importbatch)
+                filteredImages=images;
+              }
+              batchOut.images = filteredImages;
+                    
+              log.info("Retrieved importBatch with oid '%s' and %s images: %j", oid, batchOut.images.length, batchOut);
+            } else {
+              log.info("Retrieved importBatch with oid '%s' and includeImages = false: %j", oid, batchOut);
             }
-           );
+          }
+          callback(null, batchOut);
+        }
+      }
+    };
+
+    log.debug("retrieving importBatch with oid '%s' using view '%s' ...", oid, view);
+
+    iterateOverView(IMG_DESIGN_DOC,
+                    view,
+                    iterOpts);
   }
   /* End of: show */
 
@@ -2351,24 +2305,137 @@ var Importers = (function() {
   /* End of: processBatchImages */
 
   /*
-   * Generate transform function while indexing with a closure.
+   * FilterMeta: filter meta data constructor. Includes an
+   *  update method which is useful if iterating accross
+   *  images in an import.
    */
-  function genTransformOnIndex(includeImages) {
+  function FilterMeta(images) {
+
+    this.update = function(images) {
+      this.meta.num_images = this.meta.num_images + images.length;
+      var countBy = _.countBy(images, function(image) {
+        return image.in_trash === true ? 'in_trash' : 'not_in_trash';
+      });
+      if (countBy.in_trash > 0) {
+        this.meta.num_in_trash = this.meta.num_in_trash + countBy.in_trash;
+      }
+    };
+
+    this.meta = {
+      num_images: 0,
+      num_in_trash: 0
+    };
+
+    if (images && _.isArray(images)) {
+      this.update(images);
+    }
+
+  };
+
+  /*
+   * genTransformOnIndex: Generate transform function while indexing with a closure.
+   *
+   *  Args:
+   *    includeImages: Should we add images to the batch?
+   *    withFilterMeta: if true, meta data for filtering the batch (see
+   *      genFilterOnIndex) will be created. Filter meta will be attached
+   *      to the batch as an attribute named, '_filterMeta', and will
+   *      have the following fields:
+   *        num_images,
+   *        num_in_trash.
+   */
+  function genTransformOnIndex(includeImages, withFilterMeta) {
+
+    function toObject(batch) {
+      if (batch.constructor === Object) {
+        log.debug('genTransformOnIndex.toObject: Converting batch - ' + util.inspect(batch));
+        var batchOut = mmStorage.docFactory('plm.ImportBatch', batch);
+        if (withFilterMeta) {
+          batchOut._filterMeta = batch._filterMeta;
+        }
+        log.debug('genTransformOnIndex.toObject: Converted batch - ' + util.inspect(batchOut));
+        return batchOut;
+      }
+      else {
+        return batch;
+      }
+    }
+
     return function(batch, callback) {
+
+      log.debug('genTransformOnIndex: batch w / id - ' + batch.oid);
+
       if (includeImages) {
         show(batch.oid,
              { includeImages: true },
              function(err, newBatch) {
+               if (withFilterMeta) {
+                 newBatch._filterMeta = new FilterMeta(newBatch.images);
+               }
                callback(err, newBatch);
              });
       }
+      else if (withFilterMeta) {
+
+        var filterMeta = new FilterMeta();
+
+        batch._filterMeta = filterMeta.meta;
+
+        var filter = function(doc) {
+          if (doc.class_name !== 'plm.Image') {
+            return true;
+          }
+          if (doc.orig_id !== '') {
+            return true;
+          }
+          return false;
+        };
+
+        var dIt = new touchdb.DocIterator(
+          100, 
+          IMG_DESIGN_DOC, 
+          VIEW_BATCH_BY_OID_W_IMAGE,
+          {
+            startKey: [batch.oid, null],
+            endKey: [batch.oid, {}],
+            filterSync: filter
+          });
+
+        var iterate = function() {
+          dIt.next().then(
+            function(page) {
+              log.debug('genTransformOnIndex: batch w / id - ' + batch.oid + ', updating filter meta data, before - ' + util.inspect(filterMeta.meta) + ', with ' + page.length + ' images.');
+              filterMeta.update(page);
+              log.debug('genTransformOnIndex: batch w / id - ' + batch.oid + ', updating filter meta data, after - ' + util.inspect(filterMeta.meta));
+              return page;
+            },
+            function(err) {
+              log.debug('genTransformOnIndex: iteration error - ' + util.inspect(err));
+              throw err;
+            }
+          ).then(
+            function(page) { iterate(); },
+            function(err) {
+              if (err.name === 'StopIteration') {
+                log.debug('genTransformOnIndex: iterated over ' +  filterMeta.meta.num_images + ' images...');
+                callback(null, toObject(batch));
+              }
+              else {
+                callback(err);
+              }
+            }
+          );
+        };
+
+        iterate();
+      }
       else {
-        callback(null, batch);
+        callback(null, toObject(batch));
       }
     };
   }
 
-  function genFilterOnIndex(lp, filterNotStarted, filterAllInTrash, filterNoImages) {
+  function genFilterOnIndex(lp, filterNotStarted, filterNotCompleted, filterAllInTrash, filterNoImages) {
     return function(doc) {
 
       if (filterNotStarted) {
@@ -2377,9 +2444,23 @@ var Importers = (function() {
           return true;
         }
       }
+
+      if (filterNotCompleted) {
+        if (!_.has(doc, 'completed_at') || !doc.completed_at) {
+          log.debug(lp + 'Filtering import bactch w/ id - ' + doc.oid + ', reason - not completed.');
+          return true;
+        }
+      }
       
       if (filterAllInTrash) {
-        if (_.has(doc, 'images')) {
+        if (_.has(doc, '_filterMeta')) {
+          log.debug(lp + 'Testing filter meta for bactch w/ id - ' + doc.oid + ', meta - ' + util.inspect(doc._filterMeta));
+          if (doc._filterMeta.num_in_trash >= doc._filterMeta.num_images) {
+            log.debug(lp + 'Filtering import bactch w/ id - ' + doc.oid + ', reason - all in trash.');
+            return true;
+          }
+        }
+        else if (_.has(doc, 'images')) {
           var nonTrash = _.find(doc.images, function(image) {
             return !image.in_trash;
           });
@@ -2392,13 +2473,22 @@ var Importers = (function() {
       }
 
       if (filterNoImages) {
-        var numImages = _.has(doc, 'images') ? doc.images.length : 0;
+        if (_.has(doc, '_filterMeta')) {
+          log.debug(lp + 'Testing filter meta for bactch w/ id - ' + doc.oid + ', meta - ' + util.inspect(doc._filterMeta));
+          if (doc._filterMeta.num_images === 0) {
+            log.debug(lp + 'Filtering import batch w / id - ' + doc.oid + ', reason - no images.');
+            return true;
+          }
+        }
+        else if (_.has(doc, 'images')) {
+          var numImages = doc.images.length;
 
-        log.debug(lp + 'No image filter - ' + numImages);
+          log.debug(lp + 'No image filter - ' + numImages);
       
-        if (numImages === 0) {
-          log.debug(lp + 'Filtering import batch w / id - ' + doc.oid + ', reason - no images.');
-          return true;
+          if (numImages === 0) {
+            log.debug(lp + 'Filtering import batch w / id - ' + doc.oid + ', reason - no images.');
+            return true;
+          }
         }
       }
       
@@ -3892,9 +3982,11 @@ function runView(designDoc, viewName, options) {
 //      pageSize: page size during iteration. Default is 100.
 //      startKey: key to start paging at.
 //      startKeyDocId: doc id associated with start key.
+//      endKey: end key to stop iteration at.
+//      endKeyDocId: doc id associated with end key.
 //      direction: 'ascending' | 'descending', default is 'ascending'.
 //      returnRows: Return couchdb rows which include 'id', 'key', and 'doc' fields.        
-//      callback:
+//      callback(err, docs):
 //
 function iterateOverView(designDoc, viewName, options) {
 
@@ -3904,10 +3996,22 @@ function iterateOverView(designDoc, viewName, options) {
   var callback = options.callback || undefined;
 
   var pageSize = options.pageSize ? options.pageSize : 100;
+
+  var iterOpts = {};
+
+  _.each(['startKey', 'startKeyDocId', 'endKey', 'endKeyDocId', 'endKeyDocId', 'direction', 'returnRows'],
+         function(iOpt) {
+           if (_.has(options, iOpt)) {
+             iterOpts[iOpt] = options[iOpt];
+           }
+         });
+
   var dIt = new touchdb.DocIterator(
     pageSize,
-    IMG_DESIGN_DOC,
-    VIEW_BY_CTIME_UNTAGGED);
+    designDoc,
+    viewName,
+    iterOpts
+  );
 
   var docs = [];
 
@@ -3921,7 +4025,7 @@ function iterateOverView(designDoc, viewName, options) {
         return page;
       },
       function(err) {
-        console.log('error - ' + err);
+        log.error(lp + 'error - ' + err);
         throw err;
       }).then(
         function(page) {
