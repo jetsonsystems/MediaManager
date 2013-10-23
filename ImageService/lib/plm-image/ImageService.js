@@ -73,6 +73,12 @@ var
   ,uuid  = require('node-uuid')
   ;
 
+var tmp = __filename.split('/');
+var fname = tmp[tmp.length-1];
+var moduleName = fname.replace('.js', '');
+
+var logPrefix = moduleName + ': ';
+
 var config = {
   db: {
     host: "localhost",
@@ -89,7 +95,7 @@ var config = {
   // Mime types which will be allowed during import.
   //
   importMimeTypes : {
-    image: ['jpeg', 'png']
+    image: ['jpeg', 'png', 'tiff']
   }
 };
 
@@ -625,7 +631,7 @@ function parseAndTransform(imgOrPath, options, callback)
 /** returns theImgData, theImgStream */
 function transform(anImgMeta, variant, callback)
 {
-  var gmImg = gm(anImgMeta.path);
+  var gmImg = gm(gmPath(anImgMeta.path));
   if (log.isDebugEnabled()) { log.debug("Generating variant %j of image '%s'", variant, anImgMeta.path); }
   async.waterfall(
     [
@@ -712,8 +718,6 @@ function parseImage(imgOrPath, options, callback)
     }
     imageMeta = mmStorage.docFactory('plm.Image', attrs);
 
-    // log.debug('parseImage: Created new image meta data - ' + util.inspect(imageMeta));
-
   }
   else {
     imageMeta = imgOrPath;
@@ -721,27 +725,22 @@ function parseImage(imgOrPath, options, callback)
     // log.debug('parseImage: Parsing image - ' + util.inspect(imageMeta));
   }
 
-  var cbCalled = false;
-  var rs = fs.createReadStream(imgPath);
+  var gp = gmPath(imgPath);
 
-  rs.once('error', function(e) {
-    log.error('Error creating read stream for image - ' + imgPath);
-    if (cbCalled === false) {
-      cbCalled = true;
-      callback(e);
-    }
-  });
+  log.debug('parseImage: gm path - ' + gp);
 
-  rs.once('open', function() {
-    var gmImg   = gm(rs);
+  var gmImg = gm(gp);
 
-    step(
-      function () {
+  async.waterfall(
+    [
+      function (next) {
+        //
         // the 'bufferStream: true' parm is critical, as it buffers the file in memory
         // and makes it possible to stream the bits repeatedly
+        //
         if (options.verbose) {
           log.debug("Verbose parsing of image file '%s'", imgPath);
-          gmImg.identify({bufferStream: true},this);
+          gmImg.identify({bufferStream: true}, next);
         }
         else {
           var doIdentify = function(innerCallback) {
@@ -772,50 +771,43 @@ function parseImage(imgOrPath, options, callback)
                            });
           };
           try {
-            doIdentify(this);
+            doIdentify(next);
           }
           catch (e) {
             var msg = 'Unknown error parsing image file - ' + imgPath;
             log.error(msg);
-            if (cbCalled === false) {
-              cbCalled = true;
-              callback(msg);
-            }
+            next(msg);
           }
         }
       },
-
-      function (err, data) {
-        if (err) { 
-          if (_.isFunction(callback) && (cbCalled === false)) {
-            cbCalled = true;
-            callback(err); 
-            return; 
-          }
-        }
+      function (data, next) {
         log.debug("creating metadata for file '%s'", imgPath);
         imageMeta.readFromGraphicsMagick(data);
-        gmImg.stream(this);
+        gmImg.stream(function(err, anImgStream, anErrStream) {
+          next(err, anImgStream, anErrStream);
+        });
       },
-      
-      function (err, anImgStream, anErrStream) {
+      function (anImgStream, anErrStream, next) {
         log.debug("calculating checksum for file '%s'", imgPath);
         if (config.processingOptions.genCheckSums) {
-          cs.gen(anImgStream, this);
+          cs.gen(anImgStream, next);
         }
         else {
-          this();
+          next(null, null);
         }
       },
-
-      function (aString) {
-        log.debug("checksum for file '%s' is: %s", imgPath, aString);
-        imageMeta.checksum = aString;
-        cbCalled = true;
-        callback(null, imageMeta, imgPath);
+      function (aString, next) {
+        if (config.processingOptions.genCheckSums) {
+          log.debug("checksum for file '%s' is: %s", imgPath, aString);
+          imageMeta.checksum = aString;
+        }
+        next(null, imageMeta, imgPath);
       }
-    );
-  });
+    ],
+    function(err) {
+      callback(err, imageMeta, imgPath);
+    }
+  );
 }
 
 /**
@@ -1089,6 +1081,7 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
 
   var iterOpts = {
     pageSize: 100,
+    direction: 'descending',
     callback: function(err, docs) {
       if (!err) {
         if (docs.length <= 0) {
@@ -1121,15 +1114,25 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
 
 }; // end findByCreationTime
 
-/*
-* maps the body.rows collection
-  into the proper Array of Image originals and their variants
- */
+//
+// convert_couch_body_to_array_of_images: Maps the body.rows collection
+//  into the proper Array of Image originals and their variants.
+//
+//  Note, the view could have been scanned in ascending or descending order:
+//
+//    ascending order (oldest images first): Original will preceed thumnails.
+//    descending order (news first): thumbnails will proceed original.
+//
 function convert_couch_body_to_array_of_images(opts,resultDocs){
 
   var aryImgOut = [];
   var imgMap    = {}; // temporary hashmap that stores original images by oid
   var anImg     = {};
+  //
+  // orphanedVariants: Required for when the view is traversed in descending
+  //  order where thumbnails will come before the original.
+  //
+  var orphanedVariants = {};
 
   for (var i = 0; i < resultDocs.length; i++) {
     var docBody = resultDocs[i];
@@ -1145,6 +1148,10 @@ function convert_couch_body_to_array_of_images(opts,resultDocs){
       log.debug('Adding image to result set, id - ' + anImg.oid);
       imgMap[anImg.oid] = anImg;
       aryImgOut.push(anImg);
+      if (_.has(orphanedVariants, anImg.oid)) {
+        imgMap[anImg.oid].variants.push.apply(imgMap[anImg.oid].variants, orphanedVariants[anImg.oid]);
+        delete orphanedVariants[anImg.oid];
+      }
     } else {
       // if the image is a variant, add it to the original's variants array
       if (_.isObject(imgMap[anImg.orig_id]))
@@ -1157,6 +1164,10 @@ function convert_couch_body_to_array_of_images(opts,resultDocs){
         imgMap[anImg.orig_id].variants.push(anImg);
       } else {
         log.warn("Warning: found variant image without a parent %j", anImg);
+        if (!_.has(orphanedVariants, anImg.orig_id)) {
+          orphanedVariants[anImg.orig_id] = [];
+        }
+        orphanedVariants[anImg.orig_id].push(anImg);
       }
     }
   }
@@ -1210,6 +1221,9 @@ function convertImageViewToCollection(docs, options)
         }
       }
     }
+  }
+  if (opts.sort && _.isFunction(opts.sort)) {
+    aryImgOut.sort(opts.sort);
   }
   return aryImgOut;
 } // end convertImageViewToCollection
@@ -1886,8 +1900,9 @@ var Importers = (function() {
    *
    * options:
    *   includeImages:
-   *     true by default, if true returns all images with variants that are part of the batch
-   *     if false, returns only the batchImport metadata
+   *     true by default, if true returns all images with variants that are part of the batch.
+   *     if false, returns only the batchImport metadata.
+   *     Images are sorted from smallest to largest created_at, then by assending name.
    *
    */
   function show(oid, options, callback) {
@@ -1942,7 +1957,35 @@ var Importers = (function() {
                 imagesTrashState = opts.imagesTrashState;
               }
 
-              var images = convertImageViewToCollection(rows);
+              var images = convertImageViewToCollection(
+                rows,
+                {
+                  sort: function(a, b) {
+                    var ac = a.created_at;
+                    var bc = b.created_at;
+
+                    if (ac < bc) {
+                      return -1;
+                    }
+                    else if (ac > bc) {
+                      return 1;
+                    }
+                    else {
+                      var an = a.name;
+                      var bn = b.name;
+                      if (an < bn) {
+                        return -1;
+                      }
+                      else if (an > bn) {
+                        return 1;
+                      }
+                      else {
+                        return 0;
+                      }
+                    }
+                  }
+                }
+              );
               var filteredImages = [];
               //filter images by trash state
               if(imagesTrashState==="out"){
@@ -2311,19 +2354,30 @@ var Importers = (function() {
    */
   function FilterMeta(images) {
 
+    var numImages = 0;
+    var numImagesInTrash = 0;
+
     this.update = function(images) {
-      this.meta.num_images = this.meta.num_images + images.length;
+
       var countBy = _.countBy(images, function(image) {
         return image.in_trash === true ? 'in_trash' : 'not_in_trash';
       });
-      if (countBy.in_trash > 0) {
-        this.meta.num_in_trash = this.meta.num_in_trash + countBy.in_trash;
+
+      numImages = numImages + images.length;
+      numImagesInTrash = numImagesInTrash + countBy.in_trash;
+
+      if (countBy.not_in_trash > 0) {
+        this.meta.haveNotInTrash = true;
+        this.meta.allInTrash = false;
+      }
+      else if (numImagesInTrash && (numImages === numImagesInTrash)) {
+        this.meta.allInTrash = true;
       }
     };
 
     this.meta = {
-      num_images: 0,
-      num_in_trash: 0
+      haveNotInTrash: false,
+      allInTrash: false
     };
 
     if (images && _.isArray(images)) {
@@ -2339,10 +2393,10 @@ var Importers = (function() {
    *    includeImages: Should we add images to the batch?
    *    withFilterMeta: if true, meta data for filtering the batch (see
    *      genFilterOnIndex) will be created. Filter meta will be attached
-   *      to the batch as an attribute named, '_filterMeta', and will
-   *      have the following fields:
-   *        num_images,
-   *        num_in_trash.
+   *      to the batch as an attribute named, '_filterMeta', and currently
+   *      has ONE attribute:
+   *        haveNotInTrash
+   *        allInTrash
    */
   function genTransformOnIndex(includeImages, withFilterMeta) {
 
@@ -2401,13 +2455,23 @@ var Importers = (function() {
             filterSync: filter
           });
 
+        var IteratedEnough = function() {
+          this.name = 'IteratedEnough';
+          this.message = 'iterated-enough';
+        };
+
         var iterate = function() {
           dIt.next().then(
             function(page) {
               log.debug('genTransformOnIndex: batch w / id - ' + batch.oid + ', updating filter meta data, before - ' + util.inspect(filterMeta.meta) + ', with ' + page.length + ' images.');
               filterMeta.update(page);
               log.debug('genTransformOnIndex: batch w / id - ' + batch.oid + ', updating filter meta data, after - ' + util.inspect(filterMeta.meta));
-              return page;
+              if (filterMeta.meta.haveNotInTrash) {
+                throw new IteratedEnough();
+              }
+              else {
+                return page;
+              }
             },
             function(err) {
               log.debug('genTransformOnIndex: iteration error - ' + util.inspect(err));
@@ -2416,8 +2480,8 @@ var Importers = (function() {
           ).then(
             function(page) { iterate(); },
             function(err) {
-              if (err.name === 'StopIteration') {
-                log.debug('genTransformOnIndex: iterated over ' +  filterMeta.meta.num_images + ' images...');
+              if ((err.name === 'StopIteration') || (err.name === 'IteratedEnough')) {
+                log.debug('genTransformOnIndex: iteration terminated with ' +  err.name);
                 callback(null, toObject(batch));
               }
               else {
@@ -2455,7 +2519,7 @@ var Importers = (function() {
       if (filterAllInTrash) {
         if (_.has(doc, '_filterMeta')) {
           log.debug(lp + 'Testing filter meta for bactch w/ id - ' + doc.oid + ', meta - ' + util.inspect(doc._filterMeta));
-          if (doc._filterMeta.num_in_trash >= doc._filterMeta.num_images) {
+          if (doc._filterMeta.allInTrash) {
             log.debug(lp + 'Filtering import bactch w/ id - ' + doc.oid + ', reason - all in trash.');
             return true;
           }
@@ -2475,7 +2539,7 @@ var Importers = (function() {
       if (filterNoImages) {
         if (_.has(doc, '_filterMeta')) {
           log.debug(lp + 'Testing filter meta for bactch w/ id - ' + doc.oid + ', meta - ' + util.inspect(doc._filterMeta));
-          if (doc._filterMeta.num_images === 0) {
+          if (!doc._filterMeta.haveNotInTrash) {
             log.debug(lp + 'Filtering import batch w / id - ' + doc.oid + ', reason - no images.');
             return true;
           }
@@ -2530,13 +2594,16 @@ function collectImagesInDir(target_dir, callback)
   // This inner function is called further below on each file under the target directory
   // to determine whether it is an image and to determine its mime type
   function collectImage(file, next) {
-    // log.trace("collecting %s", file);
+    var lp = moduleName + ".collectImagesInDir.collectImage: ";
+
     mime(file, function(err, mimeType) {
       if (err) {
         log.warn("error while collecting images: %s", err);
         next(err);
         return;
       }
+
+      log.debug(lp + 'found file - ' + file + ', mime type - ' + mimeType);
 
       // converts a string like 'image/jpg' to ['image', 'jpg']
       var mimeData = mimeType.split("/");
@@ -2765,20 +2832,22 @@ function findByTags(filter, options, callback) {
             if (err) {
               callback(err);
             }else{
-              //all images were processed time to callback
+              //
+              // all images were processed time to callback, sort by:
+              //
+              // (created_at, importer_id, name)
+              //
+              aryImgOut.sort(sortImagesNewestFirst);
               callback(null, aryImgOut);
             }
         }
         );
-
-
       } else {
         callback(util.format("error in findByTags with view options '%j' - err: %s - body: %j", view_opts, err, body));
       }
     }
   );
 } // end findByTags
-
 
 /**
  * options.trashState : in|out|any
@@ -2857,6 +2926,7 @@ function findImagesByTrashState(options, callback) {
               callback(err);
             }else{
               //all images were processed time to callback
+              aryImgOut.sort(sortImagesNewestFirst);
               callback(null, aryImgOut);
             }
           }
@@ -3278,8 +3348,6 @@ function tagsGetImagesTags(imagesIdsArray,callback){
 
 } // end tagsGetImagesTags
 
-
-
 /*
  *  getImageUrl: Helper to construct a URL to reference the image associated with a document.
  */
@@ -3538,86 +3606,84 @@ function restoreFromTrash(oidArray,callback){
 
 exports.viewTrash = viewTrash;
 
-/**
- * TODO: Move this method to a StorageService
+/*
+ * viewTrash: Find documents in Trash.
  *
- * Find documents in Trash
- *
- * options:
- *
- *   showMetadata: false by default, set to true to enable display of Image.metadata_raw
+ *  Args:
+ *    options: unused.
+ *    callback(err, images): Return images.
  */
 function viewTrash(options, callback) {
 
   var opts = options || {};
 
-  var db = priv.db();
+  var lp = logPrefix.replace(': ', '.viewTrash: ');
 
-  log.trace("viewTrash: connected to db...");
+  var iterOpts = {
+    pageSize: 100,
+    callback: function(err, docs) {
+      if (err) {
+        var msg = util.format("error in retrieving trash, err: %s - body: %j", err, body);
+        log.error(lp + msg);
+        callback(msg);
+      }
+      else {
+        log.debug(lp + 'received ' + docs.length + ' documents!');
+        //remove duplicates
+        var resultDocs = _.uniq(docs, function (doc) {
+          return doc.oid;
+        });
 
-  var aryImgOut = [];
-  var imgMap    = {}; // temporary hashmap that stores original images by oid
-  var anImg     = {};
+        var aryImgOut = [];
 
-  // couchdb specific view options
-  var view_opts={ include_docs: true};
+        async.eachSeries(resultDocs,
+                         function (doc, next) {
+                           var anImage = mmStorage.docFactory('plm.Image', doc);
+                           if(anImage.isOriginal()) {
+                             log.debug(lp.replace(': ', '.async.eachSeries.callback: ') + 'retrieving doc w/id - ' + doc.oid);
+                             Images.show(doc.oid,
+                                         null,
+                                         function(err,image){
+                                           if (err) { 
+                                             log.error('viewTrash.runView.callback: error retrieving image w/id - ' + doc.oid);
+                                             callback(err); 
+                                           }
+                                           else {
+                                             log.debug('viewTrash.runView.callback: Pushing image to result set - %j', image);
+                                             aryImgOut.push(image);
+                                           }
+                                           next(null);
+                                         }
+                                        );
+                           }
+                           else{
+                             //is a variant, do nothing since the variant is already nested in the variants attribute of an original
+                             next();
+                           }
+                         },
+                         function(err) {
+                           if (err) {
+                             callback(err);
+                           }
+                           else {
+                             //
+                             // all images were processed time to callback, sort by:
+                             //
+                             // (created_at, importer_id, name)
+                             //
+                             aryImgOut.sort(sortImagesNewestFirst);
+                             callback(null, aryImgOut);
+                           }
+                         }
+                        );
+      }
+    }
+  };
 
-  runView(IMG_DESIGN_DOC,
-          VIEW_TRASH,
-          {
-            toReturn: 'docs',
-            fetchDocs: true,
-            fetchDocsBatchSize: 100,
-            callback: function(err, docs) {
+  iterateOverView(IMG_DESIGN_DOC,
+                  VIEW_TRASH,
+                  iterOpts);
 
-              if (!err) {
-                log.debug('viewTrash.runView.callback: received ' + docs.length + ' documents!');
-                //remove duplicates
-                var resultDocs = _.uniq(docs, function (doc) {
-                  return doc.oid;
-                });
-
-                async.eachSeries(resultDocs,
-                                 function (doc, next) {
-                                   var anImage = mmStorage.docFactory('plm.Image', doc);
-                                   if(anImage.isOriginal()) {
-                                     log.debug('viewTrash.runView.callback: retrieving doc w/id - ' + doc.oid);
-                                     Images.show(doc.oid,
-                                          null,
-                                          function(err,image){
-                                            if (err) { 
-                                              log.error('viewTrash.runView.callback: error retrieving image w/id - ' + doc.oid);
-                                              callback(err); 
-                                            }
-                                            else {
-                                              log.debug('viewTrash.runView.callback: Pushing image to result set - %j', image);
-                                              aryImgOut.push(image);
-                                            }
-                                            next(null);
-                                          }
-                                         );
-                                   }
-                                   else{
-                                     //is a variant, do nothing since the variant is already nested in the variants attribute of an original
-                                     next();
-                                   }
-                                 },
-                                 function(err) {
-                                   if (err) {
-                                     callback(err);
-                                   }
-                                   else {
-                                     //all images were processed time to callback
-                                     callback(null, aryImgOut);
-                                   }
-                                 }
-                                );
-              } 
-              else {
-                callback(util.format("error in viewTrash with view options '%j' - err: %s - body: %j", view_opts, err, body));
-              }
-            }
-          });
 } // end viewTrash
 
 exports.deleteImages = deleteImages;
@@ -3756,7 +3822,8 @@ function emptyTrash(callback){
 } // end emptyTrash
 
 //
-// Some helpers:
+// TouchDB Helpers:
+//
 //  bulkDocFetch: Fetch a bunch of documents given a list of doc IDs.
 //  fetchDocs: Fetch documents, optionally in batches.
 //  runView: Run a view, and optionally including documents when running
@@ -4025,7 +4092,9 @@ function iterateOverView(designDoc, viewName, options) {
         return page;
       },
       function(err) {
-        log.error(lp + 'error - ' + err);
+        if (err.name !== 'StopIteration') {
+          log.error(lp + 'error - ' + err);
+        }
         throw err;
       }).then(
         function(page) {
@@ -4045,6 +4114,72 @@ function iterateOverView(designDoc, viewName, options) {
   }
 
   iterate();
+}
+
+//
+//  GraphicsMagick helpers:
+//
+//    gmPath(path): Return path to send to GM.
+//
+
+//
+// gmPath(path): Return path to send to GM. Identifies cases that might
+//  not go to dcraw by default, such as .MOS files.
+//
+//  Args:
+//    path: Path to file on disk.
+//
+function gmPath(file) {
+  var tmp = file.split('/');
+  var fname = tmp[tmp.length-1];
+  tmp = fname.split('.');
+  var ext = tmp[tmp.length-1];
+
+  if (ext.toLowerCase() === 'mos') {
+    file = 'dcraw:' + file;
+  }
+
+  return file;
+}
+
+//
+// Images helpers:
+//
+//  sortImagesNewestFirst: Newest images first.
+//
+function sortImagesNewestFirst(a, b) {
+  var ac = a.created_at;
+  var bc = b.created_at;
+                               
+  if (ac > bc) {
+    return -1;
+  }
+  else if (ac < bc) {
+    return 1;
+  }
+  else {
+    var aImpId = a.importer_id;
+    var bImpId = b.importer_id;
+    if (aImpId < bImpId) {
+      return -1;
+    }
+    else if (aImpId > bImpId) {
+      return 1;
+    }
+    else {
+      var an = a.name;
+      var bn = b.name;
+      if (an < bn) {
+        return -1;
+      }
+      else if (an > bn) {
+        return 1;
+      }
+      else {
+        return 0;
+      }
+    }
+  }
 }
 
 //

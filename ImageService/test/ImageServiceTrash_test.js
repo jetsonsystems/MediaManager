@@ -1,14 +1,14 @@
 'use strict';
 
-var async = require("async")
-  , config = require("config").db
-  , dbMan = require('./databaseManager.js')
-  , imageService = require('../lib/plm-image/ImageService')
-  , log4js = require('log4js')
-  , nano = require('nano')
-  , util = require('util')
-  , _ = require('underscore')
-  ;
+var async = require("async");
+var config = require("config").db;
+var dbMan = require('./databaseManager.js');
+var mmStorage = require('MediaManagerStorage')(config);
+var imageService = require('../lib/plm-image/ImageService');
+var log4js = require('log4js');
+var nano = require('nano');
+var util = require('util');
+var _ = require('underscore');
 
 var chai = require('chai')
   , expect = chai.expect

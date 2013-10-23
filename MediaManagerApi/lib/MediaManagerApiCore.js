@@ -193,21 +193,6 @@ var init = function(config, options) {
   storage = storageModuleInst.get('touchdb');
 };
 
-/*
-var ConsoleLogger = function(debugLevel) {
-
-  this.debugLevel = debugLevel;
-  this.module = '/MediaManager/MediaManagerApi/lib/MediaManagerApiCore';
-
-  this.log = function(context, msg) {
-    this.debugLevel <= 0 || console.log(this.module + '.' + context + ': ' + msg);
-    return;
-  }
-};
-
-var cLogger = new ConsoleLogger(1);
-*/
-
 log.info('Using ImageService version - %s', imageServicePackage.version);
 
 //
@@ -349,7 +334,6 @@ var Resource = new Class({
   },
 
   index: function(options) { 
-    log.info('Resource.index: indexing nothing ...');
     return this; 
   },
   create: function(attr, options) { return this; },
@@ -382,7 +366,6 @@ var Resource = new Class({
     }
     else {
       if (method === 'GET') {
-        log.info('Resource.doRequest: invoking index ...');
         return this.index(options);
       }
       else if (method === 'POST') {
@@ -400,7 +383,7 @@ var Resource = new Class({
   //    createResponseBody.
   //
   doCallbacks: function(status, result, options) {
-    log.info('Resource.doCallbacks: w/ status - %s, path - %s', status, this.path);
+    log.debug('Resource.doCallbacks: w/ status - %s, path - %s', status, this.path);
     if (result) {
       options.rep = result;
     }
@@ -433,7 +416,7 @@ var Resource = new Class({
   //        * errorMessage: Error message.
   //
   createResponseBody: function(status, options) {
-    log.info('Resource.createResponseBody: Creating response body w/ status - %s', status);
+    log.debug('Resource.createResponseBody: Creating response body w/ status - %s', status);
     var body = {
       status: status
     };
@@ -590,7 +573,7 @@ var Images = new Class({
     var that = this;
 
     var indexOptions = buildIndexOptions(options);
-    log.info('Images.index: index options - ' + util.inspect(indexOptions));
+    log.debug('Images.index: index options - ' + util.inspect(indexOptions));
     imageService.index(indexOptions,function(err, result) {
       var status = 200;
       if (err) {
@@ -611,12 +594,11 @@ var Images = new Class({
     imageService.show(removePrefix(id), null, function(err, result) {
       var status = 200;
       if (err) {
-        log.info('Images.read: error from image service - %s', err);
+        log.error('Images.read: error from image service - %s', err);
         status = errors[errors.UNKNOWN_ERROR].httpStatus;
         options.errorCode = errorCodes.UNKNOWN_ERROR;
         options.errorMessage = err;
       }
-      // log.info('Images.read', 'got result of - ' + JSON.stringify(result));
       log.info('Images.read: invoking callback with status - %s, path - %s, id - %s', status, that.path, id);
       var callbackOptions = options ? _.clone(options) : {};
       callbackOptions['isInstRef'] = true;
@@ -849,12 +831,14 @@ var Images = new Class({
   //      * options:
   //        * isInstRef: If true, we are referencing an instance of an image,
   //          otherwise rep is a collection (array of result).
+  //        * reverse: reverse the results.
   //
   transformRep: function(rep, options) {
-    log.info('Images.transformRep: Doing transform, path - %s', this.path);
+    log.debug('Images.transformRep: Doing transform, path - %s', this.path);
     var that = this;
+    options = options || {};
     if (options && _.has(options, 'isInstRef') && options.isInstRef) {
-      log.info('Images.transformRep: transforming instance to full form...');
+      log.debug('Images.transformRep: transforming instance to full form...');
       try {
         return that.postTransformHook(that._transformToFullFormRep(rep), rep);
       }
@@ -865,10 +849,12 @@ var Images = new Class({
     }
     else {
       if (_.isArray(rep)) {
-        log.info('Images.transformRep: transforming collection to array of short forms...');
-        log.info('Images.transformRep: type of - %s, desired short form attributes - %', 
+        log.debug('Images.transformRep: transforming collection to array of short forms...');
+        log.debug('Images.transformRep: type of - %s, desired short form attributes - %', 
 						typeof(that._shortFormAttrs), JSON.stringify(_.values(that._shortFormAttrs)));
-        rep.reverse();
+        if (options.reverse) {
+          rep.reverse();
+        }
         var newRep = [];
         _.each(rep, 
                function(aRep) {
@@ -958,7 +944,7 @@ var Images = new Class({
       }
       if ((!_.has(newRep, 'name') || (newRep.name === undefined)) && _.has(rep, 'path')) {
         newRep['name'] = '$' + _.last(rep.path.split('/'));
-        log.info('Images._transformAttrs: updated name attribute to - %s', newRep['name']);
+        log.debug('Images._transformAttrs: updated name attribute to - %s', newRep['name']);
       }
     }
     catch (e) {
@@ -1068,7 +1054,7 @@ var Tagger = new Class({
     if (isValid) {
 
       if (_.has(attr, 'add')) {
-        log.info('Tagger.add: Payload - %s', JSON.stringify(attr));
+        log.debug('Tagger.add: Payload - %s', JSON.stringify(attr));
         var listOfImages = attr.add.images;
         var listOfTags = attr.add.tags;
         imageService.tagsAdd(removePrefix(listOfImages), listOfTags,
@@ -1081,7 +1067,7 @@ var Tagger = new Class({
               options.errorMessage = err;
             }
             else {
-              log.info('Tagger.add: Added tags on images- %j', result);
+              log.debug('Tagger.add: Added tags on images- %j', result);
             }
             that.doCallbacks(status, listOfImages, options);
           }
@@ -1089,7 +1075,7 @@ var Tagger = new Class({
       }
       else
       if(_.has(attr, 'replace')){
-        log.info('Tagger.replace: Payload - %s', JSON.stringify(attr));
+        log.debug('Tagger.replace: Payload - %s', JSON.stringify(attr));
         var listOfImages = attr.replace.images;
         var oldTags = attr.replace.oldTags;
         var newTags = attr.replace.newTags;
@@ -1103,7 +1089,7 @@ var Tagger = new Class({
               options.errorMessage = err;
             }
             else {
-              log.info('Tagger.replace: Replaced tags on images- %j', result);
+              log.debug('Tagger.replace: Replaced tags on images- %j', result);
             }
             that.doCallbacks(status, listOfImages, options);
           }
@@ -1112,7 +1098,7 @@ var Tagger = new Class({
 
       else
       if(_.has(attr, 'remove')){
-        log.info('Tagger.remove: Payload - %s', JSON.stringify(attr));
+        log.debug('Tagger.remove: Payload - %s', JSON.stringify(attr));
         var listOfImages = attr.remove.images;
         var tagsToRemove = attr.remove.tags;
         //var newTags = attr.replace.newTags;
@@ -1126,7 +1112,7 @@ var Tagger = new Class({
               options.errorMessage = err;
             }
             else {
-              log.info('Tagger.remove: Removed tags on images - %j', result);
+              log.debug('Tagger.remove: Removed tags on images - %j', result);
             }
             that.doCallbacks(status, listOfImages, options);
           }
@@ -1485,7 +1471,7 @@ var Importers = new Class({
   //
   transformRep: function(rep, options) {
     var lp = 'Importers.transformRep: ';
-    log.info(lp + 'Doing transform, path - %s', this.path);
+    log.debug(lp + 'Doing transform, path - %s', this.path);
     var that = this;
     if (options && _.has(options, 'isInstRef') && options.isInstRef) {
       log.debug('Importers.transformRep: transforming instance to full form, rep - ' + util.inspect(rep));
@@ -1495,7 +1481,7 @@ var Importers = new Class({
     }
     else {
       if (_.isArray(rep)) {
-        log.info('Importers.transformRep: transforming collection...');
+        log.debug('Importers.transformRep: transforming collection...');
         var newRep = [];
         _.each(rep, 
                function(aRep) {
@@ -1685,7 +1671,7 @@ var ImportersImages = new Class({
   //      * rep: The result from the image service.
   //
   transformRep: function(rep, options) {
-    log.info('ImportersImages.transformRep: Doing transform...');
+    log.debug('ImportersImages.transformRep: Doing transform...');
     var newRep = this.importersResource.transformRep(rep, { isInstRef: true,
                                                             resourceName: 'importer' });
     if (newRep) {
@@ -1772,7 +1758,7 @@ var StorageSynchronizers = new Class({
   //      * options:
   //
   transformRep: function(rep, options) {
-    log.info('StorageSynchronizers.transformRep: Doing transform, path - %s, id - %s, state - %s', this.path, rep.id, rep.state);
+    log.debug('StorageSynchronizers.transformRep: Doing transform, path - %s, id - %s, state - %s', this.path, rep.id, rep.state);
     var newRep = {};
     if (rep) {
       newRep = { id: '$' + rep.id,
@@ -1844,7 +1830,7 @@ var StorageChangesFeed = new Class({
 
       function publishImagesChangeEvent(event) {
 
-        log.info('StorageChangesFeed.create: About to publish image change event, image doc - %j', event.doc);
+        log.debug('StorageChangesFeed.create: About to publish image change event, image doc - %j', event.doc);
 
         var IMAGES = new Images('',{});
 
@@ -1871,7 +1857,7 @@ var StorageChangesFeed = new Class({
         else if (event.doc.orig_id) {
           imageService.show(event.doc.orig_id, null, function(err, result) {
             if (err) {
-              log.info('StorageChangesFeed.create: Failed to fetch origin image in order to publish change event, error - %s', err);
+              log.error('StorageChangesFeed.create: Failed to fetch origin image in order to publish change event, error - %s', err);
             }
             else {
               notifications.publish('/storage/changes-feed',
