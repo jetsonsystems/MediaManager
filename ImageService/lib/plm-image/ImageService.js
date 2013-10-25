@@ -4,6 +4,7 @@
 //
 //  Images: Namespace for image methods.
 //    show(oid, options, callback): Retreives and returns an image.
+//    findByOids(oidsArray, callback): Simply returns images by id.
 //    findVersion(oid, callback): Determines whether an image w/ oid exists.
 //
 //  Images aliases:
@@ -11,6 +12,7 @@
 //    save(anImgPath, options, callback): Creates a new image, parsing via GraphicsMagick, 
 //      and optionally generating thumbnails. The resulting imagke document is persisted.
 //    findVersion -> Images.findVersion
+//    findByOids -> Images.findByOids
 //
 //  Image methods in global namespace:
 //    create(imgAttrs, options, callback): Creates new images give a set of initial attributes (imgAttrs).
@@ -22,7 +24,6 @@
 //      by creation time.
 //    findByTags(filter, options, callback): Retrieve images by tag(s).
 //    findImagesByTrashState(options, callback): Retrieve images which are in or not in trash.
-//    findByOids(oidsArray, options, callback): ?
 //    tagsReplace(oidArray, oldTags, newTags, callback):
 //    tagsRemove(oidArray, tagsToRemove, callback):
 //    tagsAdd(oidArray, tagsArray, callback):
@@ -36,13 +37,13 @@
 //    emptyTrash(callback): Deletes all images which are curently considered as being "in trash"
 //
 //  Importers: Namespace for import batch public methods.
-//      createFromFs(importDir, options, callback): Creates an import batch from images 
-//        found on the filesystem.
-//      index(N, options, callback): Retrieve N of the most recent import batches.
-//      pagedIndex(cursor, options, callback): Like index, but with a pagination based interface.
-//      show(oid, options, callback): Retrieve an import batch.
-//      update(oid, options, callback): Update an import batch. Note, only the
-//        'state' attribute may be modified.
+//    createFromFs(importDir, options, callback): Creates an import batch from images 
+//      found on the filesystem.
+//    index(N, options, callback): Retrieve N of the most recent import batches.
+//    pagedIndex(cursor, options, callback): Like index, but with a pagination based interface.
+//    show(oid, options, callback): Retrieve an import batch.
+//    update(oid, options, callback): Update an import batch. Note, only the
+//      'state' attribute may be modified.
 //
 //  Importer aliases:
 //
@@ -285,6 +286,9 @@ var Images = (function() {
     // this returns rows in the following order:
     // - original first
     // - variants in ascending size
+    //
+    // Note, using db.view here is OK, as we are ONLY retrieving ONE image.
+    //
     db.view(IMG_DESIGN_DOC, VIEW_BY_OID_WITH_VARIANT,
             {
               startkey: [oid, 0, 0]      // 0 = original -  0 = min width
@@ -397,10 +401,32 @@ var Images = (function() {
     );
   }
 
+  function findByOids(oidsArray, callback) {
+    log.debug("findByOids array of oids: %j ", oidsArray);
+
+    if (!_.isArray(oidsArray)) {
+      throw "Invalid Argument Exception: findByOids does not understand filter oidsArray:: '" + oidsArray + "'";
+    }
+
+    fetchDocs(oidsArray,
+              {
+                batchSize: 100,
+                convertToImage: true,
+                callback: function(err, docs) {
+                  if (err) {
+                    callback("findByTags error: " + err);
+                  } else {
+                    callback(null, docs);
+                  }
+                }              
+              });
+  } // end findByOids
+
   return {
     show: show,
     save: save,
-    findVersion: findVersion
+    findVersion: findVersion,
+    findByOids: findByOids
   }; 
 })();
 
@@ -408,6 +434,7 @@ exports.Images = Images;
 exports.show = Images.show;
 exports.save = Images.save;
 exports.findVersion = Images.findVersion;
+exports.findByOids = Images.findByOids;
 
 /*
  * create: Create a set of images given an initial set of attributes.
@@ -1124,6 +1151,8 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
 //    descending order (news first): thumbnails will proceed original.
 //
 function convert_couch_body_to_array_of_images(opts,resultDocs){
+
+  opts = opts || {};
 
   var aryImgOut = [];
   var imgMap    = {}; // temporary hashmap that stores original images by oid
@@ -2762,91 +2791,89 @@ function findByTags(filter, options, callback) {
   log.trace("findByTags: connected to db...");
 
   var aryImgOut = []; // images sorted by creation time
-  var imgMap    = {}; // temporary hashmap that stores original images by oid
-  var anImg     = {};
 
-  // couchdb specific view options
-  var view_opts={ include_docs: true, reduce:false};
+  var keys = undefined;
 
   if (_.isObject(filter)) {
-    view_opts.keys = _.pluck(filter.rules, 'data');
+    keys = _.pluck(filter.rules, 'data');
   }else {
     throw "Invalid Argument Exception: findByTags does not understand filter argument:: '" + filter + "'";
   }
 
+  log.trace("Finding images and their variants using view '%s'", VIEW_BY_TAG);
 
-  log.trace("Finding images and their variants using view '%s' with view_opts %j", VIEW_BY_TAG, view_opts);
+  var tags = keys;
 
-  var tags = view_opts.keys;
+  iterateOverViewKeys(IMG_DESIGN_DOC, 
+                      VIEW_BY_TAG,
+                      keys,
+                      {
+                        reduce: false,
+                        callback: function(err, docs) {
+                          if (err) {
+                            callback(util.format("error in findByTags with err: %s", err));
+                          }
+                          else {
 
-  db.view(IMG_DESIGN_DOC, VIEW_BY_TAG, view_opts,
-    function(err, body) {
+                            //remove duplicates
+                            var possibleMatches = _.uniq(docs, function (doc) {
+                              return doc.oid;
+                            });
 
-      if (!err) {
+                            log.debug('findByTags: Have ' + possibleMatches.length + ' possible results.');
 
-        //remove duplicates
-        var possibleMatches = _.uniq(body.rows,function (doc) {
-          return doc.id;
-        });
+                            // Pick out the documents that include all of the given keywords.
 
-        // Pick out the documents that include all of the given keywords.
+                            var resultDocs = _.filter(possibleMatches, 
+                                                      function(doc) {
+                                                        if(filter.groupOp==="AND"){
+                                                          var containsAll = _.every(tags,  function(tag){
+                                                            return _.contains(doc.tags, tag);
+                                                          });
+                                                          return containsAll;
+                                                        } else if (filter.groupOp==="OR") {
+                                                          var containsAny = _.some(tags,  function(tag){
+                                                            return _.contains(doc.tags, tag);
+                                                          });
+                                                          return containsAny;
+                                                        }
+                                                      });
 
-        var results = _.filter(possibleMatches, function(m) {
-            if(filter.groupOp==="AND"){
-              var containsAll = _.every(tags,  function(tag){
-                return _.contains(m.doc.tags, tag);
-              });
-              return containsAll;
+                            log.debug('findByTags: Have ' + resultDocs.length + ' results.');
 
-            }else
-            if(filter.groupOp==="OR"){
-              var containsAny = _.some(tags,  function(tag){
-                return _.contains(m.doc.tags, tag);
-              });
-              return containsAny;
-            }
-          }
-        );
+                            var resultDocsOids = _.pluck(resultDocs, "oid");
 
-        //extract only the "doc" part
-        var resultDocs = _.pluck(results, "doc");
+                            var aryImgOut = [];
 
-        var resultDocsOids = _.pluck(resultDocs, "oid");
-
-
-        var aryImgOut = [];
-
-         async.forEachLimit(resultDocsOids,
-          1,
-          function (oid,next){
-            Images.show(oid,null,function(err,image){
-              if (err) { callback(err); }
-              else {
-                aryImgOut.push(image);
-              }
-              next();
-              }
-            );
-           },
-          function(err) {
-            if (err) {
-              callback(err);
-            }else{
-              //
-              // all images were processed time to callback, sort by:
-              //
-              // (created_at, importer_id, name)
-              //
-              aryImgOut.sort(sortImagesNewestFirst);
-              callback(null, aryImgOut);
-            }
-        }
-        );
-      } else {
-        callback(util.format("error in findByTags with view options '%j' - err: %s - body: %j", view_opts, err, body));
-      }
-    }
-  );
+                            async.forEachLimit(resultDocsOids,
+                                               1,
+                                               function (oid,next){
+                                                 Images.show(oid,null,function(err,image){
+                                                   if (err) { callback(err); }
+                                                   else {
+                                                     aryImgOut.push(image);
+                                                   }
+                                                   next();
+                                                 }
+                                                            );
+                                               },
+                                               function(err) {
+                                                 if (err) {
+                                                   callback(err);
+                                                 }else{
+                                                   //
+                                                   // all images were processed time to callback, sort by:
+                                                   //
+                                                   // (created_at, importer_id, name)
+                                                   //
+                                                   aryImgOut.sort(sortImagesNewestFirst);
+                                                   callback(null, aryImgOut);
+                                                 }
+                                               }
+                                              );
+                          }
+                        }
+                      });
 } // end findByTags
 
 /**
@@ -2940,65 +2967,6 @@ function findImagesByTrashState(options, callback) {
   );
 } // end findByTrashState
 
-
-exports.findByOids = findByOids;
-
-
-function findByOids(oidsArray, options, callback) {
-  log.debug("findByOids array of oids: %j ", oidsArray);
-
-  var opts = options || {};
-
-  log.debug("findByOids opts: " + JSON.stringify(opts));
-
-  var db = priv.db();
-
-  log.debug("findByOids: connected to db...");
-
-  var aryImgOut = []; // images sorted by creation time
-  var imgMap    = {}; // temporary hashmap that stores original images by oid
-  var anImg     = {};
-
-  // couchdb specific view options
-  var view_opts={include_docs: true};
-
-  if (_.isArray(oidsArray)) {
-    view_opts.keys = oidsArray;
-  }else {
-    throw "Invalid Argument Exception: findByOids does not understand filter oidsArray:: '" + oidsArray + "'";
-  }
-
-
-  log.trace("Finding images and their variants using view '%s' with view_opts %j", VIEW_BY_OID_WITHOUT_VARIANT, view_opts);
-
-  var tags = view_opts.keys;
-
-  db.view(IMG_DESIGN_DOC, VIEW_BY_OID_WITHOUT_VARIANT, view_opts,
-    function(err, body) {
-
-      if (!err) {
-
-        //remove duplicates
-        var results = _.uniq(body.rows,function (doc) {
-          return doc.id;
-        });
-
-
-        //extract only the "doc" part
-        var resultDocs = _.pluck(results, "doc");
-
-        var aryImgOut = convert_couch_body_to_array_of_images(opts,resultDocs);
-
-        callback(null, aryImgOut);
-
-      } else {
-        callback("error in findByTags with options '" + options + "': " + err + ", with body '" + JSON.stringify(body) + "'");
-      }
-    }
-  );
-} // end findByOids
-
-
 exports.tagsReplace = tagsReplace;
 
 /**
@@ -3025,7 +2993,7 @@ function tagsReplace(oidArray,oldTags, newTags,callback){
 
         log.trace("Finding by oids ...");
 
-        findByOids(oidArray, null, function (err, images) {
+        Images.findByOids(oidArray, function (err, images) {
           if (err) {
             var errMsg = util.format("Error occurred while finding by oids ", err);
             log.error(errMsg);
@@ -3109,7 +3077,7 @@ function tagsRemove(oidArray,tagsToRemove,callback){
 
         log.trace("Finding by oids ...");
 
-        findByOids(oidArray, null, function (err, images) {
+        Images.findByOids(oidArray, function (err, images) {
           if (err) {
             var errMsg = util.format("Error occurred while finding by oids ", err);
             log.error(errMsg);
@@ -3181,21 +3149,23 @@ function tagsAdd(oidArray, tagsArray,callback){
     [
       //Retrieve the images to modify
       function(next) {
-
         log.trace("Finding by oids ...");
 
-        findByOids(oidArray, null, function (err, images) {
-          if (err) {
-            var errMsg = util.format("Error occurred while finding by oids ", err);
-            log.error(errMsg);
-            if (_.isFunction(callback)) { callback(errMsg); }
-          }
-          else{
-            imagesToModify = images;
-            next();
-          }
-        });
-
+        fetchDocs(oidArray, {
+          batchSize: 100,
+          convertToImage: true,
+          callback: function (err, images) {
+            if (err) {
+              var errMsg = util.format("Error occurred while finding by oids ", err);
+              log.error(errMsg);
+              if (_.isFunction(callback)) { callback(errMsg); }
+            }
+            else{
+              log.debug('tagsAdd: Got ' + images.length + ' images.');
+              imagesToModify = images;
+              next();
+            }
+          }});
       },
 
       //add the tags
@@ -3291,61 +3261,42 @@ exports.tagsGetImagesTags = tagsGetImagesTags;
  * Get the list of tags of a set of images
  * @param callback
  */
-function tagsGetImagesTags(imagesIdsArray,callback){
+function tagsGetImagesTags(imagesIdsArray, callback) {
 
   log.debug("Attempting to get tags of a set of images .........");
 
-  var db = priv.db();
-
-  log.trace("tagsGetImagesTags: connected to db...");
-
-
-  // couchdb specific view options
-  var view_opts={ include_docs: true
-  };
-  if (_.isArray(imagesIdsArray)) {
-    view_opts.keys = imagesIdsArray;
-  }else {
+  if (!_.isArray(imagesIdsArray)) {
     throw "Invalid Argument Exception: tagsGetImagesTags does not understand imagesIdsArray:: '" + imagesIdsArray + "'";
   }
 
-  log.trace("Getting tags of a set of images using view '%s' with view_opts %j", VIEW_BY_OID_WITHOUT_VARIANT, view_opts);
+  fetchDocs(imagesIdsArray,
+            {
+              batchSize: 100,
+              callback: function(err, docs) {
+                if (!err) {
+                  var resultTags = [];
 
-  db.view(IMG_DESIGN_DOC, VIEW_BY_OID_WITHOUT_VARIANT, view_opts,
-    function(err, body) {
+                  //collect all the tags
+                  _.each(docs, function(image){
+                    resultTags.push(image.tags);
+                  });
 
-      if (!err) {
+                  resultTags = _.flatten(resultTags);
 
-        //extract only the "doc" part
-        var resultDocs = _.pluck(body.rows, "doc");
+                  //remove duplicates
+                  resultTags = _.uniq(resultTags);
 
-        var resultTags = [];
+                  //sort tags
+                  resultTags.sort();
 
-        //collect all the tags
-        _.each(resultDocs,function(image){
-          resultTags.push(image.tags);
-        });
+                  log.debug("tagsGetImagesTags query returned: '%j'", resultTags);
 
-        resultTags = _.flatten(resultTags);
-
-        //remove duplicates
-        resultTags = _.uniq(resultTags);
-
-        //sort tags
-        resultTags.sort();
-
-
-        log.debug("tagsGetImagesTags query returned: '%j'", resultTags);
-
-        callback(null, resultTags);
-
-      } else {
-        callback(util.format("error getting tags of a set of images: '%s', with body: '%j'", err, body));
-      }
-    }
-  );
-
-
+                  callback(null, resultTags);
+                } else {
+                  callback(util.format("error getting tags of a set of images: '%s'", err));
+                }
+              }
+            });
 } // end tagsGetImagesTags
 
 /*
@@ -3829,6 +3780,7 @@ function emptyTrash(callback){
 //  runView: Run a view, and optionally including documents when running
 //    the view, or separately fetching the documents.
 //  iterateOverView: iterate over a view fetching documents.
+//  iterateOverViewKeys: Repeatedly invoke runView given a set of view keys.
 //
 
 //
@@ -3877,6 +3829,7 @@ var bulkDocFetch = function(docIds, callback) {
 //    docIds: Document IDs.
 //    options:
 //      batchSize: Batchsize to use. By default ALL documents will be fetched.
+//      convertToImage: Convert to image objects. Default: false.
 //      callback: callback(err, docs)
 //
 var fetchDocs = function(docIds, options) {
@@ -3906,6 +3859,10 @@ var fetchDocs = function(docIds, options) {
     },
     function(err) {
       log.debug('fetchDocs: Finished fetching documents, fetched - ' + docs.length);
+      if (!err && options.convertToImage) {
+        log.debug('fetchDocs: Converting docs to images...');
+        docs = convert_couch_body_to_array_of_images(null, docs);
+      }
       callback && callback(err, docs);
     }
   );
@@ -4052,7 +4009,11 @@ function runView(designDoc, viewName, options) {
 //      endKey: end key to stop iteration at.
 //      endKeyDocId: doc id associated with end key.
 //      direction: 'ascending' | 'descending', default is 'ascending'.
-//      returnRows: Return couchdb rows which include 'id', 'key', and 'doc' fields.        
+//      returnRows: Return couchdb rows which include 'id', 'key', and 'doc' fields.
+//      reduce: true or false, passed to view.
+//      skip: Iterate skipping over previous pages. Default is false. Use this for views
+//        where same key can produce multiple docs. TouchDB seems to have a bug with
+//        startkey_docid.
 //      callback(err, docs):
 //
 function iterateOverView(designDoc, viewName, options) {
@@ -4066,7 +4027,7 @@ function iterateOverView(designDoc, viewName, options) {
 
   var iterOpts = {};
 
-  _.each(['startKey', 'startKeyDocId', 'endKey', 'endKeyDocId', 'endKeyDocId', 'direction', 'returnRows'],
+  _.each(['startKey', 'startKeyDocId', 'endKey', 'endKeyDocId', 'endKeyDocId', 'direction', 'returnRows', 'reduce', 'skip'],
          function(iOpt) {
            if (_.has(options, iOpt)) {
              iterOpts[iOpt] = options[iOpt];
@@ -4114,6 +4075,75 @@ function iterateOverView(designDoc, viewName, options) {
   }
 
   iterate();
+}
+
+//
+// iterateOverViewKeys: For each key, iterate of the results matching that key.
+//  Useful for views that return many documents for the same key.
+//
+//  Args:
+//    designDoc
+//    viewName
+//    keys
+//    options:
+//      pageSize: page size during iteration. Default is 100.
+//      reduce: true or false, passed to view.
+//      returnRows: Return couchdb rows which include 'id', 'key', and 'doc' fields. 
+//        Normally, docs are returned.
+//      callback(err, docs):
+//
+function iterateOverViewKeys(designDoc, viewName, keys, options) {
+
+  var lp = 'iterateOverViewKeys: ';
+
+  log.debug(lp + 'view - ' + viewName + ', keys - ' + keys + ', options - ' + util.inspect(options));
+
+  options = options || {};
+
+  var callback = options.callback || undefined;
+  var docs = [];
+  var keyIdx = 0;
+  async.whilst(
+    function() { return keyIdx < keys.length; },
+    function(innerCallback) {
+
+      //
+      // For a given key, we iterate over the view to get the results.
+      //
+
+      var keyToFetch = keys[keyIdx];
+      log.debug('iterateOverViewKeys: Fetching key ' + keyToFetch+ ', at idx - ' + keyIdx + '.');
+
+      var iterOpts = {skip: true};
+
+      _.each(['pageSize', 'returnRows', 'reduce'],
+             function(iOpt) {
+               if (_.has(options, iOpt)) {
+                 iterOpts[iOpt] = options[iOpt];
+               }
+             });
+
+      iterOpts.startKey = keyToFetch;
+      iterOpts.endKey = keyToFetch;
+
+      iterOpts.callback = function(err, docsFetched) {
+        if (!err && docsFetched) {
+          log.debug('iterateOverViewKeys: Adding ' + docsFetched.length + ' documents to result set...');
+          docs.push.apply(docs, docsFetched);
+          log.debug('iterateOverViewKeys: Total documents fetched - ' + docs.length);
+        }
+        innerCallback(err);
+      }
+
+      iterateOverView(designDoc, viewName, iterOpts);
+
+      keyIdx = keyIdx + 1;
+    },
+    function(err) {
+      log.debug('iterateOverViewKeys: Finished iterating over view, fetched - ' + docs.length);
+      callback && callback(err, docs);
+    }
+  );
 }
 
 //

@@ -489,7 +489,7 @@ describe('ImageService Testing Tags', function () {
             //Retrieve the modified images
             function (next) {
 
-              imageService.findByOids(oidsOfRetrievedImages, null, function (err, images) {
+              imageService.findByOids(oidsOfRetrievedImages, function (err, images) {
                 if (err) {
                   done(err);
                 }
@@ -694,7 +694,7 @@ describe('ImageService Testing Tags', function () {
             //Retrieve the modified images
             function (next) {
 
-              imageService.findByOids(oidsOfRetrievedImages, null, function (err, images) {
+              imageService.findByOids(oidsOfRetrievedImages, function (err, images) {
                 if (err) {
                   done(err);
                 }
