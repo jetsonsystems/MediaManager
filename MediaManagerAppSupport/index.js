@@ -23,12 +23,23 @@ var path = require('path');
 var fs = require('fs');
 
 var _ = require('underscore');
-var log4js = require('log4js');
 var retry = require('retry');
 //
 // OSXFileSystem MUST be required before MediaManagerAppConfig!
 //
 var osxFs = require('./lib/OSXFileSystem');
+var log4js = require('log4js');
+var log4jsConfigFile = undefined;
+if (_.has(process.env, 'LOG4JS_CONFIG')) {
+  log4jsConfigFile = process.env.LOG4JS_CONFIG;
+}
+else {
+  log4jsConfigFile = path.join(osxFs.appBundleConfigDir, 'log4js.json');
+}
+if (!fs.existsSync(log4jsConfigFile)) {
+  throw new Error('Unable to find log4js configuration file.');
+}
+log4js.configure(log4jsConfigFile, { cwd: osxFs.libAppSupportLogDir });
 var Worker = require('webworker');
 var config = require('MediaManagerAppConfig');
 var storage = require('./lib/storage.js');

@@ -2,13 +2,27 @@
 // ApiWorker: An individual webworker.
 //
 var util = require('util');
+var fs = require('fs');
 var _ = require('underscore');
+
+var osxFs = require('MediaManagerAppSupport/lib/OSXFileSystem');
+
+var log4jsConfigFile = undefined;
+if (_.has(process.env, 'LOG4JS_CONFIG')) {
+  log4jsConfigFile = process.env.LOG4JS_CONFIG;
+}
+else {
+  log4jsConfigFile = path.join(osxFs.appBundleConfigDir, 'log4js.json');
+}
+if (!fs.existsSync(log4jsConfigFile)) {
+  throw new Error('Unable to find log4js configuration file.');
+}
+
 var log4js = require('log4js');
+log4js.configure(log4jsConfigFile, { cwd: osxFs.libAppSupportLogDir });
 
 var notifications = require('MediaManagerApi/lib/Notifications');
 
-var configPath = process.env.LOG4JS_CONFIG;
-log4js.configure(configPath);
 var logger = log4js.getLogger('plm.MediaManagerAppSupport');
 var tmp = __filename.split('/');
 var logPrefix = tmp[tmp.length-1].replace('.js', ': ');

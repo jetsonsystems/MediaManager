@@ -34,11 +34,21 @@
 //      changes are not lost as a result of installing a new version of the applicaiton.
 //
 //
-//  Attributes:
+//  Exported Attributes:
+//
+//    appBundleDir: The application bundler directory.
+//    appBundlerIdentifier: The bundle's application identifier.
+//    appBundleConfigDir: Config dir. in the application bundle. Used to get the default config
+//      which gets copied to the /Libarary/Application directory (libAppSupportDir).
 //
 //    libAppSupportDir: Full path to the application support directory, ie:
 //
 //      /Users/chad/Library/Application Support/com.jetsonsystems.plm
+//
+//      Sub directories:
+//
+//        libAppSupportConfigDir: The config directory the APP reads/updates. Persists accross installs.
+//        libAppSupportLogDir: Directory where logs are written to. Persists accross installs.
 //
 //    libCachesDir: Full path to the caches dir, ie:
 //
@@ -53,6 +63,12 @@ var plist = require('plist');
 
 exports.appBundleDir = undefined;
 exports.appBundleIdentifier = undefined;
+exports.appBundleConfigDir = undefined;
+exports.libAppSupportDir = undefined;
+exports.libAppSupportConfigDir = undefined;
+exports.libAppSupportLogDir = undefined;
+exports.libAppSupportRunDir = undefined;
+exports.libAppSupportDataDir = undefined;
 
 if (_.has(process.env, 'PLM_APP_BUNDLE_DIR')) {
 
@@ -91,7 +107,7 @@ else {
 //
 var initLibAppSupportConfig = function(appSupportDir) {
   var configDir = path.join(appSupportDir, 'config');
-  var bundleConfigDir = path.join(exports.appBundleDir, 'Contents/Resources/config');
+  var bundleConfigDir = exports.appBundleConfigDir = path.join(exports.appBundleDir, 'Contents/Resources/config');
 
   //
   // Make the config dir.
@@ -144,6 +160,10 @@ var initLibAppSupportConfig = function(appSupportDir) {
 //
 //    1. If it does NOT exist create it.
 //    2. If it does NOT contain a config dir, create it, and copy config/default.js from appBundleDir.
+//    3. If the following do NOT exists, create them:
+//      var/log
+//      var/run
+//      var/data
 //
 var initLibAppSupportDir = function() {
 
@@ -164,7 +184,53 @@ var initLibAppSupportDir = function() {
     throw new Error('Application Support Directory is NOT a valid directory - ' + dir);
   }
 
-  initLibAppSupportConfig(dir);
+  exports.libAppSupportConfigDir = initLibAppSupportConfig(dir);
+
+  var varDir = path.join(dir, '/var');
+  if (!fs.existsSync(varDir)) {
+    try {
+      fs.mkdirSync(varDir);
+    }
+    catch (e) {
+      throw new Error('Error creating var directory - ' + varDir);
+    }
+  }
+
+  var logDir = path.join(dir, '/var/log');
+
+  if (!fs.existsSync(logDir)) {
+    try {
+      fs.mkdirSync(logDir);
+    }
+    catch (e) {
+      throw new Error('Error creating log directory - ' + logDir);
+    }
+  }
+  exports.libAppSupportLogDir = logDir;
+
+  var runDir = path.join(dir, '/var/run');
+
+  if (!fs.existsSync(runDir)) {
+    try {
+      fs.mkdirSync(runDir);
+    }
+    catch (e) {
+      throw new Error('Error creating run directory - ' + runDir);
+    }
+  }
+  exports.libAppSupportRunDir = runDir;
+
+  var dataDir = path.join(dir, '/var/data');
+
+  if (!fs.existsSync(dataDir)) {
+    try {
+      fs.mkdirSync(dataDir);
+    }
+    catch (e) {
+      throw new Error('Error creating data directory - ' + dataDir);
+    }
+  }
+  exports.libAppSupportDataDir = dataDir;
 
   return dir;
 };

@@ -8,7 +8,7 @@
     "media_manager_notif_client": "media_manager_notif_client.js"
   },
   "dependencies" : {
-    "log4js"        : "0.5.x",
+    "log4js"       : "https://github.com/marekjulian/log4js-node/tarball/master",
     "node-uuid"    : "~1.4.0",
     "plist"        : "~0.4",
     "restify"      : "2",

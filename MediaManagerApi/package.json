@@ -11,7 +11,7 @@
   },
   "comment": "scripts - \"preinstall\": \"./preinstall.sh\"",
   "dependencies" : {
-    "log4js"        : "0.5.x"
+    "log4js"        : "https://github.com/marekjulian/log4js-node/tarball/master"
     ,"bunyan"        : "~0.16.8"
     ,"mootools"     : "=1.4.5"
     ,"node-uuid"    : "~1.4.0"

@@ -9,7 +9,10 @@
 //
 
 var util = require('util');
+var path = require('path');
+var fs = require('fs');
 var _ = require('underscore');
+var osxFs = require('./OSXFileSystem');
 var storageModule = require('MediaManagerStorage');
 
 var log4js = require('log4js');
@@ -59,7 +62,27 @@ module.exports = function assetManagerModule(config, dbUpdateSeq, options) {
 
   logger.info(logPrefix + 'uploadqFile - ' + gdriveUploadqFile);
 
-  logger.info(logPrefix + 'config.storage.gdrive.persistDir - ' + config.storage.gdrive.persistDir);
+  var relPersistDir = config.storage.gdrive.persistDir.replace(/\.?\/?(var\/data)?/, '');
+
+  var persistDir = osxFs.libAppSupportDataDir;
+
+  _.each(relPersistDir.split('/'), function(subDir) {
+    persistDir = path.join(persistDir, '/', subDir);
+    if (!(fs.existsSync(persistDir) && fs.statSync(persistDir).isDirectory())) {
+      try {
+        fs.mkdirSync(persistDir);
+      }
+      catch (e) {
+        logger.error(logPrefix + 'Error Updating persist dir. to - ' + persistDir + ', error - ' + e);
+        throw Object.create(new Error(),
+                            { name: { value: 'PersistDirCreateError' },
+                              message: { value: 'MediaManagerAppSupport/lib/AssetManager: Error creating gdrive persist directory - ' + persistDir }
+                            });
+      }
+    }
+  });
+
+  logger.info(logPrefix + 'config.storage.gdrive.persistDir - ' + persistDir);
 
   var account;
 
@@ -74,7 +97,7 @@ module.exports = function assetManagerModule(config, dbUpdateSeq, options) {
   }
 
   var gdriveUploader = new gdrive.Uploader(account, 
-                                           config.storage.gdrive.persistDir,
+                                           persistDir,
                                            {logOnly: logOnly,
                                             uploadqFile: gdriveUploadqFile,
                                             location: config.storage.gdrive.locations.originals});

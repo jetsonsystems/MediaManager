@@ -2780,7 +2780,9 @@ function toCouch(image){
 exports.findByTags = findByTags;
 
 function findByTags(filter, options, callback) {
-  log.debug("findByTags filter: %j ", filter);
+  var lp = 'findByTags: ';
+
+  log.debug(lp + "filter - %j ", filter);
 
   var opts = options || {};
 
@@ -2800,7 +2802,7 @@ function findByTags(filter, options, callback) {
     throw "Invalid Argument Exception: findByTags does not understand filter argument:: '" + filter + "'";
   }
 
-  log.trace("Finding images and their variants using view '%s'", VIEW_BY_TAG);
+  log.debug(lp + "Finding images and their variants using view - '%s', keys - '%j'.", VIEW_BY_TAG, keys);
 
   var tags = keys;
 

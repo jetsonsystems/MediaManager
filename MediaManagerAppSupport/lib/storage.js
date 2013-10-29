@@ -10,7 +10,8 @@ var path = require('path');
 var cp = require('child_process');
 var log4js = require('log4js');
 
-var runDir = './var/run';
+var osxFs = require('./OSXFileSystem');
+var runDir = osxFs.libAppSupportRunDir;
 
 //
 //  init: Initialize storage.
@@ -48,20 +49,17 @@ var init = function(config, options) {
                           message: { value: 'MediaManagerAppSupport/lib/storage: <config> MUST define a database.' } });
   }
 
-  if (!(fs.existsSync(runDir) && fs.statSync(runDir).isDirectory())) {
-    logger.info('MediaManagerAppSupport/lib/storage.init: run directory does NOT exist, run dir - ' + runDir);
-    var fullPath = path.join(process.cwd(), runDir);
-    logger.info('MediaManagerAppSupport/lib/storage.init: creating run dir - ' + fullPath);
-
-    try {
-      fs.mkdirSync(fullPath);
-    }
-    catch(err) {
-      throw Object.create(new Error(),
-                          { name: { value: 'RunDirCreateError' },
-                            message: { value: 'MediaManagerAppSupport/lib/storage.init: Error creating run directory - ' + fullPath + ', w/ err - ' + err}
-                          });
-    }
+  if (!fs.existsSync(runDir)) {
+    throw Object.create(new Error(),
+                        { name: { value: 'RunDirDoesNotExist' },
+                          message: { value: 'MediaManagerAppSupport/lib/storage.init: Run directory does not exist - ' + runDir }
+                        });
+  }
+  else if (!fs.statSync(runDir).isDirectory()) {
+    throw Object.create(new Error(),
+                        { name: { value: 'InvalidRunDir' },
+                          message: { value: 'MediaManagerAppSupport/lib/storage.init: Run directory is NOT a directory - ' + runDir }
+                        });
   }
 
   var storage = Object.create(EventEmitter.prototype);
