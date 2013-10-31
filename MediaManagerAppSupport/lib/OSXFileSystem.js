@@ -150,6 +150,56 @@ var initLibAppSupportConfig = function(appSupportDir) {
   catch (e) {
     throw new Error('Error updating config defaults in - ' + configDefaultPath);
   }
+
+  //
+  // See if there is a config defined by NODE_ENV. If so, copy it also.
+  //
+  if (_.has(process.env, 'NODE_ENV')) {
+    var bundleNodeEnvFile = path.join(bundleConfigDir, process.env.NODE_ENV + '.json');
+    if (fs.existsSync(bundleNodeEnvFile)) {
+
+      //
+      // Update config/<NODE_ENV>.json from that in the bundleConfigDir.
+      //
+      var configNodeEnvPath = path.join(configDir, process.env.NODE_ENV + '.json');
+      try {
+        var cData = fs.readFileSync(bundleNodeEnvFile);
+
+        fs.writeFileSync(configNodeEnvPath, cData);
+      }
+      catch (e) {
+        throw new Error('Error updating ' + process.env.NODE_ENV + ' config in - ' + configNodeEnvPath);
+      }
+    }
+  }
+
+  //
+  // If there is a runtime.json in configDir, update it S.T. the ONLY keys which exists are 'app'
+  // as we currently DO NOT allow the APP to update any of these.
+  //
+  var runtimeConfigFile = path.join(configDir, 'runtime.json');
+  if (fs.existsSync(runtimeConfigFile)) {
+    try {
+      var cData = fs.readFileSync(runtimeConfigFile);
+      var parsedConfig = JSON.parse(cData);
+      var dirty = false;
+      
+      _.each(_.keys(parsedConfig), function(key) {
+        if (key !== 'app') {
+          delete parsedConfig[key];
+          dirty = true;
+        }
+      });
+      if (dirty) {
+        cData = JSON.stringify(parsedConfig);
+        fs.writeFileSync(runtimeConfigFile, cData);
+      }
+    }
+    catch (e) {
+      throw new Error('Error updating runtime config - ' + runtimeConfigFile + ', error - ' + e);
+    }
+  }
+
   return configDir;
 };
 
