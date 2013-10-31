@@ -40,6 +40,7 @@ if (!fs.existsSync(log4jsConfigFile)) {
   throw new Error('Unable to find log4js configuration file.');
 }
 log4js.configure(log4jsConfigFile, { cwd: osxFs.libAppSupportLogDir });
+var cpm = require('./lib/ChildProcessManager');
 var Worker = require('webworker');
 var config = require('MediaManagerAppConfig');
 var storage = require('./lib/storage.js');
@@ -118,6 +119,11 @@ var MediaManagerAppSupportModule = function(appjs, routes) {
     log.error(logPrefix + 'File cache alias not a valid sym link, alias path - ' + aliasPath + ', file cache root dir - ' + app.fileCache.rootDir);
     app.emit('fileCacheAliasTypeError');
   }
+
+  //
+  // Make sure that ANY stray processes are killed from a previous run.
+  //
+  cpm.unregister();
 
   app.storage = {
     //
@@ -205,6 +211,7 @@ var MediaManagerAppSupportModule = function(appjs, routes) {
             app.servWorker = new Worker(workerPath);
             app.servWorker.onmessage = function(e) {
               if (e.data.type === AppServWorkerMessages.APP_SERVER_READY) {
+                cpm.register('AppServWorker', app.servWorker.pid);
                 app.servWorkerReady = true;
                 app.readyState = app.readyStates.READY;
                 app.emit('appReady');

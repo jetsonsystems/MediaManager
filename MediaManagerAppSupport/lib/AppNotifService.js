@@ -2,6 +2,8 @@
 // AppNotifService:
 //
 var path = require('path');
+var events = require('events');
+
 var _ = require('underscore');
 var log4js = require('log4js');
 
@@ -18,6 +20,9 @@ var serverPort = config.services.notifAPI.port;
 
 logger.info(logPrefix + 'Starting Notifications service, host - ' + config.services.notifAPI.host + ', port - ' + serverPort);
 
+var ready = false;
+var readyChange = new events.EventEmitter();
+
 var server = http.createServer(function(request, response) {
   logger.info(logPrefix + '__request__ Received request, url - ' + request.url);
 
@@ -27,6 +32,8 @@ var server = http.createServer(function(request, response) {
 
 server.listen(serverPort, function() {
   logger.info(logPrefix + '__start__ Server listening on port - ' + serverPort);
+  ready = true;
+  readyChange.emit('change');
 });
 
 var wsServer = undefined;
@@ -135,6 +142,23 @@ wsServer.on('request', function(request) {
   });
 
 });
+
+exports.ready = function(callback) {
+
+  function onReadyChange() {
+    if (ready) {
+      readyChange.removeListener('change', onReadyChange);
+      callback();
+    }
+  }
+
+  if (ready) {
+    callback();
+  }
+  else {
+    readyChange.on('change', onReadyChange);
+  }
+};
 
 exports.shutdown = function() {
   logger.info(logPrefix + '__shutdown__ Shutting down...');

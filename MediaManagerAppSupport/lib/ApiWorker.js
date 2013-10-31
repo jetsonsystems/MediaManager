@@ -27,6 +27,8 @@ var logger = log4js.getLogger('plm.MediaManagerAppSupport');
 var tmp = __filename.split('/');
 var logPrefix = tmp[tmp.length-1].replace('.js', ': ');
 
+var readyState = undefined;
+
 logger.info(logPrefix + 'Initializing resources...');
 
 var ApiWorkerMessages = require('MediaManagerAppSupport/lib/ApiWorkerMessages');
@@ -80,7 +82,16 @@ onmessage = function(e) {
 
     resource.doRequest(request.method, options);
   }
+  else if (e.data.type === ApiWorkerMessages.START) {
+    readyState = ApiWorkerMessages.READY_STATE.READY;
+    postMessage(ApiWorkerMessages.createReadyStateChangeMsg(ApiWorkerMessages.READY_STATE.READY));    
+    logger.info(logPrefix + 'Worker ready state posted as ready...');
+  }
   else {
     logger.error(lp + 'Invalid message received by worker, type - ' + e.data.type);
   }
 };
+
+readyState = ApiWorkerMessages.READY_STATE.CREATED;
+
+

@@ -1,5 +1,10 @@
 //
-// AppRestService:
+// AppRestService: Instantiates a server implementing our REST API endpoints. Each endpoint is
+//  in its own web-worker as implemented via apiWorkers.
+//
+//  Public Methods:
+//    ready(callback): Invokes callback() when the rest service is READY to receive requests.
+//    shutdown: To shutdown the service.
 //
 var version = '0.0.1';
 var serverName = 'app_rest_service';
@@ -220,6 +225,16 @@ var router = new Router();
 server.listen(serverPort, function() {
   logger.info(moduleName + ': __start__ ' + serverName + ', listening on port - ' + serverPort);
 });
+
+exports.ready = function(callback) {
+  var lp = moduleName + '.ready: ';
+
+  logger.info(lp + 'Testing api workers ready state...');
+  apiWorkers.ready(function() {
+    logger.info(moduleName + '.ready: apiWorkers are ready...');
+    callback();
+  });
+};
 
 exports.shutdown = function() {
   logger.info(moduleName + ': __shutdown__ ' + serverName + ', shutting down...');

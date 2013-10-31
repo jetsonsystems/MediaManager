@@ -16,6 +16,7 @@ var path = require('path');
 var fs = require('fs');
 
 var _ = require('underscore');
+var Q = require('q');
 
 var osxFs = require('MediaManagerAppSupport/lib/OSXFileSystem');
 var log4js = require('log4js');
@@ -108,15 +109,36 @@ onmessage = function(e) {
                                       dbInfo.updateSeq,
                                       {dryRun: false});
     logger.info(lp + 'Asset manager instantiated...');
-    //
-    // Hack: Not sure how to tell if everything is ready to go.
-    //
-    setTimeout(function() {
-      postMessage({
-        "type": AppServWorkerMessages.APP_SERVER_READY,
+
+    var p = Q.promise(
+      function(resolve) {
+        //
+        // Verify the restService and notifService are both ready to go...
+        //
+        restService.ready(function() {
+          resolve();
+        });
       });
-    },
-               1000);
+    p.then(
+      function() {
+        return Q.promise(function(resolve) {
+          //
+          // Verify the notifService is ready.
+          //
+          notifService.ready(function() {
+            resolve();
+          });
+        });
+      }
+    ).then(
+      function() {
+        //
+        // Both promisses where fullfilled via their callbacks getting invoked!
+        //
+        postMessage({
+          "type": AppServWorkerMessages.APP_SERVER_READY,
+        });
+      });
   }
   else {
     logger.info(lp + 'Invalid message received by worker, type - ' + e.data.type);
