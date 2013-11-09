@@ -69,7 +69,7 @@ The response payload will contain a *importer* attribute which is a JSON represe
 
 ### Description
 
-Index the last N imports. 
+Index the last N imports. The endpoint supports [pagination](../guides/pagination.md) over results.
 
 ### Parameters
 
@@ -77,6 +77,13 @@ Index the last N imports.
   * **filter_no_images=\<boolean\>**: Filter importers such that those with no associated images are no returned. **Default: true**
   * **filter_all_in_trash=\<boolean\>**: Filter importers such that those where all images are in trash are not returned. **Default: true**
   * **filter_not_started=\<boolean\>**: Filter importers such that those which have not yet started their import process are not returned. **Default: true**.
+
+In order to [paginate](./guides/pagination.md) over importers, the following pagination parameters should be specified as appropriate:
+
+  * **cursor=\<cursor value\>**: Cursor signifying the beginning of the page.
+  * **page_size=\<integer\>**: The size of the page to return. Defaults to **10**.
+  * **page_to=\<page\>**: To optionally specficy whether the previous or next page should be retrieved:
+    * **\<page\>** ::= 'previous' | 'next'
 
 Note, by default, when the request is simply <pre>GET /importers</pre>:
   * All importers are returned, with the exception of those filtered by the various filter* options.
@@ -206,18 +213,39 @@ PUT /importers/$46247ce7-eef1-4ec6-98b4-eb1ed75e5752
 
 ### Description
 
-Indexes the images imported via an instance of an **importer**.
+Indexes the images imported via an instance of an **importer**. The endpoint supports [pagination](../guides/pagination.md) over images associated with the **importer**.
 
 ### Parameters
 
-None.
+  * **trashState=out|any|in**: 
+  indicates whether to return (i) images out of trash, or (ii) all regardless of trash state, or (iii) in trash, respectively.  Defaults to trashState=out when parameter is omitted.  In other words, by default hide images that have been placed in trash.
+
+```
+  GET /importers/<importer ID>/images[?trashState=in]
+  GET /importers/<importer ID>/images[?trashState=out]
+  GET /importers/<importer ID>/images[?trashState=any]
+```
+
+In order to [paginate](../guides/pagination.md) over images associated with the **importer**, the following parameters should be specified as appropriate:
+
+  * **cursor=\<cursor value\>**: Cursor signifying the beginning of the page.
+  * **page_size=\<integer\>**: The size of the page to return. Defaults to **1000**.
+  * **page_to=\<page\>**: To optionally specficy whether the previous or next page should be retrieved:
+    * **\<page\>** ::= 'previous' | 'next'
 
 ### Response Payload
 
+#### Response without [pagination](../guides/pagination.md) 
+
 The response payload will contain a **importer** attribute which is a JSON representation of the **importer** resource as described here: [Importer Resource Format](../resource-formats.md#importer-resource-format). In addition, the **importer** attribute, will contain an **images** attribute which is an array of JSON representations of **image** resources which were imported by the **importer**. Each image resource is represented in its [Image Resource Format - Short Form](../resource-formats#image-resource-format-short-form).
+
+#### Response with [pagination](../guides/pagination.md) 
+
+When [paginating](../guides/pagination.md) over the **importer's** images, the response payload will contain an **images** attribute which is an array of images associated with the **importer**. Each image resource is represented in its [Image Resource Format - Short Form](../resource-formats#image-resource-format-short-form).
 
 ### Examples
 
+#### Request / Response without [pagination](../guides/pagination.md)
   * request:
 
 ```
@@ -245,11 +273,3 @@ The response payload will contain a **importer** attribute which is a JSON repre
     }
 ```
 
-  * **trashState=out|any|in**: 
-  indicates whether to return (i) images out of trash, or (ii) all regardless of trash state, or (iii) in trash, respectively.  Defaults to trashState=out when parameter is omitted.  In other words, by default hide images that have been placed in trash.
-
-```
-  GET /importers/<importer ID>/images[?trashState=in](Completed)
-  GET /importers/<importer ID>/images[?trashState=out](Completed)
-  GET /importers/<importer ID>/images[?trashState=any](Completed)
-```

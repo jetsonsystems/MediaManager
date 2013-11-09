@@ -112,8 +112,20 @@ module.exports = {
     logger.debug(lp + 'Transforming importer w/ id - ' + transformedRep.id);
 
     for (var i = 0; i < transformedRep.images.length; ++i) {
-      var transformed = transformedRep.images[i];
-      var raw = rawRep.images[i];
+      var transformed = undefined;
+      var raw = undefined;
+
+      if (_.has(transformedRep, 'images') && _.has(transformedRep, 'paging') && _.has(rawRep, 'items') && _.has(rawRep, 'cursors')) {
+        //
+        // Paginated form:
+        //
+        transformed = transformedRep.images[i];
+        raw = rawRep.items[i].doc;
+      }
+      else {
+        transformed = transformedRep.images[i];
+        raw = rawRep.images[i];
+      }
 
       images(transformed, raw);
     }

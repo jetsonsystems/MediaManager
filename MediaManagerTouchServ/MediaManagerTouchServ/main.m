@@ -399,11 +399,16 @@ int main(int argc, const char * argv[])
                      docPath);
             }
         }) version: @"0.0.1"];
-        
+
+        //
+        // batch_by_oid_w_image:
+        //
+        //  key: <batch_id>, <original image id>, <0, 1, 2 depending upon whether import, original, or variant>, <name>
+        //        
         [design defineViewNamed: @"batch_by_oid_w_image" mapBlock: MAPBLOCK({
             if ([[doc objectForKey: @"class_name"] isEqualToString:@"plm.ImportBatch"]) {
                 //
-                //  emit([doc.oid, '0', 0, 0], doc.path)
+                //  emit([doc.oid, '0', 0, ''], doc.path)
                 //
                 NSString* oid = doc[@"oid"];
                 id docPath = doc[@"path"];
@@ -411,22 +416,22 @@ int main(int argc, const char * argv[])
                       oid,
                       @"0",
                       [NSNumber numberWithInteger: 0],
-                      [NSNumber numberWithInteger: 0],
+                      @"",
                       nil],
                      docPath);
             }
             else if ([[doc objectForKey: @"class_name"] isEqualToString:@"plm.Image"]) {
                 //
                 //  original doc:
-                //    emit([doc.batch_id, doc.oid, 1, doc.size.width], doc.path)
+                //    emit([doc.batch_id, doc.oid, 1, doc.name], doc.name)
                 //
                 //  variant:
-                //    emit([doc.batch_id, doc.orig_id, 2, doc.size.width], doc.path)
+                //    emit([doc.batch_id, doc.orig_id, 2, doc.name], doc.name)
                 //
                 NSString* batchId = doc[@"batch_id"];
                 NSString* oid;
                 NSNumber* originalFlag;
-                NSNumber* docWidth = [[doc objectForKey: @"size"] objectForKey: @"width"];
+                id docName = doc[@"name"];
                 
                 if ([[doc objectForKey: @"orig_id"] isEqualToString:@""]) {
                     oid = doc[@"oid"];
@@ -436,17 +441,186 @@ int main(int argc, const char * argv[])
                     oid = doc[@"orig_id"];
                     originalFlag = [NSNumber numberWithInteger: 2];
                 }
-                id docName = doc[@"name"];
+
                 emit([NSArray arrayWithObjects:
                       batchId,
                       oid,
                       originalFlag,
-                      docWidth,
+                      docName,
                       nil],
                      docName);
             }
-        }) version: @"0.0.5"];
+        }) version: @"0.0.7"];
 
+        //
+        // batch_by_oid_w_image_by_ctime: 
+        //
+        //  key: <batch_id>, <0, 1, 2 depending upon whether import, original or variant>, <in trash>, <date>, <"" or image.name>, <'0' or original image id>
+        //  value: <doc.path or doc.name>
+        //  note: Date is 7 fields -> key length is 12.
+        //
+        [design defineViewNamed: @"batch_by_oid_w_image_by_ctime" 
+                       mapBlock: MAPBLOCK({
+                           if ([[doc objectForKey: @"class_name"] isEqualToString:@"plm.ImportBatch"]) {
+                             //
+                             // emit([doc.oid, 0, 0, 0, 0, 0, 0, 0, 0, '', '0'], doc.path)
+                             //
+                             NSString* oid = doc[@"oid"];
+                             NSNumber* zero = [NSNumber numberWithInteger: 0];
+                             id docPath = doc[@"path"];
+                             emit([NSArray
+                                    arrayWithObjects:
+                                      oid,
+                                      zero,
+                                      zero,
+                                      zero,
+                                      zero,
+                                      zero,
+                                      zero,
+                                      zero,
+                                      zero,
+                                      @"",
+                                      @"0",
+                                      nil
+                                   ],
+                                             docPath);
+                           }
+                           else if ([[doc objectForKey: @"class_name"] isEqualToString:@"plm.Image"]) {
+                             //
+                             // Original image:
+                             //
+                             //  emit([doc.batch_id, 1, doc.in_trash, <created_at>, doc.name, doc.oid], doc.name);
+                             //
+                             // Variant:
+                             //
+                             //  emit([doc.batch_id, 2, doc.in_trash, <ccreated_at>, doc.name, doc.orig_id], doc.name);
+                             //
+                             NSString* batchId = doc[@"batch_id"];
+                             NSNumber* originalFlag;
+                             NSNumber* trashFlag;
+                             NSString* oid;
+
+                             if ([[doc objectForKey: @"orig_id"] isEqualToString:@""]) {
+                               oid = doc[@"oid"];
+                               originalFlag = [NSNumber numberWithInteger: 1];
+                             }
+                             else {
+                               oid = doc[@"orig_id"];
+                               originalFlag = [NSNumber numberWithInteger: 2];
+                             }
+                             if ([[doc objectForKey: @"in_trash"] boolValue]) {
+                               trashFlag = [NSNumber numberWithInteger: 1];
+                             }
+                             else {
+                               trashFlag = [NSNumber numberWithInteger: 0];
+                             }
+
+                             id docCreatedAt = doc[@"created_at"];
+                             //
+                             // build the key:
+                             //
+                             //   note created_at is in this format: 2012-12-05T01:37:55.087Z
+                             //
+                             //   key format: <key> ::= [<date part>]
+                             //
+                             //     <date part> ::=
+                             //       <year>,<month>,<day>,<hours>,<minutes>,<seconds>,<milliseconds>
+                             //
+                             NSDateFormatter *dateFormat = [[NSDateFormatter alloc] init];
+                             [dateFormat setDateFormat:@"YYYY'-'MM'-'dd'T'HH':'mm':'ss'.'SSS'Z'"];
+                             NSDate *date = [dateFormat dateFromString:docCreatedAt];
+                             NSCalendar* calendar = [NSCalendar currentCalendar];
+                             NSDateComponents* components = [calendar
+                                                              components:
+                                                                (NSYearCalendarUnit|
+                                                                 NSMonthCalendarUnit|
+                                                                 NSDayCalendarUnit|
+                                                                 NSHourCalendarUnit|
+                                                                 NSMinuteCalendarUnit|
+                                                                 NSSecondCalendarUnit) fromDate:date];
+                             NSNumber* year = [NSNumber numberWithInteger:[components year]];
+                             NSNumber* month = [NSNumber numberWithInteger:[components month]];
+                             NSNumber* day = [NSNumber numberWithInteger: [components day]];
+                             NSNumber* hour = [NSNumber numberWithInteger: [components hour]];
+                             NSNumber* minute = [NSNumber numberWithInteger: [components minute]];
+                             NSNumber* second = [NSNumber numberWithInteger: [components second]];
+                             
+                             id docName = doc[@"name"];
+                             emit([NSArray arrayWithObjects:
+                                             batchId,
+                                             originalFlag,
+                                             trashFlag,
+                                             year,
+                                             month,
+                                             day,
+                                             hour,
+                                             minute,
+                                             second,
+                                             docName,
+                                             oid,
+                                             nil],
+                                  docName);
+                           }
+                         })
+                    reduceBlock: ^(NSArray* keys, NSArray* values, BOOL rereduce) {
+                        //
+                        //  function(keys, values, rereduce) {
+                        //    var reduced = { num_images: 0, num_images_intrash: 0 }; 
+                        //    if (rereduce) {
+                        //      for (var i = 0; i < values.length; i++) {
+                        //        var value = values[i]; 
+                        //        reduced.num_images = reduced.num_images + value.num_images;
+                        //        reduced.num_images_intrash = reduced.num_images_intrash + value.num_images_intrash;
+                        //      }
+                        //    }
+                        //    else {
+                        //      var ni = 0;
+                        //      var nit = 0;
+                        //      for (var i = 0; i < keys.length; i++) {
+                        //        var key = keys[i][0];
+                        //        if (key[1] === 1) {
+                        //          ni++; 
+                        //          if (key[2] === 1) {
+                        //            nit++;
+                        //          }
+                        //        }
+                        //      }
+                        //      reduced.num_images = ni; 
+                        //      reduced.num_images_intrash = nit;
+                        //    }
+                        //    return reduced;
+                        //  }
+                        //
+                        NSMutableDictionary* reduced = [NSMutableDictionary dictionaryWithObjectsAndKeys: 
+                                                                             [NSNumber numberWithInteger: 0], @"num_images", 
+                                                                             [NSNumber numberWithInteger: 0], @"num_images_intrash", 
+                                                                             nil];
+
+                        if (rereduce) {
+                          for (NSMutableDictionary* value in values) {
+                            NSNumber* ni = [NSNumber numberWithInteger: [[reduced objectForKey: @"num_images"] intValue] + [[value objectForKey: @"num_images"] intValue]];
+                            [reduced setObject: ni forKey:@"num_images"];
+                            NSNumber* nit = [NSNumber numberWithInteger: [[reduced objectForKey: @"num_images_intrash"] intValue] + [[value objectForKey: @"num_images_intrash"] intValue]];
+                            [reduced setObject: nit forKey:@"num_images_intrash"];
+                          }
+                        }
+                        else {
+                          NSNumber* ni = [NSNumber numberWithInteger: 0];
+                          NSNumber* nit = [NSNumber numberWithInteger: 0];
+                          for (NSArray* key in keys) {
+                            if ([key[1] isEqualToNumber: [NSNumber numberWithInteger: 1]]) {
+                              ni = [NSNumber numberWithInteger: [ni intValue] + 1];
+                              if ([key[2] isEqualToNumber: [NSNumber numberWithInteger: 1]]) {
+                                nit = [NSNumber numberWithInteger: [nit intValue] + 1];
+                              }
+                            }
+                          }
+                          [reduced setObject: ni forKey:@"num_images"];
+                          [reduced setObject: nit forKey:@"num_images_intrash"];
+                        }
+                        return reduced;
+                    }
+                    version: @"0.0.1"];
         [design
          defineViewNamed: @"by_tag"
          mapBlock: MAPBLOCK({

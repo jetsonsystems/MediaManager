@@ -61,6 +61,12 @@ var notifications = require('./Notifications');
 //
 var mediaManagerApi = null;
 
+var desiredVariants = [
+  { name: 'thumbnail.jpg', format: 'jpg', width: 132, height: 132},
+  // { name: 'web.jpg', format: 'jpg', width: 640, height: 400}, 
+  { name: 'full-small.jpg', format: 'jpg', width: 1280, height: 800}
+];
+
 //
 // mediaManagerApi: The module which is our single export. 
 //  Suggested usage is:
@@ -168,28 +174,30 @@ var init = function(config, options) {
     useConfig.db.database = 'plm-media-manager';
   }
 
-  //
-  // This is a hack, since we need to get a storageModule singleton
-  // prior to requiring the ImageService. We should change ImageService
-  // to a function invokation with config.
-  //
   storageModuleInst = storageModule(config.db, {singleton: options.singleton});
-  imageService = require('ImageService');
-
+  var isConfig = {};
   if (_.has(useConfig.db, 'local')) {
     if (_.has(useConfig.db.local, 'host')) {
-      imageService.config.db.host = useConfig.db.local.host;
+      isConfig.db = {};
+      isConfig.db.host = useConfig.db.local.host;
     }
     if (_.has(useConfig.db.local, 'port')) {
-      imageService.config.db.port = useConfig.db.local.port;
+      if (!_.has(isConfig, 'db')) {
+        isConfig.db = {};        
+      }
+      isConfig.db.port = useConfig.db.local.port;
     }
   }
   if (_.has(useConfig.db, 'database')) {
-    imageService.config.db.name = useConfig.db.database;
+    if (!_.has(isConfig, 'db')) {
+      isConfig.db = {};        
+    }
+    isConfig.db.name = useConfig.db.database;
   }
   if (_.has(useConfig, 'app')) {
-    imageService.config.app = useConfig.app;
+    isConfig.app = useConfig.app;
   }
+  imageService = require('ImageService')(isConfig, {checkConfig: false});
   storage = storageModuleInst.get('touchdb');
 };
 
@@ -1164,11 +1172,7 @@ var Importers = new Class({
            recursionDepth: (_.has(options, 'query') && _.has(options.query, 'dive') && (options.query.dive === 'false')) ? 1 : 0
           ,saveOriginal: false
           ,retrieveSavedImage:true
-          ,desiredVariants: [
-            { name: 'thumbnail.jpg', format: 'jpg', width: 132, height: 132},
-            // { name: 'web.jpg', format: 'jpg', width: 640, height: 400}, 
-            { name: 'full-small.jpg', format: 'jpg', width: 1280, height: 800}
-            ]
+          ,desiredVariants: desiredVariants
         };
         
         imageService.importBatchFs(
@@ -1351,7 +1355,7 @@ var Importers = new Class({
                                         });
     }
     else {
-      var numBatches = (_.has(options, 'query') && _.has(options.query, 'n')) ? options.query.n : undefined;    
+      var numBatches = (_.has(options, 'query') && _.has(options.query, 'n')) ? parseInt(options.query.n) : undefined;    
       imageService.Importers.index(numBatches,
                                    opts,
                                    function(err, result) {
@@ -1615,51 +1619,110 @@ var ImportersImages = new Class({
   },
 
   //
-  //  index:
-  //    Args:
-  //      options:
-  //        req: The request, S.T. req.params[0] contains the importers instance ID.
+  // index: Index the images in an import batch. There are 2 flavors of the endpoint:
+  //  without pagination: A show of the importer is performed with images. The response
+  //    will contain an importer attribute. The importer contains an images attribute
+  //    containing the indexed images.
+  //  with pagination:
+  //
+  //  Args:
+  //    options:
+  //      req: The request, S.T. req.params[0] contains the importers instance ID.
   //
   index: function(options) {
+    var lp = 'ImportersImages.index: ';
+
     if (options && _.has(options, 'req') && _.has(options.req, 'params')) {
-      log.info('ImportersImages.index: Indexing w/ params - %s', options.req.params);
+      log.info(lp + 'Indexing w/ params - %s, query - %s', options.req.params, util.inspect(options.query));
     }
     else {
-      log.info('ImportersImages.index: Indexing...');
+      log.info(lp + 'Indexing...');
     }
     options = options || {};
     var that = this;
     var batchId = options.req.params[0];
-    var imagesFilter = { includeImages: true };
+
+    var reqOpts = {};
+
     if(options.query && options.query.trashState){
       if(options.query.trashState === 'in'){
-        imagesFilter.imagesTrashState='in';
+        reqOpts.imagesTrashState='in';
       }else
       if(options.query.trashState === 'out'){
-        imagesFilter.imagesTrashState='out'
+        reqOpts.imagesTrashState='out'
       }else
       if(options.query.trashState === 'any'){
-        imagesFilter.imagesTrashState='any'
+        reqOpts.imagesTrashState='any'
       }
-
     }
 
-    imageService.Importers.show(removePrefix(batchId),
-                                imagesFilter,
-                                function(err, result) {
-                                  var status = 200;
-                                  if (err) {
-                                    log.error('ImportersImages.index: error from image service - %s', err);
-                                    status = errors[errors.UNKNOWN_ERROR].httpStatus;
-                                    options.errorCode = errorCodes.UNKNOWN_ERROR;
-                                    options.errorMessage = err;
-                                  }
-                                  log.info('ImportersImages.index: invoking callback with status - %s, path - %s', status, that.path);
-                                  var callbackOptions = options ? _.clone(options) : {};
-                                  callbackOptions['isInstRef'] = true;
-                                  callbackOptions['resourceName'] = 'importer';
-                                  that.doCallbacks(status, result, callbackOptions);
-                                });
+    if (_.has(options, 'query') && _.has(options.query, 'cursor')) {
+      //
+      // With pagination.
+      //
+      reqOpts.includeImporter = false;
+      reqOpts.variants = _.pluck(desiredVariants, 'name');
+      if (_.has(options.query, 'page_size')) {
+        reqOpts.pageSize = parseInt(options.query.page_size);
+      }
+      else {
+        reqOpts.pageSize = 1000;
+      }
+      if (_.has(options.query, 'page_to')) {
+        reqOpts.pageTo = options.query.page_to;
+      }
+      log.debug(lp + 'Index w/ pagination requested, cursor ' + options.query.cursor + ', query - ' + util.inspect(options.query));
+      var cursor = undefined;
+      try {
+        cursor = JSON.parse(options.query.cursor);
+      }
+      catch (e) {
+        log.debug(lp + 'Non-JSON, e - ' + e + ', cursor - ' + options.query.cursor);
+        cursor = -1;
+      }
+      imageService.Importers.pagedImagesIndex(removePrefix(batchId), 
+                                              cursor, 
+                                              reqOpts,
+                                              function(err, result) {
+                                                var status = undefined;
+                                                if (err) {
+                                                  log.error(lp + 'error from image service, err - ', util.inspect(err));
+                                                  status = errors[errors.UNKNOWN_ERROR].httpStatus;
+                                                  options.errorCode = errorCodes.UNKNOWN_ERROR;
+                                                  options.errorMessage = err;
+                                                }
+                                                else {
+                                                  status = 200;
+                                                }
+                                                log.info(lp + 'invoking callback with status - %s, path- %s', status, that.path);
+                                                var callbackOptions = options ? _.clone(options) : {};
+                                                callbackOptions['isInstRef'] = false;
+                                                callbackOptions['resourceName'] = 'images';
+                                                that.doCallbacks(status, result, callbackOptions);
+                                              });
+    }
+    else {
+      //
+      // Without pagination.
+      //
+      reqOpts.includeImages = true;
+      imageService.Importers.show(removePrefix(batchId),
+                                  reqOpts,
+                                  function(err, result) {
+                                    var status = 200;
+                                    if (err) {
+                                      log.error('ImportersImages.index: error from image service - %s', err);
+                                      status = errors[errors.UNKNOWN_ERROR].httpStatus;
+                                      options.errorCode = errorCodes.UNKNOWN_ERROR;
+                                      options.errorMessage = err;
+                                    }
+                                    log.info('ImportersImages.index: invoking callback with status - %s, path - %s', status, that.path);
+                                    var callbackOptions = options ? _.clone(options) : {};
+                                    callbackOptions['isInstRef'] = true;
+                                    callbackOptions['resourceName'] = 'importer';
+                                    that.doCallbacks(status, result, callbackOptions);
+                                  });
+    }
     return this;
   },
 
@@ -1671,20 +1734,66 @@ var ImportersImages = new Class({
   //      * rep: The result from the image service.
   //
   transformRep: function(rep, options) {
+    var lp = 'ImportersImages.transformRep: ';
     log.debug('ImportersImages.transformRep: Doing transform...');
-    var newRep = this.importersResource.transformRep(rep, { isInstRef: true,
-                                                            resourceName: 'importer' });
-    if (newRep) {
-      if (rep.images) {
-        newRep.images = this.imagesResource.transformRep(rep.images,
+    var newRep = undefined;
+
+    if (_.has(options, 'query') && _.has(options.query, 'cursor')) {
+      var cursors = {};
+      newRep = {
+        images: [],
+        paging: {
+          cursors: cursors,
+          page_size: 0,
+          total_size: _.has(rep, 'total_size') ? rep.total_size : undefined
+        }
+      };
+      if (_.has(rep, 'items') && _.has(rep, 'cursors')) {
+        var images = _.pluck(rep.items, 'doc');
+        newRep.images = this.imagesResource.transformRep(images,
                                                          { isInstRef: false,
                                                            resourceName: 'images' } );
+        log.debug(lp + 'Transformed ' + newRep.images.length + ' images in pagination mode.');
       }
-      else {
-        newRep.images = [];
+      newRep.paging.page_size = newRep.images.length;
+      if (rep.items && rep.items.length) {
+        cursors.start = qs.escape(JSON.stringify(rep.items[0].cursor));
+        cursors.end = qs.escape(JSON.stringify(rep.items[rep.items.length-1].cursor));
+        if (_.has(rep.cursors, 'next')) {
+          if (_.isObject(rep.cursors.next)) {
+            cursors.next = qs.escape(JSON.stringify(rep.cursors.next));
+          }
+          else {
+            cursors.next = -1;
+          }
+        }
+        if (_.has(rep.cursors, 'previous')) {
+          if (_.isObject(rep.cursors.previous)) {
+            cursors.previous = qs.escape(JSON.stringify(rep.cursors.previous));
+          }
+          else {
+            cursors.previous = -1;
+          }
+        }
       }
     }
+    else {
+      newRep = this.importersResource.transformRep(rep, { isInstRef: true,
+                                                          resourceName: 'importer' });
+      if (newRep) {
+        if (rep.images) {
+          newRep.images = this.imagesResource.transformRep(rep.images,
+                                                           { isInstRef: false,
+                                                             resourceName: 'images' } );
+        }
+        else {
+          newRep.images = [];
+        }
+      }
+    }
+
     this.postTransformHook(newRep, rep);
+
     return newRep;
   }
 

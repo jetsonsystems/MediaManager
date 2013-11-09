@@ -1,6 +1,6 @@
 var
   should = require("should")
-  , image_util = require("../lib/plm-image/image_util");
+  , image_util = require("../lib/plm-image/image-utils");
 
 describe('fitToSize tests:', function () {
 

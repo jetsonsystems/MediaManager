@@ -3,13 +3,23 @@
 var async  = require("async");
 var config = require("config").db;
 var dbMan  = require('./databaseManager.js');
-var mmStorage = require('MediaManagerStorage')(config)
-  , imageService = require('../lib/plm-image/ImageService')
-  , log4js = require('log4js')
-  , nano = require('nano')
-  , util = require('util')
-  , _ = require('underscore')
-  ;
+var mmStorage = require('MediaManagerStorage')(config);
+var imageService = require('../lib/plm-image/ImageService')(
+  {
+    db: {
+      host: config.local.host,
+      port: config.local.port,
+      name: config.database
+    }
+  },
+  {
+    checkConfig: false
+  }
+);
+var log4js = require('log4js');
+var nano = require('nano');
+var util = require('util');
+var _ = require('underscore');
 
 var chai = require('chai')
   , expect = chai.expect
@@ -24,11 +34,9 @@ log4js.configure('./test/log4js.json');
  */
 describe('ImageService Testing Tags', function () {
 
-  imageService.config.db.host = config.local.host;
-  imageService.config.db.port = config.local.port;
   var server = nano('http://' + imageService.config.db.host + ':' + imageService.config.db.port);
 
-  var db_name = imageService.config.db.name = config.database;
+  var db_name = config.database;
 
   var options = {
     host:imageService.config.db.host,

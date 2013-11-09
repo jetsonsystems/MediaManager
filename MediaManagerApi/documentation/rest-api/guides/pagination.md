@@ -36,7 +36,8 @@ All API requests are wrapped in an envelope where meta data related to paginatio
         "previous": <cursor representing the first item in the previous page>,
         "next": <cursor representing the first item in the next page>
       },
-      "page_size": <number of pages in the page>
+      "page_size": <number of items in the page>,
+      "total_size": <number of items in the result set if all pages where enumerated>
     }
 ```
 The **paging** attribute contains a section of **cursors**:
@@ -46,11 +47,14 @@ The **paging** attribute contains a section of **cursors**:
   * **previous**: Cursor corresponding to the first item of the previous page. The **previous** cursor is ONLY provided when the **page_to** parameter was used to retrieve a page.
   * **next**: Cursor corresponding to the first item of the next page.
 
+In addition the **paging** attribute contains **page_size** and **total_size**, which are as defined in the example above.
+
 ## Endpoints Supporting Pagination
 
 The following endpoints support pagination:
 
   * [Importers - index](../endpoints/importers.md#importers-index)
+  * [Importers/images - index](../endpoints/importers.md#importers-images-index)
 
 ## References
 

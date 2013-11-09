@@ -3,12 +3,22 @@
 var async = require("async")
 	,config = require("config").db
   ,dbMan = require('./databaseManager.js');
-var mmStorage = require('MediaManagerStorage')(config)
-  ,imageService = require('../lib/plm-image/ImageService')
-  ,log4js = require('log4js')
-  ,nano = require('nano')
-  ,util = require('util')
-;
+var mmStorage = require('MediaManagerStorage')(config);
+var imageService = require('../lib/plm-image/ImageService')(
+  {
+    db: {
+      host: config.local.host,
+      port: config.local.port,
+      name: config.database
+    }
+  },
+  {
+    checkConfig: false
+  }
+);
+var log4js = require('log4js');
+var nano = require('nano');
+var util = require('util');
 
 var chai = require('chai')
   , expect = chai.expect
@@ -25,11 +35,9 @@ describe('ImageService.importBatchFs Setup/Teardown', function () {
   // set a high time-out because it may take a while to run the import
   this.timeout(180000);  // 3 minutes
 
-  imageService.config.db.host = config.local.host;
-  imageService.config.db.port = config.local.port;
   var server = nano('http://' + imageService.config.db.host + ':' + imageService.config.db.port);
 
-  var db_name = imageService.config.db.name = config.database;
+  var db_name = config.database;
 
   var options = {
     host:imageService.config.db.host,

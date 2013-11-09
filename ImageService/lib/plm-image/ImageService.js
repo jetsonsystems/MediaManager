@@ -2,69 +2,108 @@
 // ImageService: Interface to creating / reading / updating image documents. Includes processing of
 //  images to get meta-data, and generate required thumbnails.
 //
-//  Images: Namespace for image methods.
-//    show(oid, options, callback): Retreives and returns an image.
-//    findByOids(oidsArray, callback): Simply returns images by id.
-//    findVersion(oid, callback): Determines whether an image w/ oid exists.
+//  Usage: Invoke as a function:
 //
-//  Images aliases:
-//    show -> Images.show
-//    save(anImgPath, options, callback): Creates a new image, parsing via GraphicsMagick, 
-//      and optionally generating thumbnails. The resulting imagke document is persisted.
-//    findVersion -> Images.findVersion
-//    findByOids -> Images.findByOids
+//    var imageService = require('ImageService')(config);
 //
-//  Image methods in global namespace:
-//    create(imgAttrs, options, callback): Creates new images give a set of initial attributes (imgAttrs).
-//      No image processing (parsing and/or thumbnailing) is performed.
-//    index(options, callback): Retrieves a collection of images.
-//    saveOrUpdate(options, callback): Creates or updates an image. No processing is performed.
-//    toCouch(image): ?
-//    findByCreationTime(criteria, callback, options): Retrieves given 'criteria' and returns sorted
-//      by creation time.
-//    findByTags(filter, options, callback): Retrieve images by tag(s).
-//    findImagesByTrashState(options, callback): Retrieve images which are in or not in trash.
-//    tagsReplace(oidArray, oldTags, newTags, callback):
-//    tagsRemove(oidArray, tagsToRemove, callback):
-//    tagsAdd(oidArray, tagsArray, callback):
-//    tagsGetAll(callback): Get a list of all tags which have been applied.
-//    tagsGetImagesTags(imagesIdsArray, callback): Return all tags associated with a set of images.
-//    sendToTrash(oidArray, callback): Flag a set of images as being "in trash".
-//    restoreFromTrash(oidArray, callback): Reset the "trash state" of a set of images such they are no
-//      longer considered as being in trash.
-//    viewTrash(options, callback): Return a set of images which are considered to be in trash.
-//    deleteImages(oidArray, callback): Delete a set of images permanently.
-//    emptyTrash(callback): Deletes all images which are curently considered as being "in trash"
+//    Args:
+//      config: Config attributes which should override the default configuration. The config is required,
+//        as at a minimum confib.db.name must be set.
 //
-//  Importers: Namespace for import batch public methods.
-//    createFromFs(importDir, options, callback): Creates an import batch from images 
-//      found on the filesystem.
-//    index(N, options, callback): Retrieve N of the most recent import batches.
-//    pagedIndex(cursor, options, callback): Like index, but with a pagination based interface.
-//    show(oid, options, callback): Retrieve an import batch.
-//    update(oid, options, callback): Update an import batch. Note, only the
-//      'state' attribute may be modified.
+//  The following are exported attributes and/or methods:
 //
-//  Importer aliases:
+//    config: The configuration which was established during 'require' time. Note,
+//      ALL attributes are read only! The following is the default configuration:
 //
-//    importBatchFs -> Importers.createFromFs
-//    importBatchFindRecent -> Importers.index
-//    importBatchShow -> Importers.show
-//    importBatchUpdate -> Importers.update
+//      {
+//        db: {
+//          host: "localhost",
+//          port: 5984,
+//          name: ""
+//        },
+//        app: undefined,
+//        workDir: '/var/tmp',
+//        processingOptions: {
+//          genCheckSums: false,
+//          numJobs: 1  // number of image processing jobs to trigger in parallel during imports
+//        },
+//        Mime types which will be allowed during import.
+//        importMimeTypes: {
+//          image: ['jpeg', 'png', 'tiff']
+//        }
+//      }
 //
-//  Miscellaneous:
-//    collectImagesInDir(target_dir, callback): find images in a directory recursively.
+//    Images: namespace for image methods.
+//
+//      create(imgAttrs, options, callback): Creates new images give a set of initial attributes (imgAttrs).
+//        No image processing (parsing and/or thumbnailing) is performed.
+//      index(options, callback): Retrieves a collection of images.
+//      show(oid, options, callback): Retreives and returns an image.
+//      findByOids(oidsArray, callback): Simply returns images by id.
+//      findVersion(oid, callback): Determines whether an image w/ oid exists.
+//
+//    Importers: Namespace for import batch public methods.
+//
+//      createFromFs(importDir, options, callback): Creates an import batch from images 
+//        found on the filesystem.
+//      index(N, options, callback): Retrieve N of the most recent import batches.
+//      pagedIndex(cursor, options, callback): Like index, but with a pagination based interface.
+//      show(oid, options, callback): Retrieve an import batch.
+//      update(oid, options, callback): Update an import batch. Note, only the
+//        'state' attribute may be modified.
+//      pagedImagesIndex(oid, cursor, options, callback): Page over the images in an import batch.
+//
+//    errorCodes: Object contain error code definitions.
+//    errors: Errors which can be returned via callbacks.
+//    ImageServiceError: For thrown exceptions, the Error constructor.
+//
+//    Images aliases: Image methods aliased to the global namespace. Should eventually go away!
+//
+//      show -> Images.show
+//      save(anImgPath, options, callback): Creates a new image, parsing via GraphicsMagick, 
+//        and optionally generating thumbnails. The resulting imagke document is persisted.
+//      findVersion -> Images.findVersion
+//      findByOids -> Images.findByOids
+//
+//    Image methods in global namespace: Image methods defined in the global namespace. 
+//      Should eventually get moved to the Images namespace.
+//
+//      findByCreationTime(criteria, callback, options): Retrieves given 'criteria' and returns sorted
+//        by creation time.
+//      collectImagesInDir(target_dir, callback): Finds images in a directory.
+//      saveOrUpdate(options, callback): Creates or updates an image. No processing is performed.
+//      findByTags(filter, options, callback): Retrieve images by tag(s).
+//      findImagesByTrashState(options, callback): Retrieve images which are in or not in trash.
+//      tagsReplace(oidArray, oldTags, newTags, callback):
+//      tagsRemove(oidArray, tagsToRemove, callback):
+//      tagsAdd(oidArray, tagsArray, callback):
+//      tagsGetAll(callback): Get a list of all tags which have been applied.
+//      tagsGetImagesTags(imagesIdsArray, callback): Return all tags associated with a set of images.
+//      sendToTrash(oidArray, callback): Flag a set of images as being "in trash".
+//      restoreFromTrash(oidArray, callback): Reset the "trash state" of a set of images such they are no
+//        longer considered as being in trash.
+//      viewTrash(options, callback): Return a set of images which are considered to be in trash.
+//      deleteImages(oidArray, callback): Delete a set of images permanently.
+//      emptyTrash(callback): Deletes all images which are curently considered as being "in trash"
+//
+//    Importer aliases:
+//
+//      importBatchFs -> Importers.createFromFs
+//      importBatchFindRecent -> Importers.index
+//      importBatchShow -> Importers.show
+//      importBatchUpdate -> Importers.update
+//
+//  Private Methods:
 //
 'use strict';
-var
-  _     = require('underscore')
-  ,strUtils = require('underscore.string')
+var _        = require('underscore');
+var strUtils = require('underscore.string')
   ,async = require('async')
   ,cs    = require('./checksum')
   ,dive  = require('dive')
   ,fs    = require('fs')
   ,gm    = require('gm')
-  ,img_util = require('./image_util')
+  ,imageUtils = require('./image-utils')
   ,log4js   = require('log4js')
   ,mime     = require('mime-magic')
   ,moment   = require('moment')
@@ -74,39 +113,77 @@ var
   ,uuid  = require('node-uuid')
   ;
 
+var touchdbHelpersModule = require('./touchdb-helpers');
+//
+// Invoke the module at require time func. invokation.
+//
+var touchdbHelpers = undefined;
+
 var tmp = __filename.split('/');
 var fname = tmp[tmp.length-1];
 var moduleName = fname.replace('.js', '');
 
 var logPrefix = moduleName + ': ';
 
-var config = {
-  db: {
-    host: "localhost",
-    port: 5984,
-    name: ""
-  },
-  app: undefined,
-  workDir : '/var/tmp',
-  processingOptions : {
-    genCheckSums: false,
-    numJobs: 1  // number of image processing jobs to trigger in parallel during imports
-  },
-  //
-  // Mime types which will be allowed during import.
-  //
-  importMimeTypes : {
-    image: ['jpeg', 'png', 'tiff']
+//
+// The config is UNDEFINED, and established when the module is invoked
+// with optional config attributes to override defaults.
+//
+var config = undefined;
+
+function configFactory(attr) {
+
+  attr = attr || {};
+
+  var props = {
+    db: { value: {
+      host: "localhost",
+      port: 5984,
+      name: ""
+    }},
+    app: { value: _.has(attr, 'app') ? attr.app : undefined },
+    workDir: { value: _.has(attr, 'workDir') ? attr.workDir : '/var/tmp' },
+    processingOptions: { value: {
+      genCheckSums: false,
+      numJobs: 1  // number of image processing jobs to trigger in parallel during imports
+    }},
+    //
+    // Mime types which will be allowed during import.
+    //
+    importMimeTypes: { value: {
+      image: ['jpeg', 'png', 'tiff']
+    }}
+  };
+
+  if (_.has(attr, 'db')) {
+    _.each(['host', 'port', 'name'], function(k) {
+      if (_.has(attr.db, k)) {
+        props.db.value[k] = attr.db[k];
+      }
+    });
   }
-};
+
+  if (_.has(attr, 'processingOptions')) {
+    _.each(['genCheckSums', 'numJobs'], function(k) {
+      if (_.has(attr.processingOptions, k)) {
+        props.processingOptions.value[k] = attr.processingOptions[k];
+      }
+    });
+  }
+
+  if (_.has(attr, 'importMimeTypes')) {
+    props.importMimeTypes.value = attr.importMimeTypes;
+  }
+
+  config = Object.create(Object.prototype, props);
+  return config;
+}
 
 //
 // Try to get a singleton instance of the storage module.
 //
 var mmStorage = require('MediaManagerStorage')();
 var touchdb = mmStorage.get('touchdb');
-
-exports.config = config;
 
 var log = log4js.getLogger('plm.ImageService');
 var nanoLog = log4js.getLogger('plm.ImageService.nano');
@@ -142,6 +219,7 @@ var
   ,VIEW_BY_OID_WITHOUT_VARIANT = 'by_oid_without_variant'
   ,VIEW_BATCH_BY_CTIME       = 'batch_by_ctime'
   ,VIEW_BATCH_BY_OID_W_IMAGE = 'batch_by_oid_w_image'
+  ,VIEW_BATCH_BY_OID_W_IMAGE_BY_CTIME = 'batch_by_oid_w_image_by_ctime'
   ,VIEW_BY_TAG               = 'by_tag'
   ,VIEW_TRASH                = 'by_trash'
 
@@ -222,23 +300,6 @@ priv.markBatchComplete = function (anImportBatch)
   }
 };
 
-
-// call this at initialization time to check the db config and connection
-exports.checkConfig = function checkConfig(callback) {
-  log.info('plm-image/ImageService: Checking config - ' + JSON.stringify(config) + '...');
-
-  if (!config.db.name) {
-    throw "plm-image/ImageService: ImageService.config.db.name must contain a valid database name!";
-  }
-
-  var server = nano(
-    {
-      url: 'http://' + config.db.host + ':' + config.db.port,
-      log: nanoLogFunc
-    });
-  server.db.get(config.db.name, callback);
-};
-
 var dbServer = null;
 
 // returns a db connection
@@ -262,6 +323,201 @@ priv.genOid = function genOid() {
 // Images: Image methods.
 //
 var Images = (function() { 
+
+  /*
+   * create: Create a set of images given an initial set of attributes.
+   *  Note, a singular attribute object can be provided to create
+   *  a single instance of an image.
+   *
+   *  Args:
+   *    imgAttrs: An instance or array of objects containing initial image 
+   *      attributes.
+   *    callback: Invoked upon completion with following signature - 
+   *
+   *      callback(err, images, errors),
+   *
+   *        where:
+   *          err: error if nothing useful happened.
+   *          images: is an image doc. or array of image documents successfully created.
+   *          errors: When err is undefined, this is an array of errors associated with individual images.
+   *            {
+   *              attrs: attrs for the image.
+   *              err: error for the image.
+   *            }
+   */
+  function create(imgAttrs, options, callback) {
+    callback = callback || ((options && _.isFunction(options))?options:undefined);
+    options = (options && !_.isFunction(options))?options:{};
+
+    options.parse = (_.has(options, 'parse'))?options.parse:true;
+
+    var imageToCreate = function(attrs) {
+      // log.debug('create.imageToCreate: attrs - ' + util.inspect(attrs));
+      attrs.oid = priv.genOid();
+      if (config.app && _.has(config.app, 'id')) {
+        attrs.app_id = config.app.id;
+      }
+      
+      return mmStorage.docFactory('plm.Image', attrs);
+    }
+
+    var toCreate = undefined;
+
+    if (_.isArray(imgAttrs)) {
+      log.debug('create: imgAttrs is an array...');
+      toCreate = _.map(imgAttrs, imageToCreate);
+    }
+    else {
+      toCreate = [ imageToCreate(imgAttrs) ];
+    }
+
+    if (_.isArray(toCreate) && toCreate.length) {
+      var created = [];
+      var errors = [];
+      async.eachSeries(toCreate, 
+                       function(toC, innerCallback) {
+                         parseImage(toC, 
+                                    {verbose: false},
+                                    function(err) {
+                                      log.debug('create: parsed image, path - ' + toC.path);
+                                      if (err) {
+                                        errors.push({
+                                          err: err,
+                                          attrs: toC
+                                        });
+                                      }
+                                      else {
+                                        created.push(toC);
+                                      }
+                                      innerCallback(null);
+                                    });
+                       },
+                       function(err) {
+                         if (err) {
+                           callback(err, [], errors);
+                         }
+                         else if (created.length === 0) {
+                           callback("No images were created!", [], errors);
+                         }
+                         else {
+                           var toStore = _.map(created, function(toC) {
+                             var toS = toCouch(toC);
+
+                             toS._id = toC.oid;
+
+                             return toS;
+                           });
+
+                           var db = priv.db();
+
+                           db.bulk({"docs": toStore}, 
+                                   {include_docs: true},
+                                   function(err, body) {
+                                     if (err) {
+                                       callback && callback('Error occurred in bulk document creation, error - ' + err);
+                                     }
+                                     else {
+                                       log.debug('create: bulk document create response body - ' + util.inspect(body));
+                                     
+                                       if (!_.isArray(body) || (created.length != body.length)) {
+                                         callback && callback('Error in image document creation, images to created did not equal number created!');
+                                       }
+                                       else {
+                                         var createdIds = _.pluck(body, 'id');
+                                         touchdbHelpers.bulkDocFetch(createdIds,
+                                                                     function(err,
+                                                                              created) {
+                                                                       var cImgs = _.map(created, function(cImg) {
+                                                                         var tmp = mmStorage.docFactory('plm.Image', cImg);
+                                                                         priv.setCouchRev(tmp, cImg);
+                                                                         return tmp;
+                                                                       });
+                                                                       callback(err, cImgs, errors);
+                                                                     });
+                                       }
+                                     }
+                                   });
+                         }});
+    }
+    else {
+      callback('No valid images to create!');
+    }
+  }
+
+  /**
+   * Main image finder method
+   *
+   * Retrieve an image and its variants according to the criteria passed in the 'options' object.
+   *
+   * By default, the field Image.metadata_raw will be suppressed in the objects returned.  If you
+   * need this field, pass the showMetadata option.
+   *
+   * options:
+   *  filter: Can take on the following forms:
+   *    Object whith a list of rules:
+   *      rules: List of rules. Rules may take on the following forms:
+   *          field: 'tags'
+   *          op: 'eq'
+   *          data: <tag value>
+   *      groupOp: AND || OR
+   *    Single rule, where the rule may be one of:
+   *      * filter images w/ tags:
+   *        field: 'tags'
+   *        op: 'ne'
+   *        data: []
+   *      * filter images w/o tags:
+   *        field: 'tags'
+   *        op: 'eq'
+   *        data: []
+   *        
+   *  created:
+   *  trashState:
+   *  showMetadata: false by default, set to true to enable display of Image.metadata_raw
+   */
+  function index(options,callback) {
+    log.debug("Calling 'index' with options: %j", util.inspect(options));
+
+    // TODO:
+    //  - The use cases below need to be expanded
+    //  - Need to define paging options, and paging impl
+
+    if (!options || _.isEmpty(options) || options.created || (options.filter && !_.has(options.filter, 'rules') && _.has(options.filter, 'data') && (_.size(options.filter.data) === 0))) {
+      log.debug('Invoking findByCreationTime...');
+      try {
+        options = options || {};
+        var criteria = options.created || null;
+        var opts = {};
+        opts.showMetadata = options.showMetadata || false;
+        if (options.filter && !_.has(options.filter, 'rules') && _.has(options.filter, 'data') && (_.size(options.filter.data) === 0)) {
+          opts.filterRule = options.filter;
+        }
+        log.debug('findByCreationTime: criteria - ' + util.inspect(criteria) + ', opts - ' + util.inspect(opts) + '...');
+        findByCreationTime( criteria, callback, opts);
+      }
+      catch (e) {
+        log.error('findByCreationTime: Error - ' + e);
+        callback('find by creation time error - ' + e);
+      }
+    }
+    else {
+      if (options.filter) {
+
+        var filterByTag = options.filter;
+
+        findByTags(filterByTag, options,callback);
+      }else
+        if(options.trashState){
+          if(options.trashState ==='in'){
+            viewTrash(options,callback);
+          }else{
+            var trashStateFilter = {};
+            trashStateFilter.trashState=options.trashState;
+            findImagesByTrashState(trashStateFilter,callback);
+          }
+
+        }
+    }
+  }
 
   /**
    * Retrieve an image and its variants by oid; by default, the field Image.metadata_raw is suppressed
@@ -311,7 +567,7 @@ var Images = (function() {
                 } else {
                   var docBody = body.rows[0].doc;
                   imgOut = mmStorage.docFactory('plm.Image', docBody);
-                  imgOut.url = priv.getImageUrl(docBody);
+                  imgOut.url = touchdbHelpers.getImageUrl(docBody);
                   if (opts.showMetadata) { imgOut.exposeRawMetadata = true; }
                   if (body.rows.length > 0) {
                     for (var i = 1; i < body.rows.length; i++) {
@@ -319,7 +575,7 @@ var Images = (function() {
                       var vDocBody = body.rows[i].doc;
                       var vImage = mmStorage.docFactory('plm.Image', vDocBody);
                       if (opts.showMetadata) { vImage.exposeRawMetadata = true; }
-                      vImage.url = priv.getImageUrl(vDocBody);
+                      vImage.url = touchdbHelpers.getImageUrl(vDocBody);
                       // log.trace('show: oid - %j, assigned url - %j',row.doc.oid, vImage.url);
                       imgOut.variants.push(vImage);
                     }
@@ -408,153 +664,29 @@ var Images = (function() {
       throw "Invalid Argument Exception: findByOids does not understand filter oidsArray:: '" + oidsArray + "'";
     }
 
-    fetchDocs(oidsArray,
-              {
-                batchSize: 100,
-                convertToImage: true,
-                callback: function(err, docs) {
-                  if (err) {
-                    callback("findByTags error: " + err);
-                  } else {
-                    callback(null, docs);
-                  }
-                }              
-              });
+    touchdbHelpers.fetchDocs(oidsArray,
+                             {
+                               batchSize: 100,
+                               convertToImage: true,
+                               callback: function(err, docs) {
+                                 if (err) {
+                                   callback("findByTags error: " + err);
+                                 } else {
+                                   callback(null, docs);
+                                 }
+                               }              
+                             });
   } // end findByOids
 
   return {
+    create: create,
+    index: index,
     show: show,
     save: save,
     findVersion: findVersion,
     findByOids: findByOids
   }; 
 })();
-
-exports.Images = Images;
-exports.show = Images.show;
-exports.save = Images.save;
-exports.findVersion = Images.findVersion;
-exports.findByOids = Images.findByOids;
-
-/*
- * create: Create a set of images given an initial set of attributes.
- *  Note, a singular attribute object can be provided to create
- *  a single instance of an image.
- *
- *  Args:
- *    imgAttrs: An instance or array of objects containing initial image 
- *      attributes.
- *    callback: Invoked upon completion with following signature - 
- *
- *      callback(err, images, errors),
- *
- *        where:
- *          err: error if nothing useful happened.
- *          images: is an image doc. or array of image documents successfully created.
- *          errors: When err is undefined, this is an array of errors associated with individual images.
- *            {
- *              attrs: attrs for the image.
- *              err: error for the image.
- *            }
- */
-function create(imgAttrs, options, callback) {
-  callback = callback || ((options && _.isFunction(options))?options:undefined);
-  options = (options && !_.isFunction(options))?options:{};
-
-  options.parse = (_.has(options, 'parse'))?options.parse:true;
-
-  var imageToCreate = function(attrs) {
-    // log.debug('create.imageToCreate: attrs - ' + util.inspect(attrs));
-    attrs.oid = priv.genOid();
-    if (config.app && _.has(config.app, 'id')) {
-      attrs.app_id = config.app.id;
-    }
-
-    return mmStorage.docFactory('plm.Image', attrs);
-  }
-
-  var toCreate = undefined;
-
-  if (_.isArray(imgAttrs)) {
-    log.debug('create: imgAttrs is an array...');
-    toCreate = _.map(imgAttrs, imageToCreate);
-  }
-  else {
-    toCreate = [ imageToCreate(imgAttrs) ];
-  }
-
-  if (_.isArray(toCreate) && toCreate.length) {
-    var created = [];
-    var errors = [];
-    async.eachSeries(toCreate, 
-                     function(toC, innerCallback) {
-                       parseImage(toC, 
-                                  {verbose: false},
-                                  function(err) {
-                                    log.debug('create: parsed image, path - ' + toC.path);
-                                    if (err) {
-                                      errors.push({
-                                        err: err,
-                                        attrs: toC
-                                      });
-                                    }
-                                    else {
-                                      created.push(toC);
-                                    }
-                                    innerCallback(null);
-                                  });
-                     },
-                     function(err) {
-                       if (err) {
-                         callback(err, [], errors);
-                       }
-                       else if (created.length === 0) {
-                         callback("No images were created!", [], errors);
-                       }
-                       else {
-                         var toStore = _.map(created, function(toC) {
-                           var toS = toCouch(toC);
-
-                           toS._id = toC.oid;
-
-                           return toS;
-                         });
-
-                         var db = priv.db();
-
-                         db.bulk({"docs": toStore}, 
-                                 {include_docs: true},
-                                 function(err, body) {
-                                   if (err) {
-                                     callback && callback('Error occurred in bulk document creation, error - ' + err);
-                                   }
-                                   else {
-                                     log.debug('create: bulk document create response body - ' + util.inspect(body));
-                                     
-                                     if (!_.isArray(body) || (created.length != body.length)) {
-                                       callback && callback('Error in image document creation, images to created did not equal number created!');
-                                     }
-                                     else {
-                                       var createdIds = _.pluck(body, 'id');
-                                       bulkDocFetch(createdIds,
-                                                    function(err,
-                                                             created) {
-                                                      var cImgs = _.map(created, function(cImg) {
-                                                        var tmp = mmStorage.docFactory('plm.Image', cImg);
-                                                        priv.setCouchRev(tmp, cImg);
-                                                        return tmp;
-                                                      });
-                                                      callback(err, cImgs, errors);
-                                                    });
-                                     }
-                                   }
-                                 });
-                       }});
-  }
-  else {
-    callback('No valid images to create!');
-  }
-}
 
 /*
  * parseAndTransform: When provided with an image path, or initial image document, 
@@ -665,7 +797,7 @@ function transform(anImgMeta, variant, callback)
       function(next){
         //TODO: need more validation around variant specs
         if (variant.width || variant.height) {
-          var newSize = img_util.fitToSize(anImgMeta.size, { width: variant.width, height: variant.height });
+          var newSize = imageUtils.fitToSize(anImgMeta.size, { width: variant.width, height: variant.height });
           gmImg.resize(newSize.width, newSize.height);
         }
 
@@ -995,81 +1127,7 @@ function persist(persistCommand, options, callback)
 
 } // end persist
 
-/**
- * Main image finder method
- *
- * Retrieve an image and its variants according to the criteria passed in the 'options' object.
- *
- * By default, the field Image.metadata_raw will be suppressed in the objects returned.  If you
- * need this field, pass the showMetadata option.
- *
- * options:
- *  filter: Can take on the following forms:
- *    Object whith a list of rules:
- *      rules: List of rules. Rules may take on the following forms:
- *          field: 'tags'
- *          op: 'eq'
- *          data: <tag value>
- *      groupOp: AND || OR
- *    Single rule, where the rule may be one of:
- *      * filter images w/ tags:
- *        field: 'tags'
- *        op: 'ne'
- *        data: []
- *      * filter images w/o tags:
- *        field: 'tags'
- *        op: 'eq'
- *        data: []
- *        
- *  created:
- *  trashState:
- *  showMetadata: false by default, set to true to enable display of Image.metadata_raw
- */
-exports.index = function index(options,callback)
-{
-  log.debug("Calling 'index' with options: %j", util.inspect(options));
 
-  // TODO:
-  //  - The use cases below need to be expanded
-  //  - Need to define paging options, and paging impl
-
-  if (!options || _.isEmpty(options) || options.created || (options.filter && !_.has(options.filter, 'rules') && _.has(options.filter, 'data') && (_.size(options.filter.data) === 0))) {
-    log.debug('Invoking findByCreationTime...');
-    try {
-      options = options || {};
-      var criteria = options.created || null;
-      var opts = {};
-      opts.showMetadata = options.showMetadata || false;
-      if (options.filter && !_.has(options.filter, 'rules') && _.has(options.filter, 'data') && (_.size(options.filter.data) === 0)) {
-        opts.filterRule = options.filter;
-      }
-      log.debug('findByCreationTime: criteria - ' + util.inspect(criteria) + ', opts - ' + util.inspect(opts) + '...');
-      exports.findByCreationTime( criteria, callback, opts);
-    }
-    catch (e) {
-      log.error('findByCreationTime: Error - ' + e);
-      callback('find by creation time error - ' + e);
-    }
-  }
-  else {
-    if (options.filter) {
-
-      var filterByTag = options.filter;
-
-      exports.findByTags(filterByTag, options,callback);
-    }else
-    if(options.trashState){
-      if(options.trashState ==='in'){
-        exports.viewTrash(options,callback);
-      }else{
-        var trashStateFilter = {};
-        trashStateFilter.trashState=options.trashState;
-        exports.findImagesByTrashState(trashStateFilter,callback);
-      }
-
-    }
-  }
-};
 
 /**
  * Find images by creation date range. Expects a 'created' array containing a start date and an end
@@ -1078,12 +1136,11 @@ exports.index = function index(options,callback)
  * caution.
  *
  * options:
- *   filterRule: See exports.index. Single filter rule to filter images w or w/o tags.
+ *   filterRule: See Images.index. Single filter rule to filter images w or w/o tags.
  *   showMetadata: false by default, set to true to enable display of Image.metadata_raw
  *   
  */
-exports.findByCreationTime = function findByCreationTime( criteria, callback, options )
-{
+function findByCreationTime( criteria, callback, options ) {
   log.debug("findByCreationTime criteria: %j ", criteria);
 
   var opts = options || {};
@@ -1118,7 +1175,7 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
         else {
           log.debug('findByCreationTime: Retrieved ' + _.size(docs) + ' image documents.');
           
-          var aryImgOut = convert_couch_body_to_array_of_images(opts,docs);
+          var aryImgOut = touchdbHelpers.convert_couch_body_to_array_of_images(opts,docs);
   
           log.debug('findByCreationTime: Returning ' + aryImgOut.length + ' images.');
 
@@ -1137,73 +1194,9 @@ exports.findByCreationTime = function findByCreationTime( criteria, callback, op
     iterOpts.endKey  = priv.date_to_array(criteria[1]);
   }
 
-  iterateOverView(IMG_DESIGN_DOC, view, iterOpts);
+  touchdbHelpers.iterateOverView(IMG_DESIGN_DOC, view, iterOpts);
 
 }; // end findByCreationTime
-
-//
-// convert_couch_body_to_array_of_images: Maps the body.rows collection
-//  into the proper Array of Image originals and their variants.
-//
-//  Note, the view could have been scanned in ascending or descending order:
-//
-//    ascending order (oldest images first): Original will preceed thumnails.
-//    descending order (news first): thumbnails will proceed original.
-//
-function convert_couch_body_to_array_of_images(opts,resultDocs){
-
-  opts = opts || {};
-
-  var aryImgOut = [];
-  var imgMap    = {}; // temporary hashmap that stores original images by oid
-  var anImg     = {};
-  //
-  // orphanedVariants: Required for when the view is traversed in descending
-  //  order where thumbnails will come before the original.
-  //
-  var orphanedVariants = {};
-
-  for (var i = 0; i < resultDocs.length; i++) {
-    var docBody = resultDocs[i];
-
-    anImg = mmStorage.docFactory('plm.Image', docBody);
-    if (opts.showMetadata) { anImg.exposeRawMetadata = true; }
-
-    // Assign a URL to the image. Note, this is temporary as the images
-    // will eventually move out of Couch / Touch DB.
-    anImg.url = priv.getImageUrl(docBody);
-
-    if ( anImg.isOriginal()) {
-      log.debug('Adding image to result set, id - ' + anImg.oid);
-      imgMap[anImg.oid] = anImg;
-      aryImgOut.push(anImg);
-      if (_.has(orphanedVariants, anImg.oid)) {
-        imgMap[anImg.oid].variants.push.apply(imgMap[anImg.oid].variants, orphanedVariants[anImg.oid]);
-        delete orphanedVariants[anImg.oid];
-      }
-    } else {
-      // if the image is a variant, add it to the original's variants array
-      if (_.isObject(imgMap[anImg.orig_id]))
-      {
-        if (log.isTraceEnabled()) {
-          log.trace('Variant w/ name - %s', anImg.name);
-          log.trace('Variant w/ doc. body keys - (%j)', _.keys(docBody));
-          log.trace('Variant w/ image keys - (%j)', _.keys(anImg));
-        }
-        imgMap[anImg.orig_id].variants.push(anImg);
-      } else {
-        log.warn("Warning: found variant image without a parent %j", anImg);
-        if (!_.has(orphanedVariants, anImg.orig_id)) {
-          orphanedVariants[anImg.orig_id] = [];
-        }
-        orphanedVariants[anImg.orig_id].push(anImg);
-      }
-    }
-  }
-
-  return aryImgOut;
-
-}
 
 /**
  * This method converts an array of image docs returned by couch, into an array of images with
@@ -1231,7 +1224,7 @@ function convertImageViewToCollection(docs, options)
 
       // Assign a URL to the image. Note, this is temporary as the images
       // will eventually move out of Couch / Touch DB.
-      anImg.url = priv.getImageUrl(doc);
+      anImg.url = touchdbHelpers.getImageUrl(doc);
 
       if ( anImg.isOriginal()) {
         imgMap[anImg.oid] = anImg;
@@ -1279,7 +1272,7 @@ var Importers = (function() {
    *      code
    *      message
    *
-   *    See exports.errors below for a list of errors which are return.
+   *    See 'errors' in the global namespace (bottom of file) for a list of errors which are return.
    */
   function createFromFs(target_dir, callback, options)
   {
@@ -1439,31 +1432,31 @@ var Importers = (function() {
                         // Create N images for the batch.
                         //
                         function(pass1Next) {
-                          create(task.imageAttrs, 
-                                 {parse: true},
-                                 function(err, created, errors) {
-                                   var numCreated = created ? created.length : 0;
-                                   var numErrors = errors ? errors.length : 0;
-                                   log.info('Pass 1 create callback invoked, begin - ' + task.begin + ', end - ' + task.end + ', created - ' + numCreated + ', errors - ' + numErrors + ', err - ' + err);
-                                   if (errors) {
-                                     _.each(errors, function(error) {
-                                       imageStatus[error.attrs.id] = {
-                                         status: -1,
-                                         err: error.err,
-                                         image: error.attrs
-                                       };
-                                     });
-                                   }
-                                   if (created && created.length) {
-                                     pass1Next(null, created);
-                                   }
-                                   else if (err) {
-                                     pass1Next(err);
-                                   }
-                                   else {
-                                     pass1Next("No images were created!");
-                                   }
-                                 });
+                          Images.create(task.imageAttrs, 
+                                        {parse: true},
+                                        function(err, created, errors) {
+                                          var numCreated = created ? created.length : 0;
+                                          var numErrors = errors ? errors.length : 0;
+                                          log.info('Pass 1 create callback invoked, begin - ' + task.begin + ', end - ' + task.end + ', created - ' + numCreated + ', errors - ' + numErrors + ', err - ' + err);
+                                          if (errors) {
+                                            _.each(errors, function(error) {
+                                              imageStatus[error.attrs.id] = {
+                                                status: -1,
+                                                err: error.err,
+                                                image: error.attrs
+                                              };
+                                            });
+                                          }
+                                          if (created && created.length) {
+                                            pass1Next(null, created);
+                                          }
+                                          else if (err) {
+                                            pass1Next(err);
+                                          }
+                                          else {
+                                            pass1Next("No images were created!");
+                                          }
+                                        });
                         },
                         //
                         // Update the set of created images associated with the batch, and
@@ -1791,6 +1784,9 @@ var Importers = (function() {
     var filterFunc = genFilterOnIndex(lp, options.filterNotStarted, options.filterNotCompleted, options.filterAllInTrash, options.filterNoImages);
 
     var nToFetch = N ? N : undefined;
+
+    log.debug(lp + 'Creating doc. iterator w/ page size - ' + nToFetch);
+
     var dIt = new touchdb.DocIterator(
       nToFetch, 
       IMG_DESIGN_DOC, 
@@ -1893,8 +1889,18 @@ var Importers = (function() {
           callback(null, page);
         },
         function(err) {
-          log.error(lp + 'error - ' + err);
-          callback(errors.UNKNOWN_ERROR);
+          if (err.name === 'StopIteration') {
+            var page = {
+              items: [],
+              cursors: {},
+              total_size: 0
+            };
+            callback(null, page);
+          }
+          else {
+            log.error(lp + 'error - ' + util.inspect(err));
+            callback(errors.UNKNOWN_ERROR);
+          }
         });
     }
     else if (touchdb.isCursor(cursor) && options.pageTo) {
@@ -2048,9 +2054,9 @@ var Importers = (function() {
 
     log.debug("retrieving importBatch with oid '%s' using view '%s' ...", oid, view);
 
-    iterateOverView(IMG_DESIGN_DOC,
-                    view,
-                    iterOpts);
+    touchdbHelpers.iterateOverView(IMG_DESIGN_DOC,
+                                   view,
+                                   iterOpts);
   }
   /* End of: show */
 
@@ -2589,6 +2595,309 @@ var Importers = (function() {
     };
   }
 
+  /*
+   * pagedImagesIndex(oid, cursor, [[options], [callback]]): Page over the images in an import batch.
+   *
+   *  Args:
+   *    oid: ID of the import.
+   *    cursor: Cursor to retrieve, or cursor of current page to move relative to.
+   *      To begin pagination, supply a value of undefined, or -1. The most recent
+   *      page will be returned.
+   *
+   *    options:
+   *      includeImporter: If true, return an 'importer' element in the result. Default: false.
+   *      variants: Array of variant names to include. Defaults to undefined (no variants will be returned).
+   *      imagesTrashState: 'in' || 'out' || any. Default: 'out'.
+   *      pageSize: Number of importers in a page to return. Default: 1000.
+   *      pageTo: To page relative to the page corresponding to cursor.
+   *        pageTo ::= 'previous' || 'next'
+   *
+   *    callback(err, page): Error or result page.
+   *      page: Result as defined in MediaMangerStorage/lib/touchdb/doc-pager. It
+   *        contains the following attributes:
+   *          * items: The items attribute contains the images in the page.
+   *          * importer: An 'importer' attribute will be included if options.includeImporter is true.
+   *          * cursors: As defined in MediaMangerStorage/lib/touchdb/doc-pager. It
+   *          * total_size: The size of the result set if ALL pages were enumerated.
+   *
+   *    Note, if instead of an options hash, a callback function is provided, options will be
+   *    interpreted as the callback arg..
+   */
+  function pagedImagesIndex(oid, cursor, options, callback) {
+    var lp = 'Importers.pagedImagesIndex: ';
+
+    callback = callback || ((options && _.isFunction(options))?options:undefined);
+    options = (options && !_.isFunction(options))?options:{};
+
+    if (!_.has(options, 'pageSize')) {
+      options.pageSize = 1000;
+    }
+
+    //
+    // 1. Get import iff options.includeImporter is true.
+    // 2a. Run VIEW_BATRCH_BY_OID_W_IMAGE_BY_CTIME with reduce=true S.T. we can get
+    //    the size of the total result set (total_size).
+    // 2b. Get page of original images, either first, or as dictacted by cursor / pageTo.
+    //    This is where the cursor will get update from.
+    // 3. Grab the variants for the iamges in the page, and populate each image returned
+    //    in 2.
+    //
+    async.waterfall(
+      [
+        function(next) {
+          if (options.includeImporter) {
+            //
+            // 1. Get import using VIEW_BATCH_BY_OID_W_IMAGE using importKey.
+            //
+            var importKey = [oid, '0', 0, ''];
+            touchdbHelpers.runView(IMG_DESIGN_DOC, 
+                                   VIEW_BATCH_BY_OID_W_IMAGE,
+                                   {
+                                     toReturn: 'docs',
+                                     viewOptions: {
+                                       key: importKey
+                                     },
+                                     callback: function(err, docs) {
+                                       if (err) {
+                                         next(err);
+                                       }
+                                       else if (docs) {
+                                         log.debug(lp + 'Retrieve import batch - ' + util.inspect(docs));
+                                         var importer = null;
+                                         if (docs.length === 1) {
+                                           var importer = mmStorage.docFactory('plm.ImportBatch', docs[0]);
+                                         }
+                                         next(null, importer);
+                                       }
+                                       else {
+                                         var err = _.clone(errors.IMPORT_NOT_FOUND);
+                                         err.message = util.format(err.message, oid);
+                                         next(err);
+                                       }
+                                     }
+                                   });
+          }
+          else {
+            next(null, null);
+          }
+        },
+        //
+        // 2a. Run VIEW_BATCH_BY_OID_W_IMAGE_BY_CTIME with reduce=true so we
+        //     can get num_images which we set to total_size in the result page.
+        //
+        function(importer, next) {
+          touchdbHelpers.runView(IMG_DESIGN_DOC, 
+                                 VIEW_BATCH_BY_OID_W_IMAGE_BY_CTIME,
+                                   {
+                                     viewOptions: {
+                                       reduce: true,
+                                       startkey: [oid, 1],
+                                       endkey: [oid, 1, {}]
+                                     },
+                                     callback: function(err, result) {
+                                       if (err) {
+                                         next(err);
+                                       }
+                                       else if (result && _.has(result, 'num_images')) {
+                                         log.debug(lp + 'Retrieve batch view reduction - ' + util.inspect(result));
+
+                                         next(null, importer, result.num_images);
+                                       }
+                                       else {
+                                         var err = _.clone(errors.VIEW_REDUCE_FAILURE);
+                                         err.message = util.format(err.message, VIEW_BATCH_BY_OID_W_IMAGE_BY_CTIME);
+                                         next(err);
+                                       }
+                                     }
+                                   });
+        },
+        //
+        // 2b. Get the original images using VIEW_BATCH_BY_OID_W_IMAGE_BY_CTIME.
+        //
+        function(importer, num_images, next) {
+          var trashState = 'out';
+
+          if (options.imagesTrashState) {
+            trashState = options.imagesTrashState;
+          }
+
+          function filterFunc(doc) {
+            if ((trashState !== 'any') && (doc.class_name === 'plm.Image')) {
+              if ((trashState === 'in') && !doc.in_trash) {
+                return true;
+              }
+              else if ((trashState === 'out') && doc.in_trash) {
+                return true;
+              }
+            }
+            return false;
+          }
+
+          //
+          // Set startKey / stopKey so we define the permissable range of iteration.
+          //
+          var startKey = undefined;
+          var stopKey = undefined;
+
+          if (trashState === 'in') {
+            startKey = [oid, 1, 1];
+            stopKey = [oid, 1, 1, {}];
+          }
+          else if (trashState === 'out') {
+            startKey = [oid, 1, 0];
+            stopKey = [oid, 1, 0, {}];
+          }
+          else {
+            startKey = [oid, 1];
+            stopKey = [oid, 1, {}];
+          }
+
+          var dPager = new touchdb.DocPager(
+            options.pageSize, 
+            IMG_DESIGN_DOC, 
+            VIEW_BATCH_BY_OID_W_IMAGE_BY_CTIME,
+            {
+              startKey: startKey,
+              stopKey: stopKey,
+              filterSync: filterFunc,
+              direction: 'ascending'
+            }
+          );
+
+          //
+          // Get a page of images.
+          //
+          if ((!cursor || (cursor === -1) || (cursor === '-1')) || (touchdb.isCursor(cursor) && !options.pageTo)) {
+            //
+            // No cursor, or cursor and no pageTo option -> use .at() to get the first page, or page at the cursor.
+            //
+            if (!touchdb.isCursor(cursor)) {
+              //
+              // No cursor, start looking at the view at the original images.
+              //
+              var k = [oid, 1];
+              if (trashState === 'in') {
+                k.push(1);
+              }
+              else if (trashState === 'out') {
+                k.push(0);
+              }
+              cursor = {
+                key: k,
+                id: undefined
+              };
+            }
+            log.debug(lp + 'Retrieving at cursor - ' + util.inspect(cursor) + ', is cursor - ' + touchdb.isCursor(cursor) + ', page to - ' + options.pageTo);
+            var pAt = dPager.at(cursor).then(
+              function(page) {
+                log.debug(lp + 'Got first page, ' + page.items.length + ' images...');
+                page.total_size = num_images;
+                if (options.includeImporter) {
+                  page.importer = importer;
+                }
+                next(null, page);
+              },
+              function(err) {
+                if (err.name === 'StopIteration') {
+                  log.debug(lp + 'Iterated over all results with no data.');
+                  var page = {
+                    items: [],
+                    cursors: {},
+                    total_size: total_size
+                  };
+                  if (options.includeImporter) {
+                    page.importer = importer;
+                  }
+                  next(null, page);
+                }
+                else {
+                  log.error(lp + 'error - ' + util.inspect(err));
+                  next(errors.UNKNOWN_ERROR);
+                }
+              });
+          }
+          else if (touchdb.isCursor(cursor) && options.pageTo) {
+            if ((options.pageTo === 'previous') || (options.pageTo === 'next')) {
+              log.debug(lp + 'Paging to - ' + options.pageTo);
+              var m = (options.pageTo === 'previous') ? dPager.previous : dPager.next;
+              
+              var p = m.call(dPager, cursor).then(
+                function(page) {
+                  log.debug(lp + 'Got ' + options.pageTo + ' page, ' + page.items.length + ' imports...');
+                  page.total_size = num_images;
+                  if (options.includeImporter) {
+                    page.importer = importer;
+                  }
+                  next(null, page);
+                },
+                function(err) {
+                  log.error(lp + 'error - ' + err);
+                  next(errors.UNKNOWN_ERROR);
+                });
+            }
+            else {
+              log.error(lp + 'Invalid method invokation, options.pageTo must be either "previous" or "next"!');
+              next(errors.INVALID_METHOD_ARGUMENT);
+            }
+          }
+          else {
+            log.error(lp + 'Invalid method invokation, argument errors...');
+            next(errors.INVALID_METHOD_ARGUMENT);
+          }
+        },
+        //
+        // Get the variants for each image in the page, and associated them.
+        //
+        function(page, next) {
+          if (options.variants) {
+            var vKeys = [];
+            var iItems = {};
+
+            _.each(page.items, function(item) {
+              //
+              // key: <batch_id>, <original image id>, <0, 1, 2 depending upon whether import, original, or variant>, <name>
+              //
+              iItems[item.doc.oid] = item.doc;
+              item.doc.variants = [];
+              _.each(options.variants, function(variant) {
+                vKeys.push([oid, item.doc.oid, 2, variant]);
+              });
+            });
+            touchdbHelpers.runView(IMG_DESIGN_DOC,
+                                   VIEW_BATCH_BY_OID_W_IMAGE,
+                                   {
+                                     toReturn: 'docs',
+                                     viewOptions: {
+                                       keys: vKeys
+                                     },
+                                     callback: function(err, docs) {
+                                       if (err) {
+                                         next(err);
+                                       }
+                                       else {
+                                         _.each(docs, function(doc) {
+                                           iItems[doc.orig_id].variants.push(doc);
+                                         });
+                                         next(null, page);
+                                       }
+                                     }
+                                   });
+          }
+          else {
+            next(null, page);
+          }
+        }
+      ],
+      function(err, page) {
+        if (err) {
+          callback(err);
+        }
+        else {
+          callback(null, page);
+        }
+      });
+  }
+
   //
   // Return public methods.
   //
@@ -2597,17 +2906,11 @@ var Importers = (function() {
     index: index,
     pagedIndex: pagedIndex,
     show: show,
-    update: update
+    update: update,
+    pagedImagesIndex: pagedImagesIndex
   }; 
 })();
 /* End of: Importers */
-
-exports.Importers = Importers;
-exports.importBatchFs = Importers.createFromFs;
-exports.importBatchIndex = Importers.index;
-exports.importBatchShow = Importers.show;
-exports.importBatchUpdate = Importers.update;
-exports.importBatchFindRecent = Importers.index;
 
 /**
  * Recurses inside a folder and returns a tuple
@@ -2683,9 +2986,6 @@ function collectImagesInDir(target_dir, callback)
     }
   );
 } // end collectImagesInDir
-exports.collectImagesInDir = collectImagesInDir;
-
-exports.saveOrUpdate = saveOrUpdate;
 
 /**
  * Creates an image in database if the image does not exist, updates the image otherwise
@@ -2733,7 +3033,6 @@ function saveOrUpdate(options, callback) {
 
   });
 }
-exports.toCouch = toCouch;
 
 /**
  *
@@ -2751,8 +3050,6 @@ function toCouch(image){
   delete (out.url);
   return out;
 }
-
-
 
 /**
  * Find images by tags. Expects a filter object of the form:
@@ -2777,8 +3074,6 @@ function toCouch(image){
  *
  *   showMetadata: false by default, set to true to enable display of Image.metadata_raw
  */
-exports.findByTags = findByTags;
-
 function findByTags(filter, options, callback) {
   var lp = 'findByTags: ';
 
@@ -2806,85 +3101,81 @@ function findByTags(filter, options, callback) {
 
   var tags = keys;
 
-  iterateOverViewKeys(IMG_DESIGN_DOC, 
-                      VIEW_BY_TAG,
-                      keys,
-                      {
-                        reduce: false,
-                        callback: function(err, docs) {
-                          if (err) {
-                            callback(util.format("error in findByTags with err: %s", err));
-                          }
-                          else {
+  touchdbHelpers.iterateOverViewKeys(IMG_DESIGN_DOC, 
+                                     VIEW_BY_TAG,
+                                     keys,
+                                     {
+                                       callback: function(err, docs) {
+                                         if (err) {
+                                           callback(util.format("error in findByTags with err: %s", err));
+                                         }
+                                         else {
+                                           
+                                           //remove duplicates
+                                           var possibleMatches = _.uniq(docs, function (doc) {
+                                             return doc.oid;
+                                           });
+                                           
+                                           log.debug('findByTags: Have ' + possibleMatches.length + ' possible results.');
 
-                            //remove duplicates
-                            var possibleMatches = _.uniq(docs, function (doc) {
-                              return doc.oid;
-                            });
+                                           // Pick out the documents that include all of the given keywords.
 
-                            log.debug('findByTags: Have ' + possibleMatches.length + ' possible results.');
+                                           var resultDocs = _.filter(possibleMatches, 
+                                                                     function(doc) {
+                                                                       if(filter.groupOp==="AND"){
+                                                                         var containsAll = _.every(tags,  function(tag){
+                                                                           return _.contains(doc.tags, tag);
+                                                                         });
+                                                                         return containsAll;
+                                                                       } else if (filter.groupOp==="OR") {
+                                                                         var containsAny = _.some(tags,  function(tag){
+                                                                           return _.contains(doc.tags, tag);
+                                                                         });
+                                                                         return containsAny;
+                                                                       }
+                                                                     });
 
-                            // Pick out the documents that include all of the given keywords.
+                                           log.debug('findByTags: Have ' + resultDocs.length + ' results.');
 
-                            var resultDocs = _.filter(possibleMatches, 
-                                                      function(doc) {
-                                                        if(filter.groupOp==="AND"){
-                                                          var containsAll = _.every(tags,  function(tag){
-                                                            return _.contains(doc.tags, tag);
-                                                          });
-                                                          return containsAll;
-                                                        } else if (filter.groupOp==="OR") {
-                                                          var containsAny = _.some(tags,  function(tag){
-                                                            return _.contains(doc.tags, tag);
-                                                          });
-                                                          return containsAny;
-                                                        }
-                                                      });
+                                           var resultDocsOids = _.pluck(resultDocs, "oid");
 
-                            log.debug('findByTags: Have ' + resultDocs.length + ' results.');
+                                           var aryImgOut = [];
 
-                            var resultDocsOids = _.pluck(resultDocs, "oid");
-
-                            var aryImgOut = [];
-
-                            async.forEachLimit(resultDocsOids,
-                                               1,
-                                               function (oid,next){
-                                                 Images.show(oid,null,function(err,image){
-                                                   if (err) { callback(err); }
-                                                   else {
-                                                     aryImgOut.push(image);
-                                                   }
-                                                   next();
-                                                 }
-                                                            );
-                                               },
-                                               function(err) {
-                                                 if (err) {
-                                                   callback(err);
-                                                 }else{
-                                                   //
-                                                   // all images were processed time to callback, sort by:
-                                                   //
-                                                   // (created_at, importer_id, name)
-                                                   //
-                                                   aryImgOut.sort(sortImagesNewestFirst);
-                                                   callback(null, aryImgOut);
-                                                 }
-                                               }
-                                              );
-                          }
-                        }
-                      });
+                                           async.forEachLimit(resultDocsOids,
+                                                              1,
+                                                              function (oid,next){
+                                                                Images.show(oid,null,function(err,image){
+                                                                  if (err) { callback(err); }
+                                                                  else {
+                                                                    aryImgOut.push(image);
+                                                                  }
+                                                                  next();
+                                                                }
+                                                                           );
+                                                              },
+                                                              function(err) {
+                                                                if (err) {
+                                                                  callback(err);
+                                                                }else{
+                                                                  //
+                                                                  // all images were processed time to callback, sort by:
+                                                                  //
+                                                                  // (created_at, importer_id, name)
+                                                                  //
+                                                                  aryImgOut.sort(sortImagesNewestFirst);
+                                                                  callback(null, aryImgOut);
+                                                                }
+                                                              }
+                                                             );
+                                         }
+                                       }
+                                     });
 } // end findByTags
 
 /**
  * options.trashState : in|out|any
  * @type {Function}
  */
-exports.findImagesByTrashState = findImagesByTrashState;
-
-
 function findImagesByTrashState(options, callback) {
 
   var opts = options || {};
@@ -2969,8 +3260,6 @@ function findImagesByTrashState(options, callback) {
   );
 } // end findByTrashState
 
-exports.tagsReplace = tagsReplace;
-
 /**
  * The tags in oldTags will be replaced by the tags in newTags
  * oldTags[1] will be replaced by newTags[1]
@@ -3051,8 +3340,6 @@ function tagsReplace(oidArray,oldTags, newTags,callback){
 
 
 } // end tagsReplace
-
-exports.tagsRemove = tagsRemove;
 
 /**
  * @param oidArray
@@ -3136,7 +3423,6 @@ function tagsRemove(oidArray,tagsToRemove,callback){
 
 } // end tagsRemove
 
-exports.tagsAdd = tagsAdd;
 /**
  * Add a list of tags to a each image in a list of images.
  * @param oidArray
@@ -3153,7 +3439,7 @@ function tagsAdd(oidArray, tagsArray,callback){
       function(next) {
         log.trace("Finding by oids ...");
 
-        fetchDocs(oidArray, {
+        touchdbHelpers.fetchDocs(oidArray, {
           batchSize: 100,
           convertToImage: true,
           callback: function (err, images) {
@@ -3213,9 +3499,6 @@ function tagsAdd(oidArray, tagsArray,callback){
 
 } // end tagsAdd
 
-
-
-exports.tagsGetAll = tagsGetAll;
 /**
  * Get the list of all the tags in the database
  * @param callback
@@ -3256,9 +3539,6 @@ function tagsGetAll(callback){
 
 } // end tagsGetAll
 
-
-
-exports.tagsGetImagesTags = tagsGetImagesTags;
 /**
  * Get the list of tags of a set of images
  * @param callback
@@ -3271,70 +3551,37 @@ function tagsGetImagesTags(imagesIdsArray, callback) {
     throw "Invalid Argument Exception: tagsGetImagesTags does not understand imagesIdsArray:: '" + imagesIdsArray + "'";
   }
 
-  fetchDocs(imagesIdsArray,
-            {
-              batchSize: 100,
-              callback: function(err, docs) {
-                if (!err) {
-                  var resultTags = [];
+  touchdbHelpers.fetchDocs(imagesIdsArray,
+                           {
+                             batchSize: 100,
+                             callback: function(err, docs) {
+                               if (!err) {
+                                 var resultTags = [];
+                                 
+                                 //collect all the tags
+                                 _.each(docs, function(image){
+                                   resultTags.push(image.tags);
+                                 });
 
-                  //collect all the tags
-                  _.each(docs, function(image){
-                    resultTags.push(image.tags);
-                  });
+                                 resultTags = _.flatten(resultTags);
 
-                  resultTags = _.flatten(resultTags);
+                                 //remove duplicates
+                                 resultTags = _.uniq(resultTags);
 
-                  //remove duplicates
-                  resultTags = _.uniq(resultTags);
+                                 //sort tags
+                                 resultTags.sort();
 
-                  //sort tags
-                  resultTags.sort();
+                                 log.debug("tagsGetImagesTags query returned: '%j'", resultTags);
 
-                  log.debug("tagsGetImagesTags query returned: '%j'", resultTags);
-
-                  callback(null, resultTags);
-                } else {
-                  callback(util.format("error getting tags of a set of images: '%s'", err));
-                }
-              }
-            });
+                                 callback(null, resultTags);
+                               } else {
+                                 callback(util.format("error getting tags of a set of images: '%s'", err));
+                               }
+                             }
+                           });
 } // end tagsGetImagesTags
 
-/*
- *  getImageUrl: Helper to construct a URL to reference the image associated with a document.
- */
-priv.getImageUrl = function(doc) {
-  var url = 'http://' + config.db.host;
-  if (config.db.port) {
-    url = url + ':' + config.db.port;
-  }
-  url = url + '/';
-  if (config.db.name) {
-    url = url + config.db.name + '/';
-  }
-  else {
-    return null;
-  }
-  if (doc._id) {
-    url = url + doc._id + '/';
-  }
-  else {
-    return null;
-  }
-  if (_.has(doc, '_attachments')) {
-    if (_.has(doc, 'orig_id') && (doc.orig_id !== '')) {
-      url = (_.has(doc, 'name') && _.has(doc._attachments, doc.name))? url + doc.name : null;
-    }
-    else {
-      url = _.keys(doc._attachments)? url + _.first(_.keys(doc._attachments)) : null;
-    }
-    return url;
-  }
-  else {
-    return null;
-  }
-};
+
 
 
 /**
@@ -3375,8 +3622,6 @@ priv.setCouchRev = function setCouchRev(entity, couch_result) {
   entity._storage.id  = couch_result.id;
   entity._storage.rev = couch_result.rev;
 };
-
-exports.sendToTrash = sendToTrash;
 
 /**
  * TODO: Move this method to a StorageService
@@ -3466,9 +3711,6 @@ function sendToTrash(oidArray,callback){
 
 } // end sendToTrash
 
-
-exports.restoreFromTrash = restoreFromTrash;
-
 /**
  * TODO: Move this method to a StorageService
  *
@@ -3557,8 +3799,6 @@ function restoreFromTrash(oidArray,callback){
 
 } // end restoreFromTrash
 
-exports.viewTrash = viewTrash;
-
 /*
  * viewTrash: Find documents in Trash.
  *
@@ -3633,13 +3873,12 @@ function viewTrash(options, callback) {
     }
   };
 
-  iterateOverView(IMG_DESIGN_DOC,
-                  VIEW_TRASH,
-                  iterOpts);
+  touchdbHelpers.iterateOverView(IMG_DESIGN_DOC,
+                                 VIEW_TRASH,
+                                 iterOpts);
 
 } // end viewTrash
 
-exports.deleteImages = deleteImages;
 /**
  * TODO: Move this method to a StorageService
  *
@@ -3723,9 +3962,6 @@ function deleteImages(oidArray, callback){
 
 } // end deleteImages
 
-
-exports.emptyTrash = emptyTrash;
-
 /**
  * TODO: Move this method to a StorageService
  *
@@ -3773,380 +4009,6 @@ function emptyTrash(callback){
   );
 
 } // end emptyTrash
-
-//
-// TouchDB Helpers:
-//
-//  bulkDocFetch: Fetch a bunch of documents given a list of doc IDs.
-//  fetchDocs: Fetch documents, optionally in batches.
-//  runView: Run a view, and optionally including documents when running
-//    the view, or separately fetching the documents.
-//  iterateOverView: iterate over a view fetching documents.
-//  iterateOverViewKeys: Repeatedly invoke runView given a set of view keys.
-//
-
-//
-// bulkDocFetch: Fetchs a set of documents.
-//  Args:
-//    docIds: Array of document IDs.
-//    callback: Invoked as callbac(err, docs), where docs is an array of
-//      the fetched documents.
-//
-//  Returns: The fetched docs in an array.
-//
-//  Essentially, does the equivalent of:
-//
-//    curl -d '{"keys":["bar","baz"]}' -X POST http://127.0.0.1:5984/foo/_all_docs?include_docs=true
-//
-var bulkDocFetch = function(docIds, callback) {
-  if (docIds && _.isArray(docIds) && (docIds.length > 0)) {
-    var db = priv.db();
-    db.fetch({keys: docIds},
-             {},
-             function(err, body) {
-               if (err) {
-                 callback && callback('Error occurred fetching documents, error - ' + err);
-               }
-               else if (_.has(body, 'rows')) {
-                 if (_.isArray(body.rows) && body.rows.length > 0) {
-                   // log.debug('bulkDocFetch: Fetched ' + body.rows.length + ' documents, first doc - ' + util.inspect(body.rows[0].doc));
-                   var docs = _.pluck(body.rows, "doc");
-                   callback && callback(null, docs);
-                 }
-                 else {
-                   callback && callback('No documents were fetched.');
-                 }
-               }
-             });
-  }
-  else {
-    callback && callback('No documents were requested.');
-  }
-};
-
-//
-// fetchDocs: Fetch documents, optionally in batches.
-//
-//  Args:
-//    docIds: Document IDs.
-//    options:
-//      batchSize: Batchsize to use. By default ALL documents will be fetched.
-//      convertToImage: Convert to image objects. Default: false.
-//      callback: callback(err, docs)
-//
-var fetchDocs = function(docIds, options) {
-  options = options || {};
-  if (!options.batchSize) {
-    options.batchSize = docIds.length;
-  }
-  var callback = options.callback || undefined;
-  var docs = [];
-  var start = 0;
-  async.whilst(
-    function() { return start < docIds.length; },
-    function(innerCallback) {
-      var end = (start+options.batchSize<docIds.length)?start+options.batchSize:docIds.length;
-      log.debug('fetchDocs: Fetching [' + start + ', ' + end + '].');
-      var docIdsToFetch = docIds.slice(start, end);
-      start = end;
-      bulkDocFetch(docIdsToFetch, 
-                   function(err, docsFetched) {
-                     if (!err && docsFetched) {
-                       log.debug('fetchDocs: Adding ' + docsFetched.length + ' documents to result set...');
-                       docs.push.apply(docs, docsFetched);
-                       log.debug('fetchDocs: Total documents fetched - ' + docs.length);
-                     }
-                     innerCallback(err);
-                   });
-    },
-    function(err) {
-      log.debug('fetchDocs: Finished fetching documents, fetched - ' + docs.length);
-      if (!err && options.convertToImage) {
-        log.debug('fetchDocs: Converting docs to images...');
-        docs = convert_couch_body_to_array_of_images(null, docs);
-      }
-      callback && callback(err, docs);
-    }
-  );
-};
-
-//
-// runView: Run a view, and optionally including documents when running
-//  the view, or separately fetching the documents.
-//
-//  Args:
-//    designDoc
-//    viewName
-//    options:
-//      toReturn: What should be returned:
-//
-//        'ids': document ids
-//        'docs': documents should be returned.
-//
-//        default: 'ids'
-//
-//      viewOptions: Options to pass to the view, ie: startkey, etc.
-//      fetchDocs: When toReturn is 'docs', fetch the docs separately. include_docs = true is NOT passed to the view.
-//      fetchDocsBatchSize: When fetchDocs is specified, optionally specify a batchsize.
-//      callback:
-//
-function runView(designDoc, viewName, options) {
-  // log.debug('runView: design doc. - ' + designDoc + ', view name - ' + viewName + ', options ' + util.inspect(options));
-  options = options || {};
-
-  if (!options.toReturn) {
-    options.toReturn = 'ids';
-  }
-  
-  var callback = options.callback || undefined;
-
-  if (!callback) {
-    log.debug('runView: no callback!');
-  }
-
-  var viewOptions = options.viewOptions || {};
-
-  if (options.toReturn === 'ids') {
-    viewOptions.include_docs = false;
-  }
-  else {
-    if (options.fetchDocs) {
-      viewOptions.include_docs = false;
-    }
-    else {
-      viewOptions.include_docs = true;
-    }
-  }
-
-  async.waterfall(
-    [
-      function(waterfallCallback) {
-        var db = priv.db();
-        var tmpResult = db.view(
-          designDoc, 
-          viewName, 
-          viewOptions, 
-          function(err, body) { 
-            if (err) {
-              var errMsg = 'Using nano.view: error - ' + err;
-              log.debug('runView: error - ' + errMsg);
-              waterfallCallback(errMsg, []);
-            }
-            else {
-              var docsOrIds = [];
-              log.debug('runView: Using nano.view: got response, typeof body - ' + typeof(body) + '.');
-              if (_.has(body, 'rows')) {
-                log.debug('runView: View matched ' + _.size(body.rows) + ' documents.');
-              
-                if (_.size(body.rows)) {
-                  if ((options.toReturn === 'docs') && viewOptions.include_docs) {
-                    docsOrIds = _.pluck(body.rows, "doc");
-                    log.debug('runView: Got ' + docsOrIds.length + ' documents...');
-                  }
-                  else {
-                    docsOrIds = _.pluck(body.rows, "id");
-                    log.debug('runView: Got ' + docsOrIds.length + ' document ids...');
-                  }
-                }
-              }
-              else {
-                log.debug('runView: Using nano.view: View returned no rows!');
-                if (_.isString(body)) {
-                  log.error('runView: View return string body - ' + body);
-                }
-              }
-              waterfallCallback(null, docsOrIds);
-            }
-          }
-        );
-      },
-      function(docsOrIds, waterfallCallback) {
-        if (options.toReturn === 'ids') {
-          waterfallCallback(null, docsOrIds);
-        }
-        else if (options.fetchDocs) {
-          var fetchDocsOpts = {
-            callback: function(err, docs) {
-              waterfallCallback(err, docs);
-            }
-          };
-          if (options.fetchDocsBatchSize) {
-            fetchDocsOpts.batchSize = options.fetchDocsBatchSize;
-          }
-          fetchDocs(docsOrIds,
-                    fetchDocsOpts);
-        }
-        else {
-          waterfallCallback(null, docsOrIds);
-        }
-      }
-    ],
-    function(err, result) {
-      if (err) {
-        log.debug('runView: Error processing results, error - ' + err);
-        callback && callback(err);
-      }
-      else {
-        if (result.length) {
-          log.debug('runView: View returned a result of ' + result.length + ' items.');
-        }
-        else {
-          log.debug('runView: No documents!');
-        }
-        callback && callback(null, result);
-      }
-    });
-}
-
-//
-// iterateOverView: iterate over a view fetching documents.
-//
-//  Args:
-//    designDoc
-//    viewName
-//    options:
-//      pageSize: page size during iteration. Default is 100.
-//      startKey: key to start paging at.
-//      startKeyDocId: doc id associated with start key.
-//      endKey: end key to stop iteration at.
-//      endKeyDocId: doc id associated with end key.
-//      direction: 'ascending' | 'descending', default is 'ascending'.
-//      returnRows: Return couchdb rows which include 'id', 'key', and 'doc' fields.
-//      reduce: true or false, passed to view.
-//      skip: Iterate skipping over previous pages. Default is false. Use this for views
-//        where same key can produce multiple docs. TouchDB seems to have a bug with
-//        startkey_docid.
-//      callback(err, docs):
-//
-function iterateOverView(designDoc, viewName, options) {
-
-  var lp = 'iterateOverView: ';
-
-  var options = options || {};
-  var callback = options.callback || undefined;
-
-  var pageSize = options.pageSize ? options.pageSize : 100;
-
-  var iterOpts = {};
-
-  _.each(['startKey', 'startKeyDocId', 'endKey', 'endKeyDocId', 'endKeyDocId', 'direction', 'returnRows', 'reduce', 'skip'],
-         function(iOpt) {
-           if (_.has(options, iOpt)) {
-             iterOpts[iOpt] = options[iOpt];
-           }
-         });
-
-  var dIt = new touchdb.DocIterator(
-    pageSize,
-    designDoc,
-    viewName,
-    iterOpts
-  );
-
-  var docs = [];
-
-  function iterate() {
-    dIt.next().then(
-      function(page) {
-        log.debug(lp + 'Got ' + page.length + ' items...');
-        if (page.length >	0) {
-          docs = docs.concat(page);
-        }
-        return page;
-      },
-      function(err) {
-        if (err.name !== 'StopIteration') {
-          log.error(lp + 'error - ' + err);
-        }
-        throw err;
-      }).then(
-        function(page) {
-          iterate();
-        },
-        function(err) {
-          if (callback) {
-            if (err.name === 'StopIteration') {
-              log.debug(lp + 'iterated over ' + docs.length + ' items...');
-              callback(null, docs);
-            }
-            else {
-              callback(err);
-            }
-          }
-        });
-  }
-
-  iterate();
-}
-
-//
-// iterateOverViewKeys: For each key, iterate of the results matching that key.
-//  Useful for views that return many documents for the same key.
-//
-//  Args:
-//    designDoc
-//    viewName
-//    keys
-//    options:
-//      pageSize: page size during iteration. Default is 100.
-//      reduce: true or false, passed to view.
-//      returnRows: Return couchdb rows which include 'id', 'key', and 'doc' fields. 
-//        Normally, docs are returned.
-//      callback(err, docs):
-//
-function iterateOverViewKeys(designDoc, viewName, keys, options) {
-
-  var lp = 'iterateOverViewKeys: ';
-
-  log.debug(lp + 'view - ' + viewName + ', keys - ' + keys + ', options - ' + util.inspect(options));
-
-  options = options || {};
-
-  var callback = options.callback || undefined;
-  var docs = [];
-  var keyIdx = 0;
-  async.whilst(
-    function() { return keyIdx < keys.length; },
-    function(innerCallback) {
-
-      //
-      // For a given key, we iterate over the view to get the results.
-      //
-
-      var keyToFetch = keys[keyIdx];
-      log.debug('iterateOverViewKeys: Fetching key ' + keyToFetch+ ', at idx - ' + keyIdx + '.');
-
-      var iterOpts = {skip: true};
-
-      _.each(['pageSize', 'returnRows', 'reduce'],
-             function(iOpt) {
-               if (_.has(options, iOpt)) {
-                 iterOpts[iOpt] = options[iOpt];
-               }
-             });
-
-      iterOpts.startKey = keyToFetch;
-      iterOpts.endKey = keyToFetch;
-
-      iterOpts.callback = function(err, docsFetched) {
-        if (!err && docsFetched) {
-          log.debug('iterateOverViewKeys: Adding ' + docsFetched.length + ' documents to result set...');
-          docs.push.apply(docs, docsFetched);
-          log.debug('iterateOverViewKeys: Total documents fetched - ' + docs.length);
-        }
-        innerCallback(err);
-      }
-
-      iterateOverView(designDoc, viewName, iterOpts);
-
-      keyIdx = keyIdx + 1;
-    },
-    function(err) {
-      log.debug('iterateOverViewKeys: Finished iterating over view, fetched - ' + docs.length);
-      callback && callback(err, docs);
-    }
-  );
-}
 
 //
 //  GraphicsMagick helpers:
@@ -4224,35 +4086,154 @@ var errorCodes = {
   CONFLICT: 2,
   ATTRIBUTE_VALIDATION_FAILURE: 3,
   NOT_IMPLEMENTED: 4,
-  INVALID_METHOD_ARGUMENT: 5
+  INVALID_METHOD_ARGUMENT: 5,
+  INVALID_CONFIG: 6,
+  DB_CONNECTION_ERROR: 7,
+  IMPORT_NOT_FOUND: 8,
+  VIEW_REDUCE_FAILURE: 9
 };
-exports.errorCodes = errorCodes;
 
 var errors = {
   UNKNOWN_ERROR: {
+    name: 'UNKNOWN_ERROR',
     code: errorCodes.UNKNOWN_ERROR,
     message: "Unknown error occurred."
   },
   NO_FILES_FOUND: {
+    name: 'NO_FILES_FOUND',
     code: errorCodes.NO_FILES_FOUND,
     message: "No files found in directory %s"
   },
   CONFLICT: {
+    name: 'CONFLICT',
     code: errorCodes.CONFLICT,
     message: "Entity conflict, a revision of the entity has been generated with attribute values which would conflict with new values being set."
   },
   ATTRIBUTE_VALIDATION_FAILURE: {
+    name: 'ATTRIBUTE_VALIDATION_FAILURE',
     code: errorCodes.ATTRIBUTE_VALIDATION_FAILURE,
     message: "Attributes being set have failed validation."
   },
   NOT_IMPLEMENTED: {
+    name: 'NOT_IMPLEMENTED',
     code: errorCodes.NOT_IMPLEMENTED,
     message: "Feature not implemented."
   },
   INVALID_METHOD_ARGUMENT: {
+    name: 'INVALID_METHOD_ARGUMENT',
     code: errorCodes.INVALID_METHOD_ARGUMENT,
     message: "Invalid method argument."
+  },
+  INVALID_CONFIG: {
+    name: 'INVALID_CONFIG',
+    code: errorCodes.INVALID_CONFIG,
+    message: "Invalid configuration."
+  },
+  DB_CONNECTION_ERROR: {
+    name: 'DB_CONNECTION_ERROR',
+    code: errorCodes.DB_CONNECTION_ERROR,
+    message: "Unable to connect to the data base, host: %s, port: %s, db name: %s."
+  },
+  IMPORT_NOT_FOUND: {
+    name: 'IMPORT_NOT_FOUND',
+    code: errorCodes.IMPORT_NOT_FOUND,
+    message: "Import not found, id - %s"
+  },
+  VIEW_REDUCE_FAILURE: {
+    name: 'VIEW_REDUCE_FAILURE',
+    code: errorCodes.VIEW_REDUCE_FAILURE,
+    message: "View (%s) reduce error."
   }
 };
 
-exports.errors = errors;
+function ImageServiceError(error) {
+  this.name = error.name;
+  this.message = error.message;
+  this.code = error.code;
+}
+ImageServiceError.prototype = new Error();
+ImageServiceError.prototype.constructor = ImageServiceError;
+
+module.exports = function(cfg, options) {
+
+  var lp = moduleName + '.constructor: ';
+
+  options = options || {checkConfig: true};
+  if (!_.has(options, 'checkConfig')) {
+    options.checkConfig = true;
+  }
+
+  config = configFactory(cfg);
+
+  if (options.checkConfig) {
+    log.info(lp + 'Checking config - ' + JSON.stringify(config) + '...');
+
+    if (!config.db.name) {
+      var err = errors.INVALID_CONFIG;
+      err.message = "config.db.name must contain a valid database name!";
+      throw new ImageServiceError(err);
+    }
+
+    var server = nano(
+      {
+        url: 'http://' + config.db.host + ':' + config.db.port,
+        log: nanoLogFunc
+      });
+    server.db.get(config.db.name,
+                  function(err) {
+                    if (err) {
+                      var err = _.clone(errors.DB_CONNECTION_ERROR);
+                      err.message = util.format(err.message, config.db.host, config.db.port, config.db.name);
+                      throw new ImageServiceError(err);
+                    }
+                  });
+  }
+
+  touchdbHelpers = touchdbHelpersModule(config.db.host, config.db.port, config.db.name);
+
+  return {
+    config: config,
+    Images: Images,
+    Importers: Importers,
+    errorCodes: errorCodes,
+    errors: errors,
+    ImageServiceError: ImageServiceError,
+    //
+    // Miscellaneous Image methods in the global namespace which are
+    // exported. (Should go away and/or get moved into the Images namespace!)
+    //
+    index:  Images.index,
+    show:   Images.show,
+    save:   Images.save,
+    findVersion: Images.findVersion,
+    findByOids:  Images.findByOids,
+    findByCreationTime: findByCreationTime,
+    collectImagesInDir: collectImagesInDir,
+    saveOrUpdate: saveOrUpdate,
+    findByTags: findByTags,
+    findImagesByTrashState: findImagesByTrashState,
+    tagsReplace: tagsReplace,
+    tagsRemove: tagsRemove,
+    tagsAdd: tagsAdd,
+    tagsGetAll: tagsGetAll,
+    tagsGetImagesTags: tagsGetImagesTags,
+    sendToTrash: sendToTrash,
+    restoreFromTrash: restoreFromTrash,
+    viewTrash: viewTrash,
+    deleteImages: deleteImages,
+    emptyTrash: emptyTrash,
+    //
+    // Miscellaneous Importer methods in the global namespace which are
+    // exported. (Should go away and/or get moved in the Importers namespace!)
+    //
+    importBatchFs: Importers.createFromFs,
+    importBatchIndex: Importers.index,
+    importBatchShow: Importers.show,
+    importBatchUpdate: Importers.update,
+    importBatchFindRecent: Importers.index,
+    //
+    // Miscellaneous in the global namespace:
+    //
+    toCouch: toCouch
+  };
+}
