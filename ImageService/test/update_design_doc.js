@@ -25,13 +25,76 @@ function updateDesignDoc(options, callback) {
         "map":"function (doc) {  if (doc.class_name === 'plm.Image') { var key; if (doc.orig_id === '') {  key = doc.oid;  emit(key)    }}}"
       },
       "by_creation_time": {
-        "map":"function(doc) { if ((!doc.in_trash) && (doc.class_name === 'plm.Image')) { var key = date_to_array(doc.created_at); if (doc.orig_id === '') { key.push(doc.oid,0,doc.size.width); emit(key,doc.path)} else { key.push(doc.orig_id,1,doc.size.width); emit(key,doc.name) }} function date_to_array(aDate) { var out = [], d = new Date(aDate); out.push(d.getFullYear()); out.push(d.getMonth()+1); out.push(d.getDate()); out.push(d.getHours()); out.push(d.getMinutes()); out.push(d.getSeconds()); out.push(d.getMilliseconds()); return out;} }"
+        //
+        //  original image:
+        //
+        //    key: <created at>, <doc.id>, 0, <doc.name>
+        //    value: doc.name
+        //
+        //  variant:
+        //
+        //    key: <created at>, <original doc id>, 1, <doc.name>
+        //    value: doc.name
+        //
+        "map":"function(doc) { if ((!doc.in_trash) && (doc.class_name === 'plm.Image')) { var key = date_to_array(doc.created_at); if (doc.orig_id === '') { key.push(doc.oid,0,doc.name); emit(key,doc.name)} else { key.push(doc.orig_id,1,doc.name); emit(key,doc.name) }} function date_to_array(aDate) { var out = [], d = new Date(aDate); out.push(d.getFullYear()); out.push(d.getMonth()+1); out.push(d.getDate()); out.push(d.getHours()); out.push(d.getMinutes()); out.push(d.getSeconds()); out.push(d.getMilliseconds()); return out;} }"
       },
       "by_creation_time_tagged": {
-        "map": "function(doc) { if ((!doc.in_trash) && (doc.class_name === 'plm.Image')) { var key = date_to_array(doc.created_at); if (doc.orig_id === '') { if (doc.tags && (doc.tags.length > 0)) { key.push(doc.oid,0,doc.size.width); emit(key,doc.path); } } else { key.push(doc.orig_id,1,doc.size.width); emit(key,doc.name); } } function date_to_array(aDate) { var out = [], d = new Date(aDate); out.push(d.getFullYear()); out.push(d.getMonth()+1); out.push(d.getDate()); out.push(d.getHours()); out.push(d.getMinutes()); out.push(d.getSeconds()); out.push(d.getMilliseconds()); return out;} }"
+        //
+        //  original image:
+        //
+        //    key: <created at>, <doc.id>, 0, <doc.name>
+        //    value: doc.name
+        //
+        //  variant:
+        //
+        //    key: <created at>, <original doc id>, 1, <doc.name>
+        //    value: doc.name
+        //
+        "map": "function(doc) { if ((!doc.in_trash) && (doc.class_name === 'plm.Image')) { var key = date_to_array(doc.created_at); if (doc.orig_id === '') { if (doc.tags && (doc.tags.length > 0)) { key.push(doc.oid,0,doc.name); emit(key,doc.name); } } else { key.push(doc.orig_id,1,doc.name); emit(key,doc.name); } } function date_to_array(aDate) { var out = [], d = new Date(aDate); out.push(d.getFullYear()); out.push(d.getMonth()+1); out.push(d.getDate()); out.push(d.getHours()); out.push(d.getMinutes()); out.push(d.getSeconds()); out.push(d.getMilliseconds()); return out;} }"
       },
       "by_creation_time_untagged": {
-        "map": "function(doc) { if ((!doc.in_trash) && (doc.class_name === 'plm.Image')) { var key = date_to_array(doc.created_at); if (doc.orig_id === '') { if (!doc.tags || (doc.tags.length <= 0)) { key.push(doc.oid,0,doc.size.width); emit(key,doc.path); } } else { key.push(doc.orig_id,1,doc.size.width); emit(key,doc.name); } } function date_to_array(aDate) { var out = [], d = new Date(aDate); out.push(d.getFullYear()); out.push(d.getMonth()+1); out.push(d.getDate()); out.push(d.getHours()); out.push(d.getMinutes()); out.push(d.getSeconds()); out.push(d.getMilliseconds()); return out;} }"
+        //
+        //  original image:
+        //
+        //    key: <created at>, <doc.id>, 0, <doc.name>
+        //    value: doc.name
+        //
+        //  variant:
+        //
+        //    key: <created at>, <original doc id>, 1, <doc.name>
+        //    value: doc.name
+        //
+        "map": "function(doc) { if ((!doc.in_trash) && (doc.class_name === 'plm.Image')) { var key = date_to_array(doc.created_at); if (doc.orig_id === '') { if (!doc.tags || (doc.tags.length <= 0)) { key.push(doc.oid,0,doc.name); emit(key,doc.name); } } else { key.push(doc.orig_id,1,doc.name); emit(key,doc.name); } } function date_to_array(aDate) { var out = [], d = new Date(aDate); out.push(d.getFullYear()); out.push(d.getMonth()+1); out.push(d.getDate()); out.push(d.getHours()); out.push(d.getMinutes()); out.push(d.getSeconds()); out.push(d.getMilliseconds()); return out;} }"
+      },
+      "by_creation_time_name": {
+        //
+        //  ONLY original image:
+        //
+        //    key: <doc.name>, <created at>, <doc.id>
+        //    value: doc.name
+        //
+        "map": "function(doc) { if ((!doc.in_trash) && (doc.class_name === 'plm.Image')) { var key = date_to_array(doc.created_at); if (doc.orig_id === '') { key.push(doc.name,doc.oid); emit(key,doc.name); } } function date_to_array(aDate) { var out = [], d = new Date(aDate); out.push(d.getFullYear()); out.push(d.getMonth()+1); out.push(d.getDate()); out.push(d.getHours()); out.push(d.getMinutes()); out.push(d.getSeconds()); out.push(d.getMilliseconds()); return out; } }",
+        "reduce": "function(keys, values, rereduce) { if (rereduce) { return sum(values); } else { return values.length; } }"
+      },
+      "by_creation_time_name_tagged": {
+        //
+        //  ONLY original image:
+        //
+        //    key: <doc.name>, <created at>, <doc.id>
+        //    value: doc.name
+        //
+        "map": "function(doc) { if ((!doc.in_trash) && (doc.class_name === 'plm.Image')) { var key = date_to_array(doc.created_at); if (doc.orig_id === '') { if (doc.tags && (doc.tags.length > 0)) { key.push(doc.name,doc.oid); emit(key,doc.name); } } } function date_to_array(aDate) { var out = [], d = new Date(aDate); out.push(d.getFullYear()); out.push(d.getMonth()+1); out.push(d.getDate()); out.push(d.getHours()); out.push(d.getMinutes()); out.push(d.getSeconds()); out.push(d.getMilliseconds()); return out; } }",
+        "reduce": "function(keys, values, rereduce) { if (rereduce) { return sum(values); } else { return values.length; } }"
+      },
+      "by_creation_time_name_untagged": {
+        //
+        //  ONLY original image:
+        //
+        //    key: <created at>, <doc.name>, <doc.id>
+        //    value: doc.name
+        //
+        "map": "function(doc) { if ((!doc.in_trash) && (doc.class_name === 'plm.Image')) { var key = date_to_array(doc.created_at); if (doc.orig_id === '') { if (!doc.tags || (doc.tags.length <= 0)) { key.push(doc.name,doc.oid); emit(key,doc.name); } } } function date_to_array(aDate) { var out = [], d = new Date(aDate); out.push(d.getFullYear()); out.push(d.getMonth()+1); out.push(d.getDate()); out.push(d.getHours()); out.push(d.getMinutes()); out.push(d.getSeconds()); out.push(d.getMilliseconds()); return out; } }",
+        "reduce": "function(keys, values, rereduce) { if (rereduce) { return sum(values); } else { return values.length; } }"
       },
       "batch_by_ctime":{
         "map": "function(doc) { if ((!doc.in_trash) && (doc.class_name === 'plm.ImportBatch')) { var key = date_to_array(doc.created_at); key.push(doc.oid,0); emit(key,doc.path); } function date_to_array(aDate) { var out = [], d = new Date(aDate); out.push(d.getFullYear()); out.push(d.getMonth()+1); out.push(d.getDate()); out.push(d.getHours()); out.push(d.getMinutes()); out.push(d.getSeconds()); out.push(d.getMilliseconds()); return out; }}"

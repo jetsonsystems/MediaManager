@@ -18,6 +18,7 @@ var dbName=null
 
 exports.startDatabase   = startDatabase;
 exports.destroyDatabase = destroyDatabase;
+exports.updateDesignDocs = updateDesignDocs;
 
 function startDatabase(options, callback) {
 
@@ -124,5 +125,18 @@ function destroyDatabase(options, callback) {
     if (callback) {
       callback(err, results);
     }
+  });
+}
+
+function updateDesignDocs(options, callback) {
+
+  updateDesignDoc.updateDesignDoc(options,function(err,result){
+    if(err){
+      console.log(err);
+    }
+    else{
+      console.log("Updated Design Doc: " + util.inspect(result,true,null,true));
+    }
+    callback(null);
   });
 }

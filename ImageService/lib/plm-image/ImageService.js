@@ -38,6 +38,7 @@
 //      create(imgAttrs, options, callback): Creates new images give a set of initial attributes (imgAttrs).
 //        No image processing (parsing and/or thumbnailing) is performed.
 //      index(options, callback): Retrieves a collection of images.
+//      pagedIndex(cursor, [[options], [callback]]): Index with pagination support.
 //      show(oid, options, callback): Retreives and returns an image.
 //      findByOids(oidsArray, callback): Simply returns images by id.
 //      findVersion(oid, callback): Determines whether an image w/ oid exists.
@@ -68,8 +69,6 @@
 //    Image methods in global namespace: Image methods defined in the global namespace. 
 //      Should eventually get moved to the Images namespace.
 //
-//      findByCreationTime(criteria, callback, options): Retrieves given 'criteria' and returns sorted
-//        by creation time.
 //      collectImagesInDir(target_dir, callback): Finds images in a directory.
 //      saveOrUpdate(options, callback): Creates or updates an image. No processing is performed.
 //      findByTags(filter, options, callback): Retrieve images by tag(s).
@@ -215,6 +214,9 @@ var
   ,VIEW_BY_CTIME             = 'by_creation_time'
   ,VIEW_BY_CTIME_TAGGED    = 'by_creation_time_tagged'
   ,VIEW_BY_CTIME_UNTAGGED    = 'by_creation_time_untagged'
+  ,VIEW_BY_CTIME_NAME          = 'by_creation_time_name'
+  ,VIEW_BY_CTIME_NAME_TAGGED   = 'by_creation_time_name_tagged'
+  ,VIEW_BY_CTIME_NAME_UNTAGGED = 'by_creation_time_name_untagged'
   ,VIEW_BY_OID_WITH_VARIANT  = 'by_oid_with_variant'
   ,VIEW_BY_OID_WITHOUT_VARIANT = 'by_oid_without_variant'
   ,VIEW_BATCH_BY_CTIME       = 'batch_by_ctime'
@@ -444,55 +446,61 @@ var Images = (function() {
     }
   }
 
-  /**
-   * Main image finder method
+  /*
+   * index(options, callback): Main image finder method.
    *
-   * Retrieve an image and its variants according to the criteria passed in the 'options' object.
+   *  Retrieve an image and its variants according to the criteria passed in the 'options' object.
    *
-   * By default, the field Image.metadata_raw will be suppressed in the objects returned.  If you
-   * need this field, pass the showMetadata option.
+   *  By default, the field Image.metadata_raw will be suppressed in the objects returned.  If you
+   *  need this field, pass the showMetadata option.
    *
-   * options:
-   *  filter: Can take on the following forms:
-   *    Object whith a list of rules:
-   *      rules: List of rules. Rules may take on the following forms:
-   *          field: 'tags'
-   *          op: 'eq'
-   *          data: <tag value>
-   *      groupOp: AND || OR
-   *    Single rule, where the rule may be one of:
-   *      * filter images w/ tags:
-   *        field: 'tags'
-   *        op: 'ne'
-   *        data: []
-   *      * filter images w/o tags:
-   *        field: 'tags'
-   *        op: 'eq'
-   *        data: []
-   *        
-   *  created:
-   *  trashState:
-   *  showMetadata: false by default, set to true to enable display of Image.metadata_raw
+   *  Args:
+   *
+   *    options:
+   *      filter: Can take on the following forms:
+   *        Object whith a list of rules:
+   *          rules: List of rules. Rules may take on the following forms:
+   *              field: 'tags'
+   *              op: 'eq'
+   *              data: <tag value>
+   *          groupOp: AND || OR
+   *        Single rule, where the rule may be one of:
+   *          * filter images w/ tags:
+   *            field: 'tags'
+   *            op: 'ne'
+   *            data: []
+   *          * filter images w/o tags:
+   *            field: 'tags'
+   *            op: 'eq'
+   *            data: []
+   *      trashState: 'in' || 'out' || 'any'.
+   *      created: Select images using creation date. A date rage is defined using ONE
+   *        or two values defining a start date, and/or end date. A two element array is
+   *        expected where:
+   *        - created[0]: The start date, or beginning of the date range, in the form - YYYYMMDD. 
+   *          No start date, will show all images with creation date less than or equal to 
+   *          endDate.
+   *        - created[1]: The end date, in the form - YYYYMMDD. No end date will return all
+   *          images where creation date is greater than or equal to start date.
+   *      showMetadata: false by default, set to true to enable display of Image.metadata_raw
    */
-  function index(options,callback) {
-    log.debug("Calling 'index' with options: %j", util.inspect(options));
+  function index(options, callback) {
+    var lp = 'Images.index: ';
+    log.debug(lp + "Calling 'index' with options: %j", util.inspect(options));
 
-    // TODO:
-    //  - The use cases below need to be expanded
-    //  - Need to define paging options, and paging impl
+    options = options || {};
 
-    if (!options || _.isEmpty(options) || options.created || (options.filter && !_.has(options.filter, 'rules') && _.has(options.filter, 'data') && (_.size(options.filter.data) === 0))) {
+    if (_.isEmpty(options) || options.created || ((options.trashState === 'out') && (!options.filter)) || (options.filter && !_.has(options.filter, 'rules') && _.has(options.filter, 'data') && (_.size(options.filter.data) === 0))) {
       log.debug('Invoking findByCreationTime...');
       try {
-        options = options || {};
-        var criteria = options.created || null;
         var opts = {};
+        opts.created = options.created || null;
         opts.showMetadata = options.showMetadata || false;
         if (options.filter && !_.has(options.filter, 'rules') && _.has(options.filter, 'data') && (_.size(options.filter.data) === 0)) {
-          opts.filterRule = options.filter;
+          opts.filter = options.filter;
         }
-        log.debug('findByCreationTime: criteria - ' + util.inspect(criteria) + ', opts - ' + util.inspect(opts) + '...');
-        findByCreationTime( criteria, callback, opts);
+        log.debug(lp - 'Invoking findByCreationTime w/ options - ' + util.inspect(opts));
+        findByCreationTime(opts, callback);
       }
       catch (e) {
         log.error('findByCreationTime: Error - ' + e);
@@ -516,6 +524,80 @@ var Images = (function() {
           }
 
         }
+    }
+  }
+
+  /*
+   * pagedIndex(cursor, [[options], [callback]]): Page over images sorted by creation time.
+   *  In addition, images may be tagged / or untagged, or intrash / not in trash.
+   *
+   *  Note, there are essentially these forms of valid invokation:
+   *    1. Only consider images which are NOT in trash regardless of tagging.
+   *    2. Only consider images which are NOT in trash, and tagged.
+   *      options.filter.data === <no tag data>
+   *      options.filter.op   === "ne"
+   *    3. Only consider images which are NOT in trash, and untagged.
+   *      options.filter.data === <no tag data>
+   *      options.filter.op   === "eq"
+   *    4. Only consider images which are NOT in trash, by tag:
+   *      options.filter.data === <tag data>
+   *      options.filter.op   === 'eq' || 'ne'
+   *    5. in trash
+   *    6. any trash state
+   *
+   *  Args:
+   *    cursor: Cursor to retrieve, or cursor of current page to move relative to.
+   *      To begin pagination, supply a value of undefined, or -1. The most recent
+   *      page will be returned.
+   *
+   *    options:
+   *      filter: Filter rule for query by tag. Will ONLY consider images which are NOT in trash.
+   *      trashState: 'in' || 'out' || any. Default: 'out'.
+   *      created: Select images using creation date. A date rage is defined using ONE
+   *        or two values defining a start date, and/or end date. A two element array is
+   *        expected where:
+   *        - created[0]: The start date, or beginning of the date range, in the form - YYYYMMDD. 
+   *          No start date, will show all images with creation date less than or equal to 
+   *          endDate.
+   *        - created[1]: The end date, in the form - YYYYMMDD. No end date will return all
+   *          images where creation date is greater than or equal to start date.
+   *      variants: Array of variant names to include. Defaults to undefined (no variants will be returned).
+   *      pageSize: Number of importers in a page to return. Default: 1000.
+   *      pageTo: To page relative to the page corresponding to cursor.
+   *        pageTo ::= 'previous' || 'next'
+   *
+   *    callback(err, page): Error or result page.
+   *      page: Result as defined in MediaMangerStorage/lib/touchdb/doc-pager. It
+   *        contains the following attributes:
+   *          * items: The items attribute contains the images in the page.
+   *          * cursors: As defined in MediaMangerStorage/lib/touchdb/doc-pager. It
+   *          * total_size: The size of the result set if ALL pages were enumerated.
+   *
+   *    Note:
+   *      - options.filter: Implies images are NOT in trash, ie -> trashState === 'out' is implied.
+   *      - options.filter CANNOT be combined with (options.trashState === in or options.trashState === any).
+   *      - if instead of an options hash, a callback function is provided, options will be
+   *        interpreted as the callback arg..
+   */
+  function pagedIndex(cursor, options, callback) {
+    var lp = 'Images.pagedIndex: ';
+
+    callback = callback || ((options && _.isFunction(options))?options:undefined);
+    options = (options && !_.isFunction(options))?options:{};
+
+    if (!_.has(options, 'pageSize')) {
+      options.pageSize = 1000;
+    }
+
+    if (_.isEmpty(options) || ((options.trashState === 'out') && (!options.filter)) || (options.filter && !_.has(options.filter, 'rules') && _.has(options.filter, 'data') && (_.size(options.filter.data) === 0))) {
+      //
+      // Handle 1, 2 or 3.
+      //
+      log.debug(lp + 'Invoking pagedFindByCreationTime...');
+      pagedFindByCreationTime(cursor, options, callback);
+    }
+    else {
+      throw new ImageServiceError(errors.NOT_IMPLEMENTED);
     }
   }
 
@@ -678,9 +760,353 @@ var Images = (function() {
                              });
   } // end findByOids
 
+  /*
+   * findByCreationTime([[options], [callback]]): Retrieve images sorted by creation
+   *  time.
+   *
+   *  Args:
+   *
+   *    options:
+   *      filter: See Images.index. Single filter rule to filter images w or w/o tags.
+   *      created: Select images using creation date. A date rage is defined using ONE
+   *        or two values defining a start date, and/or end date. A two element array is
+   *        expected where:
+   *        - created[0]: The start date, or beginning of the date range, in the form - YYYYMMDD. 
+   *          No start date, will show all images with creation date less than or equal to 
+   *          endDate.
+   *        - created[1]: The end date, in the form - YYYYMMDD. No end date will return all
+   *          images where creation date is greater than or equal to start date.
+   *      showMetadata: false by default, set to true to enable display of Image.metadata_raw
+   *
+   */
+  function findByCreationTime(options, callback) {
+    var lp = 'Images.findByCreationTime: ';
+    log.debug(lp + "options -  %j", options);
+
+    var opts = options || {};
+
+    var view = VIEW_BY_CTIME;
+    if (_.has(opts, 'filter') && (opts.filter.field === 'tags') && (_.size(opts.filter.data) === 0)) {
+      if (opts.filter.op === 'eq') {
+        //
+        // Filter untagged.
+        //
+        view = VIEW_BY_CTIME_TAGGED;
+      }
+      else if (opts.filter.op === 'ne') {
+        //
+        // Filter tagged.
+        //
+        view = VIEW_BY_CTIME_UNTAGGED;
+      }
+    }
+
+    log.debug('findByCreationTime opts: ' + JSON.stringify(opts) + ', using view - ' + view);
+
+    var iterOpts = {
+      pageSize: 100,
+      direction: 'descending',
+      callback: function(err, docs) {
+        if (!err) {
+          if (docs.length <= 0) {
+            log.warn('findByCreationTime: Unable to find any images.');
+            callback(null, []);
+          }
+          else {
+            log.debug('findByCreationTime: Retrieved ' + _.size(docs) + ' image documents.');
+            
+            var aryImgOut = touchdbHelpers.convert_couch_body_to_array_of_images(opts,docs);
+   
+            log.debug('findByCreationTime: Returning ' + aryImgOut.length + ' images.');
+
+            callback(null, aryImgOut);
+          }
+        }
+        else {
+          log.error('findByCreationTime: Error retrieving images, error - ' + err);
+          callback("error in findByCreationTime with options '" + JSON.stringify(opts) + "': " + err + ".");
+        }
+      }
+    };
+
+    if (options.created) {
+      if (options.created[0]) {
+        //
+        // Start of the date range becomes the endKey as we are
+        // enumerating the view in a descending fashion to return
+        // newest images first.
+        //
+        iterOpts.endKey  = priv.date_to_array(options.created[0]);
+      }
+      if (options.created[1]) {
+        //
+        // End of the date range becomes the startKey for iteration.
+        //
+        iterOpts.startKey = priv.date_to_array(options.created[1]);
+      }
+    }
+
+    touchdbHelpers.iterateOverView(IMG_DESIGN_DOC, view, iterOpts);
+
+  } // end findByCreationTime
+
+  /*
+   * pagedFindByCreationTime(cursor, [[options], [callback]]): Page over images
+   *  from newest to oldest. Support for ONLY including images with or without tags
+   *  is provided.
+   *
+   *  Args:
+   *
+   *    cursor: Cursor to retrieve, or cursor of current page to move relative to.
+   *      To begin pagination, supply a value of undefined, or -1. The most recent
+   *      page will be returned.
+   *
+   *    options:
+   *      variants: Array of variant names to include. Defaults to undefined (no variants will be returned).
+   *      created: Select images using creation date. A date rage is defined using ONE
+   *        or two values defining a start date, and/or end date. A two element array is
+   *        expected where:
+   *        - created[0]: The start date, or beginning of the date range, in the form - YYYYMMDD. 
+   *          No start date, will show all images with creation date less than or equal to 
+   *          endDate.
+   *        - created[1]: The end date, in the form - YYYYMMDD. No end date will return all
+   *          images where creation date is greater than or equal to start date.
+   *
+   *      filter: See Images.index. Single filter rule to filter images w or w/o tags.
+   *      showMetadata: false by default, set to true to enable display of Image.metadata_raw
+   *      pageSize: Number of importers in a page to return. Default: 1000.
+   *      pageTo: To page relative to the page corresponding to cursor.
+   *        pageTo ::= 'previous' || 'next'
+   *
+   *    callback(err, page): Error or result page.
+   *      page: Result as defined in MediaMangerStorage/lib/touchdb/doc-pager. It
+   *        contains the following attributes:
+   *          * items: The items attribute contains the images in the page.
+   *          * cursors: As defined in MediaMangerStorage/lib/touchdb/doc-pager. It
+   *          * total_size: The size of the result set if ALL pages were enumerated.
+   *   
+   */
+  function pagedFindByCreationTime(cursor, options, callback) {
+    var lp = 'Images.pagedFindByCreationTime: ';
+
+    callback = callback || ((options && _.isFunction(options))?options:undefined);
+    options = (options && !_.isFunction(options))?options:{};
+
+    if (!_.has(options, 'pageSize')) {
+      options.pageSize = 1000;
+    }
+
+
+    var view = VIEW_BY_CTIME_NAME;
+    if (_.has(options, 'filter') && (options.filter.field === 'tags') && (_.size(options.filter.data) === 0)) {
+      if (options.filter.op === 'eq') {
+        //
+        // Filter untagged.
+        //
+        view = VIEW_BY_CTIME_NAME_TAGGED;
+      }
+      else if (options.filter.op === 'ne') {
+        //
+        // Filter tagged.
+        //
+        view = VIEW_BY_CTIME_NAME_UNTAGGED;
+      }
+    }
+
+    log.debug(lp + "Options - %j, using view - %s", options, view);
+
+    //
+    // 1. Run the view with reduce === true S.T. we can get the size
+    //    of the total result set (total_size).
+    // 2. Run the view with reduce === false to get a page of images.
+    // 3. Add variants to images in the page.
+    //
+    async.waterfall(
+      [
+        //
+        // 1. Get the total number of original images.
+        //
+        function(next) {
+          touchdbHelpers.runView(IMG_DESIGN_DOC, 
+                                 view,
+                                 {
+                                   toReturn: 'value',
+                                   viewOptions: {
+                                     reduce: true
+                                   },
+                                   callback: function(err, result) {
+                                     if (err) {
+                                       next(err);
+                                     }
+                                     else if (result) {
+                                       log.debug(lp + 'Retrieved view reduction - ' + util.inspect(result));
+                                       
+                                       next(null, result);
+                                     }
+                                     else {
+                                       var err = _.clone(errors.VIEW_REDUCE_FAILURE);
+                                       err.message = util.format(err.message, view);
+                                       next(err);
+                                     }
+                                   }
+                                 });
+        },
+        //
+        // 2. Run the view to get a page of original images.
+        //
+        function(num_images, next) {
+
+          //
+          // Filter out thumbnails to get a page of original images.
+          //
+          function filterThumbnails(doc) {
+            if (doc.orig_id) {
+              return true;
+            }
+            return false;
+          }
+
+          var pagerOpts = {
+            direction: 'descending',
+            filterSync: filterThumbnails
+          };
+
+          if (options.created) {
+            if (options.created[0]) {
+              //
+              // Start of the date range becomes the endKey as we are
+              // enumerating the view in a descending fashion to return
+              // newest images first.
+              //
+              pagerOpts.endKey  = priv.date_to_array(options.created[0]);
+            }
+            if (options.created[1]) {
+              //
+              // End of the date range becomes the startKey for iteration.
+              //
+              pagerOpts.startKey = priv.date_to_array(options.created[1]);
+            }
+          }
+
+          var dPager = new touchdb.DocPager(
+            options.pageSize, 
+            IMG_DESIGN_DOC, 
+            view,
+            pagerOpts
+          );
+          //
+          // Get a page of images.
+          //
+          if ((!cursor || (cursor === -1) || (cursor === '-1')) || (touchdb.isCursor(cursor) && !options.pageTo)) {
+            //
+            // No cursor, or cursor and no pageTo option -> use .at() to get the first page, or page at the cursor.
+            //
+            log.debug(lp + 'Retrieving at cursor - ' + util.inspect(cursor) + ', is cursor - ' + touchdb.isCursor(cursor) + ', page to - ' + options.pageTo);
+            var pAt = dPager.at(cursor).then(
+              function(page) {
+                log.debug(lp + 'Got first page, ' + page.items.length + ' images...');
+                page.total_size = num_images;
+                next(null, page);
+              },
+              function(err) {
+                if (err.name === 'StopIteration') {
+                  log.debug(lp + 'Iterated over all results with no data.');
+                  var page = {
+                    items: [],
+                    cursors: {},
+                    total_size: total_size
+                  };
+                  next(null, page);
+                }
+                else {
+                  log.error(lp + 'error - ' + util.inspect(err));
+                  next(errors.UNKNOWN_ERROR);
+                }
+              });
+          }
+          else if (touchdb.isCursor(cursor) && options.pageTo) {
+            if ((options.pageTo === 'previous') || (options.pageTo === 'next')) {
+              log.debug(lp + 'Paging to - ' + options.pageTo);
+              var m = (options.pageTo === 'previous') ? dPager.previous : dPager.next;
+              
+              var p = m.call(dPager, cursor).then(
+                function(page) {
+                  log.debug(lp + 'Got ' + options.pageTo + ' page, ' + page.items.length + ' imports...');
+                  page.total_size = num_images;
+                  next(null, page);
+                },
+                function(err) {
+                  log.error(lp + 'error - ' + err);
+                  next(errors.UNKNOWN_ERROR);
+                });
+            }
+            else {
+              log.error(lp + 'Invalid method invokation, options.pageTo must be either "previous" or "next"!');
+              next(errors.INVALID_METHOD_ARGUMENT);
+            }
+          }
+          else {
+            log.error(lp + 'Invalid method invokation, argument errors...');
+            next(errors.INVALID_METHOD_ARGUMENT);
+          }
+        },
+        //
+        // 3. Get the variants for each image in the page, and associate them.
+        //
+        function(page, next) {
+          if (options.variants) {
+            var vKeys = [];
+            var iItems = {};
+
+            _.each(page.items, function(item) {
+              //
+              // key: <batch_id>, <original image id>, <0, 1, 2 depending upon whether import, original, or variant>, <name>
+              //
+              iItems[item.doc.oid] = item.doc;
+              item.doc.variants = [];
+              _.each(options.variants, function(variant) {
+                vKeys.push([item.doc.batch_id, item.doc.oid, 2, variant]);
+              });
+            });
+            touchdbHelpers.runView(IMG_DESIGN_DOC,
+                                   VIEW_BATCH_BY_OID_W_IMAGE,
+                                   {
+                                     toReturn: 'docs',
+                                     viewOptions: {
+                                       keys: vKeys
+                                     },
+                                     callback: function(err, docs) {
+                                       if (err) {
+                                         next(err);
+                                       }
+                                       else {
+                                         _.each(docs, function(doc) {
+                                           iItems[doc.orig_id].variants.push(doc);
+                                         });
+                                         next(null, page);
+                                       }
+                                     }
+                                   });
+          }
+          else {
+            next(null, page);
+          }
+        }
+      ],
+      function(err, page) {
+        if (err) {
+          callback(err);
+        }
+        else {
+          callback(null, page);
+        }
+      });
+  }
+
   return {
     create: create,
     index: index,
+    pagedIndex: pagedIndex,
     show: show,
     save: save,
     findVersion: findVersion,
@@ -1126,77 +1552,6 @@ function persist(persistCommand, options, callback)
   );
 
 } // end persist
-
-
-
-/**
- * Find images by creation date range. Expects a 'created' array containing a start date and an end
- * date.  A null start date means 'show all from earliest until the end date'.  A null end date means
- * 'show all from start date forward'. Null start and end dates will return all images, so use with
- * caution.
- *
- * options:
- *   filterRule: See Images.index. Single filter rule to filter images w or w/o tags.
- *   showMetadata: false by default, set to true to enable display of Image.metadata_raw
- *   
- */
-function findByCreationTime( criteria, callback, options ) {
-  log.debug("findByCreationTime criteria: %j ", criteria);
-
-  var opts = options || {};
-
-  var view = VIEW_BY_CTIME;
-  if (_.has(opts, 'filterRule') && (opts.filterRule.field === 'tags') && (_.size(opts.filterRule.data) === 0)) {
-    if (opts.filterRule.op === 'eq') {
-      //
-      // Filter untagged.
-      //
-      view = VIEW_BY_CTIME_TAGGED;
-    }
-    else if (opts.filterRule.op === 'ne') {
-      //
-      // Filter tagged.
-      //
-      view = VIEW_BY_CTIME_UNTAGGED;
-    }
-  }
-
-  log.debug('findByCreationTime opts: ' + JSON.stringify(opts) + ', using view - ' + view);
-
-  var iterOpts = {
-    pageSize: 100,
-    direction: 'descending',
-    callback: function(err, docs) {
-      if (!err) {
-        if (docs.length <= 0) {
-          log.warn('findByCreationTime: Unable to find any images.');
-          callback(null, []);
-        }
-        else {
-          log.debug('findByCreationTime: Retrieved ' + _.size(docs) + ' image documents.');
-          
-          var aryImgOut = touchdbHelpers.convert_couch_body_to_array_of_images(opts,docs);
-  
-          log.debug('findByCreationTime: Returning ' + aryImgOut.length + ' images.');
-
-          callback(null, aryImgOut);
-        }
-      }
-      else {
-        log.error('findByCreationTime: Error retrieving images, error - ' + err);
-        callback("error in findByCreationTime with options '" + JSON.stringify(opts) + "': " + err + ".");
-      }
-    }
-  };
-
-  if (_.isArray(criteria)) {
-    iterOpts.startKey = priv.date_to_array(criteria[0]);
-    iterOpts.endKey  = priv.date_to_array(criteria[1]);
-  }
-
-  touchdbHelpers.iterateOverView(IMG_DESIGN_DOC, view, iterOpts);
-
-}; // end findByCreationTime
 
 /**
  * This method converts an array of image docs returned by couch, into an array of images with
@@ -2686,6 +3041,7 @@ var Importers = (function() {
         //     can get num_images which we set to total_size in the result page.
         //
         function(importer, next) {
+          log.debug(lp + 'Running view reduction, view - ' + VIEW_BATCH_BY_OID_W_IMAGE_BY_CTIME);
           touchdbHelpers.runView(IMG_DESIGN_DOC, 
                                  VIEW_BATCH_BY_OID_W_IMAGE_BY_CTIME,
                                    {
@@ -4207,7 +4563,6 @@ module.exports = function(cfg, options) {
     save:   Images.save,
     findVersion: Images.findVersion,
     findByOids:  Images.findByOids,
-    findByCreationTime: findByCreationTime,
     collectImagesInDir: collectImagesInDir,
     saveOrUpdate: saveOrUpdate,
     findByTags: findByTags,
