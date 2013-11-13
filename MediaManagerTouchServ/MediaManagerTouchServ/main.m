@@ -869,7 +869,7 @@ int main(int argc, const char * argv[])
             listener.readOnly = options.readOnly;
             [listener start];
         }];
-        NSString* serverVersion = @"0.0.2";
+        NSString* serverVersion = @"0.0.3";
         NSLog(@"MediaManagerTouchServ %@ is listening%@ on port %d ... relax!",
               serverVersion,
               (options.readOnly ? @" in read-only mode" : @""),
