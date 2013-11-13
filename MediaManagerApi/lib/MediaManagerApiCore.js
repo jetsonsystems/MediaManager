@@ -576,24 +576,67 @@ var Images = new Class({
   },
 
   index: function(options) {
-    log.info('Images.index: Indexing for path - ' + this.path + ', query - ' + util.inspect(options.query));
-    options = options || {};
     var that = this;
 
+    options = options || {};
+
+    var lp = 'Images.index: ';
+
+    log.info(lp + 'Indexing for path - ' + this.path + ', query - ' + util.inspect(options.query));
+
     var indexOptions = buildIndexOptions(options);
-    log.debug('Images.index: index options - ' + util.inspect(indexOptions));
-    imageService.index(indexOptions,function(err, result) {
-      var status = 200;
-      if (err) {
-        log.error('Images.index', 'error from image service - ' + err);
-        status = errors[errors.UNKNOWN_ERROR].httpStatus;
-        options.errorCode = errorCodes.UNKNOWN_ERROR;
-        options.errorMessage = err;
+
+    if (_.has(options, 'query') && _.has(options.query, 'cursor')) {
+      if (_.has(options.query, 'page_size')) {
+        indexOptions.pageSize = parseInt(options.query.page_size);
       }
-      log.info('Images.index: invoking callback with status - %s, path - %s', status, that.path);
-      that.doCallbacks(status, result, options);
-    });
-    return that;
+      if (_.has(options.query, 'page_to')) {
+        indexOptions.pageTo = options.query.page_to;
+      }
+
+      indexOptions.variants = _.pluck(desiredVariants, 'name');
+
+      log.debug(lp + 'Index w/ pagination requested, cursor ' + options.query.cursor + ', query - ' + util.inspect(options.query));
+
+      var cursor = undefined;
+      try {
+        cursor = JSON.parse(options.query.cursor);
+      }
+      catch (e) {
+        log.debug(lp + 'Non-JSON, e - ' + e + ', cursor - ' + options.query.cursor);
+        cursor = -1;
+      }
+
+      log.debug(lp + 'Index options - ' + util.inspect(indexOptions));
+
+      imageService.Images.pagedIndex(cursor, indexOptions, function(err, result) {
+        var status = 200;
+        if (err) {
+          log.error('Images.index', 'error from image service - ' + err);
+          status = errors[errors.UNKNOWN_ERROR].httpStatus;
+          options.errorCode = errorCodes.UNKNOWN_ERROR;
+          options.errorMessage = err;
+        }
+        log.info('Images.index: invoking callback with status - %s, path - %s', status, that.path);
+        that.doCallbacks(status, result, options);
+      });
+    }
+    else {
+      log.debug('Images.index: index options - ' + util.inspect(indexOptions));
+
+      imageService.index(indexOptions,function(err, result) {
+        var status = 200;
+        if (err) {
+          log.error('Images.index', 'error from image service - ' + err);
+          status = errors[errors.UNKNOWN_ERROR].httpStatus;
+          options.errorCode = errorCodes.UNKNOWN_ERROR;
+          options.errorMessage = err;
+        }
+        log.info('Images.index: invoking callback with status - %s, path - %s', status, that.path);
+        that.doCallbacks(status, result, options);
+      });
+    }
+    return this;
   },
 
   read: function(id, options) { 
@@ -842,9 +885,13 @@ var Images = new Class({
   //        * reverse: reverse the results.
   //
   transformRep: function(rep, options) {
-    log.debug('Images.transformRep: Doing transform, path - %s', this.path);
     var that = this;
+
+    var lp = 'Images.transformRep: ';
+    log.debug(lp + 'Doing transform, path - %s', this.path);
+
     options = options || {};
+
     if (options && _.has(options, 'isInstRef') && options.isInstRef) {
       log.debug('Images.transformRep: transforming instance to full form...');
       try {
@@ -876,6 +923,73 @@ var Images = new Class({
                    log.error('Images.transformRep: Error during transformation - ' + e);
                  }
                });
+        return newRep;
+      }
+      else if (_.has(rep, 'items') && _.has(rep, 'cursors')) {
+        //
+        // Paged response, rep will look like:
+        //
+        //  { 
+        //    items: [
+        //      { cursor: [Object], doc: [Object] },
+        //      { cursor: [Object], doc: [Object] },
+        //      .
+        //      .
+        //      { cursor: [Object], doc: [Object] }
+        //    ],
+        //    cursors: {
+        //      start: { key: [Object], id: 'ef3782e5-9c30-467a-a937-683afb833601' },
+        //      end: { key: [Object], id: 'ef5430cc-a593-463d-81de-c013852956ae' },
+        //      previous: undefined,
+        //      next: { key: [Object], id: '76f7cbfa-474f-421c-8159-7b0fe13d3a8e' }
+        //    },
+        //    total_size: <size of total unpaged result set>
+        //  }
+        //
+        var newRep = {};
+
+        log.debug(lp + 'Rep. w/ pagination, items - ' + util.inspect(rep.items) + ', cursors - ' + util.inspect(rep.cursors));
+
+        newRep.images = [];
+        _.each(rep.items, 
+               function(item) {
+                 try {
+                   var tRep = that.postTransformHook(that._transformToShortFormRep(item.doc), item.doc);
+                   if (tRep) {
+                     newRep.images.push(tRep);
+                   }
+                 }
+                 catch (e) {
+                   log.error('Images.transformRep: Error during transformation - ' + e);
+                 }
+               });
+        var cursors = {};
+        var paging = {
+          cursors: cursors,
+          page_size: newRep.images.length,
+          total_size: _.has(rep, 'total_size') ? rep.total_size : undefined
+        };
+        newRep.paging = paging;
+        if (rep.items && rep.items.length) {
+          cursors.start = qs.escape(JSON.stringify(rep.items[0].cursor));
+          cursors.end = qs.escape(JSON.stringify(rep.items[rep.items.length-1].cursor));
+          if (_.has(rep.cursors, 'next')) {
+            if (_.isObject(rep.cursors.next)) {
+              cursors.next = qs.escape(JSON.stringify(rep.cursors.next));
+            }
+            else {
+              cursors.next = -1;
+            }
+          }
+          if (_.has(rep.cursors, 'previous')) {
+            if (_.isObject(rep.cursors.previous)) {
+              cursors.previous = qs.escape(JSON.stringify(rep.cursors.previous));
+            }
+            else {
+              cursors.previous = -1;
+            }
+          }
+        }
         return newRep;
       }
     }
@@ -2099,10 +2213,6 @@ function buildIndexOptions(options){
 
   if(options.query && options.query.trashState){
     indexOptions.trashState = options.query.trashState;
-  }
-
-  if (_.isEmpty(indexOptions)){
-    indexOptions = null;
   }
 
   return indexOptions;

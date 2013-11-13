@@ -589,7 +589,11 @@ var Images = (function() {
       options.pageSize = 1000;
     }
 
-    if (_.isEmpty(options) || ((options.trashState === 'out') && (!options.filter)) || (options.filter && !_.has(options.filter, 'rules') && _.has(options.filter, 'data') && (_.size(options.filter.data) === 0))) {
+    if (!_.has(options, 'trashState')) {
+      options.trashState = 'out';
+    }
+
+    if (((options.trashState === 'out') && (!options.filter)) || (options.filter && !_.has(options.filter, 'rules') && _.has(options.filter, 'data') && (_.size(options.filter.data) === 0))) {
       //
       // Handle 1, 2 or 3.
       //
