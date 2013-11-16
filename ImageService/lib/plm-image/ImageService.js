@@ -3069,7 +3069,13 @@ var Importers = (function() {
                                        else if (result && _.has(result, 'num_images')) {
                                          log.debug(lp + 'Retrieve batch view reduction - ' + util.inspect(result));
 
-                                         next(null, importer, result.num_images);
+                                         var nit = 0;
+
+                                         if (_.has(result, 'num_images_intrash')) {
+                                           nit = result.num_images_intrash;
+                                         }
+
+                                         next(null, importer, result.num_images - nit);
                                        }
                                        else {
                                          var err = _.clone(errors.VIEW_REDUCE_FAILURE);
