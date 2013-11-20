@@ -3161,7 +3161,7 @@ var Importers = (function() {
                 id: undefined
               };
             }
-            log.debug(lp + 'Retrieving at cursor - ' + util.inspect(cursor) + ', is cursor - ' + touchdb.isCursor(cursor) + ', page to - ' + options.pageTo);
+            log.debug(lp + 'Retrieving at cursor - ' + util.inspect(cursor) + ', is cursor - ' + touchdb.isCursor(cursor) + ', page to - ' + options.pageTo + ', num. images - ' + num_images);
             var pAt = dPager.at(cursor).then(
               function(page) {
                 log.debug(lp + 'Got first page, ' + page.items.length + ' images...');
@@ -3177,7 +3177,7 @@ var Importers = (function() {
                   var page = {
                     items: [],
                     cursors: {},
-                    total_size: total_size
+                    total_size: num_images
                   };
                   if (options.includeImporter) {
                     page.importer = importer;
@@ -3223,41 +3223,48 @@ var Importers = (function() {
         // Get the variants for each image in the page, and associated them.
         //
         function(page, next) {
-          if (options.variants) {
-            var vKeys = [];
-            var iItems = {};
+          log.debug(lp + 'Got page w/ ' + page.items.length + ' items.');
+          if (page.items.length > 0) {
+            if (options.variants) {
+              var vKeys = [];
+              var iItems = {};
 
-            _.each(page.items, function(item) {
-              //
-              // key: <batch_id>, <original image id>, <0, 1, 2 depending upon whether import, original, or variant>, <name>
-              //
-              iItems[item.doc.oid] = item.doc;
-              item.doc.variants = [];
-              _.each(options.variants, function(variant) {
-                vKeys.push([oid, item.doc.oid, 2, variant]);
+              _.each(page.items, function(item) {
+                //
+                // key: <batch_id>, <original image id>, <0, 1, 2 depending upon whether import, original, or variant>, <name>
+                //
+                iItems[item.doc.oid] = item.doc;
+                item.doc.variants = [];
+                _.each(options.variants, function(variant) {
+                  vKeys.push([oid, item.doc.oid, 2, variant]);
+                });
               });
-            });
-            touchdbHelpers.runView(IMG_DESIGN_DOC,
-                                   VIEW_BATCH_BY_OID_W_IMAGE,
-                                   {
-                                     toReturn: 'docs',
-                                     viewOptions: {
-                                       keys: vKeys
-                                     },
-                                     callback: function(err, docs) {
-                                       if (err) {
-                                         next(err);
+              touchdbHelpers.runView(IMG_DESIGN_DOC,
+                                     VIEW_BATCH_BY_OID_W_IMAGE,
+                                     {
+                                       toReturn: 'docs',
+                                       viewOptions: {
+                                         keys: vKeys
+                                       },
+                                       callback: function(err, docs) {
+                                         if (err) {
+                                           next(err);
+                                         }
+                                         else {
+                                           _.each(docs, function(doc) {
+                                             iItems[doc.orig_id].variants.push(doc);
+                                           });
+                                           next(null, page);
+                                         }
                                        }
-                                       else {
-                                         _.each(docs, function(doc) {
-                                           iItems[doc.orig_id].variants.push(doc);
-                                         });
-                                         next(null, page);
-                                       }
-                                     }
-                                   });
+                                     });
+            }
+            else {
+              next(null, page);
+            }
           }
           else {
+            log.debug(lp + 'Skipped looking for variants, as no results returned!');
             next(null, page);
           }
         }
