@@ -457,6 +457,7 @@ var Images = (function() {
    *  Args:
    *
    *    options:
+   *      n: maximum number of images to return.
    *      filter: Can take on the following forms:
    *        Object whith a list of rules:
    *          rules: List of rules. Rules may take on the following forms:
@@ -512,7 +513,7 @@ var Images = (function() {
 
         var filterByTag = options.filter;
 
-        findByTags(filterByTag, options,callback);
+        findByTags(filterByTag, options, callback);
       }else
         if(options.trashState){
           if(options.trashState ==='in'){
@@ -3432,37 +3433,41 @@ function toCouch(image){
   return out;
 }
 
-/**
- * Find images by tags. Expects a filter object of the form:
+/*
+ * findByTags: Find images by tags as dictated by the filter parameter.
  *
- var filterByTag = {
-    "groupOp":"AND",    // OR is also allowed
-    "rules":[
-      {
-        "field":"tags",
-        "op":"eq",
-        "data":"friends"
-      },
-      {
-        "field":"tags",
-        "op":"eq",
-        "data":"family"
-      }
-    ]
-  };
+ *  Args:
  *
- * options:
+ *    filter: Object of the following form:
  *
- *   showMetadata: false by default, set to true to enable display of Image.metadata_raw
+ *      {
+ *        "groupOp":"AND",    // OR is also allowed
+ *        "rules":[
+ *          {
+ *            "field":"tags",
+ *            "op":"eq",
+ *            "data":"friends"
+ *          },
+ *          {
+ *            "field":"tags",
+ *            "op":"eq",
+ *            "data":"family"
+ *          }
+ *        ]
+ *      };
+ *
+ *    options:
+ *      n: Return no more than n.
+ *      showMetadata: false by default, set to true to enable display of Image.metadata_raw
  */
 function findByTags(filter, options, callback) {
   var lp = 'findByTags: ';
 
   log.debug(lp + "filter - %j ", filter);
 
-  var opts = options || {};
+  options = options || {};
 
-  log.debug("findByTags opts: " + util.inspect(opts));
+  log.debug("findByTags opts: " + util.inspect(options));
 
   var db = priv.db();
 
@@ -3516,11 +3521,15 @@ function findByTags(filter, options, callback) {
                                                                        }
                                                                      });
 
+                                           resultDocs.sort(sortImagesNewestFirst);
+
+                                           if ((options.n > 0) && (resultDocs.length > options.n)) {
+                                             resultDocs.splice(options.n, resultDocs.length - options.n);
+                                           }
+
                                            log.debug('findByTags: Have ' + resultDocs.length + ' results.');
 
                                            var resultDocsOids = _.pluck(resultDocs, "oid");
-
-                                           var aryImgOut = [];
 
                                            async.forEachLimit(resultDocsOids,
                                                               1,

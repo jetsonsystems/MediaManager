@@ -2215,6 +2215,15 @@ function buildIndexOptions(options){
     indexOptions.trashState = options.query.trashState;
   }
 
+  if (!(options.query && _.has(options.query, 'cursor'))) {
+    //
+    // No cursors. Pass on 'n' if it exists.
+    //
+    if (options.query && _.has(options.query, 'n')) {
+      indexOptions.n = parseInt(options.query.n);
+    }
+  }
+
   return indexOptions;
 }
 

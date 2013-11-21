@@ -19,6 +19,7 @@ Returns a list of image resources. Each image resource is represented in its [Im
 
 ### Parameters
 
+  * **n=\<integer\>**: The number of images to return. If n is NOT provided, **all** images are returned. Note, this paramater ONLY applies when [pagination](./guides/pagination.md) is not enabled.
   * **trashState=out|any|in**: Indicates whether to return (i) images out of trash, or (ii) all regardless of trash state, or (iii) in trash, respectively.  Defaults to trashState=out when parameter is omitted.  In other words, by default hide images that have been placed in trash.
   * filtering images by **tags**:
 
@@ -30,6 +31,19 @@ Returns a list of image resources. Each image resource is represented in its [Im
       * tag_query_op=AND: given a list of tags, show images that contain all tags in the list ('and' search). For example: <pre><code>GET /images?created=2012&tags=tag1,tag2,tag3 ...&tag_query_op=AND</code></pre>.
 
     * Note, specifying tags= without a value for tag_query_op=, the query defaults to 'tag_query_op=OR', and it would be valid to pass that parameter explicitly as well.
+
+In order to [paginate](./guides/pagination.md) over imagess, the following pagination parameters should be specified as appropriate:
+
+  * **cursor=\<cursor value\>**: Cursor signifying the beginning of the page.
+  * **page_size=\<integer\>**: The size of the page to return. Defaults to **10**.
+  * **page_to=\<page\>**: To optionally specficy whether the previous or next page should be retrieved:
+    * **\<page\>** ::= 'previous' | 'next'
+
+Note, [pagination](./guides/pagination.md) is **NOT** supported when specifying the **tags=** paramater with a non-empty value. [pagination](./guides/pagination.md) is supported when specifying an empty value for **tags=**. That is, the following request will produced a [paginated](./guides/pagination.md) response:
+```
+GET /images?tags=&cursor=-1
+```
+.
 
 ### Parameters Planned, but not Implemented
 
