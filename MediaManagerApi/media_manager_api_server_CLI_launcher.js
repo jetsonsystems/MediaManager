@@ -82,7 +82,7 @@ else {
 }
 
 media_manager_api_server.startServer(serverPort, config, function (err, result) {
-    if (err) {
+   if (err) {
       console.log(err);
     }
     else {

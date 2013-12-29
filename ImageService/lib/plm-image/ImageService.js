@@ -2320,7 +2320,6 @@ var Importers = (function() {
       return;
     }
 
-    var db = priv.db();
     var opts = _.isObject(options) ? options : {};
 
     if (!_.has(opts,'includeImages')) { opts.includeImages = true; }
