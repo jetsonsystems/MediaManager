@@ -20,7 +20,8 @@
     ,"restify"      : "2"
     ,"underscore"   : "~1.4.2"
     ,"postal"       : "~0.7"
-    ,"async"  : "~0.1.22"
+    ,"async"        : "~0.1.22"
+    ,"MediaManagerStorage" : "https://github.com/jetsonsystems/MediaManagerStorage/tarball/master"
   },
   "devDependencies": {
     "async"  : "~0.1.22"
